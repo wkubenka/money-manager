@@ -22,12 +22,12 @@ test('dashboard shows user plans', function () {
     $user = User::factory()->create();
     $plan = SpendingPlan::factory()->create([
         'user_id' => $user->id,
-        'name' => 'My Test Budget',
+        'name' => 'My Test Plan',
     ]);
 
     $this->actingAs($user)
         ->get(route('spending-plans.dashboard'))
-        ->assertSee('My Test Budget');
+        ->assertSee('My Test Plan');
 });
 
 test('dashboard does not show other users plans', function () {
@@ -36,10 +36,10 @@ test('dashboard does not show other users plans', function () {
 
     SpendingPlan::factory()->create([
         'user_id' => $otherUser->id,
-        'name' => 'Secret Budget',
+        'name' => 'Secret Plan',
     ]);
 
     $this->actingAs($user)
         ->get(route('spending-plans.dashboard'))
-        ->assertDontSee('Secret Budget');
+        ->assertDontSee('Secret Plan');
 });

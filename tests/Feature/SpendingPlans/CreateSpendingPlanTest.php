@@ -19,13 +19,13 @@ test('user can create a spending plan', function () {
 
     Livewire::actingAs($user)
         ->test('pages::spending-plans.create')
-        ->set('name', 'My Budget')
+        ->set('name', 'My Plan')
         ->set('monthly_income', '5000.00')
         ->call('createPlan')
         ->assertHasNoErrors();
 
     expect(SpendingPlan::where('user_id', $user->id)->count())->toBe(1);
-    expect(SpendingPlan::first()->name)->toBe('My Budget');
+    expect(SpendingPlan::first()->name)->toBe('My Plan');
 });
 
 test('name is required', function () {
@@ -44,7 +44,7 @@ test('monthly income is required', function () {
 
     Livewire::actingAs($user)
         ->test('pages::spending-plans.create')
-        ->set('name', 'My Budget')
+        ->set('name', 'My Plan')
         ->set('monthly_income', '')
         ->call('createPlan')
         ->assertHasErrors(['monthly_income' => 'required']);
@@ -55,7 +55,7 @@ test('monthly income must be positive', function () {
 
     Livewire::actingAs($user)
         ->test('pages::spending-plans.create')
-        ->set('name', 'My Budget')
+        ->set('name', 'My Plan')
         ->set('monthly_income', '0')
         ->call('createPlan')
         ->assertHasErrors(['monthly_income' => 'min']);
@@ -66,7 +66,7 @@ test('income is stored as cents', function () {
 
     Livewire::actingAs($user)
         ->test('pages::spending-plans.create')
-        ->set('name', 'My Budget')
+        ->set('name', 'My Plan')
         ->set('monthly_income', '5000.00')
         ->call('createPlan');
 

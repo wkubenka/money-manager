@@ -32,7 +32,7 @@ new class extends Component {
             <flux:input
                 wire:model="name"
                 :label="__('Plan Name')"
-                :placeholder="__('e.g. Current Budget')"
+                :placeholder="__('e.g. Current Plan')"
                 type="text"
                 required
                 autofocus

@@ -13,7 +13,7 @@ class SpendingPlanFactory extends Factory
     {
         return [
             'user_id' => User::factory(),
-            'name' => fake()->randomElement(['Current Budget', 'Dream Budget', 'If I Move Cities', 'After Raise']),
+            'name' => fake()->randomElement(['Current Plan', 'Dream Plan', 'If I Move Cities', 'After Raise']),
             'monthly_income' => fake()->numberBetween(300000, 1000000),
         ];
     }
