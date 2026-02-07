@@ -52,9 +52,7 @@ new class extends Component {
                     {{ $this->netWorthSummary['net_worth'] < 0 ? '-' : '' }}${{ number_format(abs($this->netWorthSummary['net_worth']) / 100) }}
                 </div>
             </div>
-            <flux:button variant="subtle" size="sm" :href="route('net-worth.index')" wire:navigate>
-                {{ __('Manage') }}
-            </flux:button>
+            <flux:button variant="subtle" size="sm" icon="cog-6-tooth" :href="route('net-worth.index')" wire:navigate />
         </div>
 
         <div class="space-y-2">
@@ -82,9 +80,7 @@ new class extends Component {
                         ${{ number_format($plan->monthly_income / 100) }}/mo
                     </div>
                 </div>
-                <flux:button variant="subtle" size="sm" :href="route('spending-plans.edit', $plan)" wire:navigate>
-                    {{ __('Edit') }}
-                </flux:button>
+                <flux:button variant="subtle" size="sm" icon="pencil-square" :href="route('spending-plans.edit', $plan)" wire:navigate />
             </div>
 
             <div class="space-y-5">
