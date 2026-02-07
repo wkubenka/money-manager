@@ -1,0 +1,329 @@
+<?php
+
+use App\Enums\SpendingCategory;
+use App\Models\SpendingPlan;
+use App\Models\SpendingPlanItem;
+use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Computed;
+use Livewire\Component;
+
+new class extends Component {
+    public SpendingPlan $spendingPlan;
+
+    // Plan details
+    public string $name = '';
+    public string $monthly_income = '';
+
+    // Per-category new item form
+    public array $newItemNames = [];
+    public array $newItemAmounts = [];
+
+    // Inline editing
+    public ?int $editingItemId = null;
+    public string $editingItemName = '';
+    public string $editingItemAmount = '';
+
+    public function mount(SpendingPlan $spendingPlan): void
+    {
+        abort_unless($spendingPlan->user_id === Auth::id(), 403);
+        $this->spendingPlan = $spendingPlan;
+        $this->name = $spendingPlan->name;
+        $this->monthly_income = number_format($spendingPlan->monthly_income / 100, 2, '.', '');
+    }
+
+    #[Computed]
+    public function plan(): SpendingPlan
+    {
+        return $this->spendingPlan->load('items');
+    }
+
+    /**
+     * The three categories that accept manually-added items.
+     *
+     * @return list<SpendingCategory>
+     */
+    #[Computed]
+    public function plannedCategories(): array
+    {
+        return [
+            SpendingCategory::FixedCosts,
+            SpendingCategory::Investments,
+            SpendingCategory::Savings,
+        ];
+    }
+
+    public function updatePlan(): void
+    {
+        $validated = $this->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'monthly_income' => ['required', 'numeric', 'min:0.01'],
+        ]);
+
+        $this->spendingPlan->update([
+            'name' => $validated['name'],
+            'monthly_income' => (int) round($validated['monthly_income'] * 100),
+        ]);
+
+        unset($this->plan);
+        $this->dispatch('plan-updated');
+    }
+
+    public function addItem(string $category): void
+    {
+        $this->validate([
+            "newItemNames.{$category}" => ['required', 'string', 'max:255'],
+            "newItemAmounts.{$category}" => ['required', 'numeric', 'min:0.01'],
+        ], [], [
+            "newItemNames.{$category}" => 'item name',
+            "newItemAmounts.{$category}" => 'item amount',
+        ]);
+
+        abort_unless(in_array($category, array_column(SpendingCategory::cases(), 'value')), 422);
+        abort_if($category === SpendingCategory::GuiltFree->value, 422);
+
+        $this->spendingPlan->items()->create([
+            'category' => $category,
+            'name' => $this->newItemNames[$category],
+            'amount' => (int) round($this->newItemAmounts[$category] * 100),
+        ]);
+
+        $this->newItemNames[$category] = '';
+        $this->newItemAmounts[$category] = '';
+        $this->spendingPlan->unsetRelation('items');
+        unset($this->plan);
+    }
+
+    public function editItem(int $itemId): void
+    {
+        $item = SpendingPlanItem::findOrFail($itemId);
+        abort_unless($item->spendingPlan->user_id === Auth::id(), 403);
+
+        $this->editingItemId = $itemId;
+        $this->editingItemName = $item->name;
+        $this->editingItemAmount = number_format($item->amount / 100, 2, '.', '');
+    }
+
+    public function updateItem(): void
+    {
+        $validated = $this->validate([
+            'editingItemName' => ['required', 'string', 'max:255'],
+            'editingItemAmount' => ['required', 'numeric', 'min:0.01'],
+        ]);
+
+        $item = SpendingPlanItem::findOrFail($this->editingItemId);
+        abort_unless($item->spendingPlan->user_id === Auth::id(), 403);
+
+        $item->update([
+            'name' => $validated['editingItemName'],
+            'amount' => (int) round($validated['editingItemAmount'] * 100),
+        ]);
+
+        $this->cancelEdit();
+        $this->spendingPlan->unsetRelation('items');
+        unset($this->plan);
+    }
+
+    public function cancelEdit(): void
+    {
+        $this->editingItemId = null;
+        $this->editingItemName = '';
+        $this->editingItemAmount = '';
+    }
+
+    public function removeItem(int $itemId): void
+    {
+        $item = SpendingPlanItem::findOrFail($itemId);
+        abort_unless($item->spendingPlan->user_id === Auth::id(), 403);
+
+        $item->delete();
+        $this->spendingPlan->unsetRelation('items');
+        unset($this->plan);
+    }
+}; ?>
+
+<section class="w-full">
+    @include('partials.spending-plans-heading')
+
+    <div class="mb-6">
+        <flux:link :href="route('spending-plans.show', $spendingPlan)" wire:navigate class="text-sm">
+            &larr; {{ __('Back to plan') }}
+        </flux:link>
+    </div>
+
+    {{-- Plan details form --}}
+    <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-5 mb-8">
+        <flux:heading class="mb-4">{{ __('Plan Details') }}</flux:heading>
+
+        <form wire:submit="updatePlan" class="space-y-4">
+            <div class="grid gap-4 sm:grid-cols-2">
+                <flux:input
+                    wire:model="name"
+                    :label="__('Plan Name')"
+                    type="text"
+                    required
+                />
+                <flux:input
+                    wire:model="monthly_income"
+                    :label="__('Monthly Take-Home Income')"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                >
+                    <x-slot:prefix>$</x-slot:prefix>
+                </flux:input>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <flux:button variant="primary" type="submit" size="sm">
+                    {{ __('Save Details') }}
+                </flux:button>
+                <x-action-message class="me-3" on="plan-updated">
+                    {{ __('Saved.') }}
+                </x-action-message>
+            </div>
+        </form>
+    </div>
+
+    {{-- Line items for planned categories (Fixed Costs, Investments, Savings) --}}
+    <div class="space-y-6">
+        @foreach ($this->plannedCategories as $category)
+            @php
+                $catKey = $category->value;
+                $items = $this->plan->items->where('category', $category);
+                $total = $this->plan->categoryTotal($category);
+                $percent = $this->plan->categoryPercent($category);
+                [$min, $max] = $category->idealRange();
+                $withinIdeal = $category->isWithinIdeal($percent);
+            @endphp
+            <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-5">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="size-3 rounded-full {{ $category->color() }}"></div>
+                        <flux:heading>{{ $category->label() }}</flux:heading>
+                    </div>
+                    <div class="flex items-center gap-3 text-sm">
+                        <flux:badge size="sm" color="{{ $withinIdeal ? 'green' : 'amber' }}">
+                            {{ $percent }}%
+                        </flux:badge>
+                        <span class="text-zinc-500 dark:text-zinc-400">
+                            {{ __('Ideal:') }} {{ $min == $max ? $min . '%' : $min . '–' . $max . '%' }}
+                        </span>
+                    </div>
+                </div>
+
+                {{-- Existing items --}}
+                @if ($items->isNotEmpty())
+                    <div class="space-y-1 mb-4">
+                        @foreach ($items as $item)
+                            <div class="flex items-center gap-2 py-1.5 group">
+                                @if ($editingItemId === $item->id)
+                                    {{-- Inline edit mode --}}
+                                    <div class="flex-1 flex items-center gap-2">
+                                        <flux:input wire:model="editingItemName" size="sm" class="flex-1" />
+                                        <flux:input wire:model="editingItemAmount" type="number" step="0.01" min="0.01" size="sm" class="w-32">
+                                            <x-slot:prefix>$</x-slot:prefix>
+                                        </flux:input>
+                                        <flux:button size="xs" variant="primary" wire:click="updateItem">{{ __('Save') }}</flux:button>
+                                        <flux:button size="xs" variant="ghost" wire:click="cancelEdit">{{ __('Cancel') }}</flux:button>
+                                    </div>
+                                @else
+                                    {{-- Display mode --}}
+                                    <span class="flex-1 text-sm text-zinc-700 dark:text-zinc-300">{{ $item->name }}</span>
+                                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ number_format($item->amount / 100, 2) }}</span>
+                                    <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <flux:button size="xs" variant="ghost" icon="pencil" wire:click="editItem({{ $item->id }})" />
+                                        <flux:button size="xs" variant="ghost" icon="trash" wire:click="removeItem({{ $item->id }})" wire:confirm="{{ __('Remove this item?') }}" />
+                                    </div>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+
+                {{-- Add new item (per-category inputs) --}}
+                <div class="flex items-end gap-2 pt-3 border-t border-zinc-100 dark:border-zinc-700">
+                    <div class="flex-1">
+                        <flux:input
+                            wire:model="newItemNames.{{ $catKey }}"
+                            size="sm"
+                            :placeholder="__('Item name')"
+                            wire:keydown.enter="addItem('{{ $catKey }}')"
+                        />
+                    </div>
+                    <div class="w-32">
+                        <flux:input
+                            wire:model="newItemAmounts.{{ $catKey }}"
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            size="sm"
+                            :placeholder="__('0.00')"
+                        >
+                            <x-slot:prefix>$</x-slot:prefix>
+                        </flux:input>
+                    </div>
+                    <flux:button
+                        size="sm"
+                        variant="ghost"
+                        icon="plus"
+                        wire:click="addItem('{{ $catKey }}')"
+                    />
+                </div>
+
+                {{-- Category subtotal --}}
+                <div class="flex items-center justify-between mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-700 text-sm font-medium">
+                    <span>{{ __('Subtotal') }}</span>
+                    <span>${{ number_format($total / 100, 2) }}</span>
+                </div>
+            </div>
+        @endforeach
+
+        {{-- Guilt-Free Spending (auto-calculated) --}}
+        @php
+            $guiltFree = SpendingCategory::GuiltFree;
+            $guiltFreeTotal = $this->plan->categoryTotal($guiltFree);
+            $guiltFreePercent = $this->plan->categoryPercent($guiltFree);
+            [$gfMin, $gfMax] = $guiltFree->idealRange();
+            $gfWithinIdeal = $guiltFree->isWithinIdeal($guiltFreePercent);
+        @endphp
+        <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-5">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="size-3 rounded-full {{ $guiltFree->color() }}"></div>
+                    <flux:heading>{{ $guiltFree->label() }}</flux:heading>
+                </div>
+                <div class="flex items-center gap-3 text-sm">
+                    <flux:badge size="sm" color="{{ $gfWithinIdeal ? 'green' : 'amber' }}">
+                        {{ $guiltFreePercent }}%
+                    </flux:badge>
+                    <span class="text-zinc-500 dark:text-zinc-400">
+                        {{ __('Ideal:') }} {{ $gfMin . '–' . $gfMax . '%' }}
+                    </span>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between text-sm">
+                <span class="text-zinc-500 dark:text-zinc-400">{{ __('Automatically calculated from remaining income') }}</span>
+                <span class="text-lg font-bold {{ $guiltFreeTotal < 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-900 dark:text-zinc-100' }}">
+                    {{ $guiltFreeTotal < 0 ? '-' : '' }}${{ number_format(abs($guiltFreeTotal) / 100, 2) }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    {{-- Running total --}}
+    <div class="mt-8 rounded-xl border border-zinc-200 dark:border-zinc-700 p-5">
+        <div class="flex items-center justify-between text-sm mb-2">
+            <span class="text-zinc-600 dark:text-zinc-400">{{ __('Planned (Fixed + Investments + Savings)') }}</span>
+            <span class="font-medium">${{ number_format($this->plan->plannedTotal() / 100, 2) }} / ${{ number_format($this->plan->monthly_income / 100, 2) }}</span>
+        </div>
+        <div class="flex items-center justify-between">
+            <span class="font-medium">{{ __('Guilt-Free Remaining') }}</span>
+            @php $gfRemaining = $this->plan->categoryTotal(SpendingCategory::GuiltFree); @endphp
+            <span class="font-bold text-lg {{ $gfRemaining < 0 ? 'text-red-600 dark:text-red-400' : ($gfRemaining === 0 ? 'text-green-600 dark:text-green-400' : 'text-zinc-900 dark:text-zinc-100') }}">
+                {{ $gfRemaining < 0 ? '-' : '' }}${{ number_format(abs($gfRemaining) / 100, 2) }}
+            </span>
+        </div>
+    </div>
+</section>
