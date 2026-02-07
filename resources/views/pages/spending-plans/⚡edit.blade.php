@@ -247,19 +247,21 @@ new class extends Component {
                             <div class="flex items-center gap-2 py-1.5 group">
                                 @if ($editingItemId === $item->id)
                                     {{-- Inline edit mode --}}
-                                    <div class="flex-1 flex items-center gap-2">
-                                        <flux:input wire:model="editingItemName" size="sm" class="flex-1" />
-                                        <flux:input wire:model="editingItemAmount" type="number" step="0.01" min="0.01" size="sm" class="w-32">
-                                            <x-slot:prefix>$</x-slot:prefix>
-                                        </flux:input>
-                                        <flux:button size="xs" variant="primary" wire:click="updateItem">{{ __('Save') }}</flux:button>
-                                        <flux:button size="xs" variant="ghost" wire:click="cancelEdit">{{ __('Cancel') }}</flux:button>
+                                    <div class="flex-1 space-y-2">
+                                        <flux:input wire:model="editingItemName" size="sm" />
+                                        <div class="flex items-center gap-2">
+                                            <flux:input wire:model="editingItemAmount" type="number" step="0.01" min="0.01" size="sm" class="w-28">
+                                                <x-slot:prefix>$</x-slot:prefix>
+                                            </flux:input>
+                                            <flux:button size="xs" variant="primary" wire:click="updateItem">{{ __('Save') }}</flux:button>
+                                            <flux:button size="xs" variant="ghost" wire:click="cancelEdit">{{ __('Cancel') }}</flux:button>
+                                        </div>
                                     </div>
                                 @else
                                     {{-- Display mode --}}
                                     <span class="flex-1 text-sm text-zinc-700 dark:text-zinc-300">{{ $item->name }}</span>
                                     <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ number_format($item->amount / 100) }}</span>
-                                    <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div class="flex items-center gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                                         <flux:button size="xs" variant="ghost" icon="pencil" wire:click="editItem({{ $item->id }})" />
                                         <flux:button size="xs" variant="ghost" icon="trash" wire:click="removeItem({{ $item->id }})" wire:confirm="{{ __('Remove this item?') }}" />
                                     </div>
