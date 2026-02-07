@@ -261,7 +261,7 @@ new class extends Component {
                                     {{-- Display mode --}}
                                     <span class="flex-1 text-sm text-zinc-700 dark:text-zinc-300">{{ $item->name }}</span>
                                     <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ number_format($item->amount / 100) }}</span>
-                                    <div class="flex items-center gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                                    <div class="flex items-center gap-0.5">
                                         <flux:button size="xs" variant="ghost" icon="pencil" wire:click="editItem({{ $item->id }})" aria-label="{{ __('Edit item') }}" />
                                         <flux:button size="xs" variant="ghost" icon="trash" wire:click="removeItem({{ $item->id }})" wire:confirm="{{ __('Remove this item?') }}" aria-label="{{ __('Remove item') }}" />
                                     </div>
