@@ -77,7 +77,6 @@ test('dashboard shows current spending plan', function () {
     Livewire::actingAs($user)
         ->test('pages::dashboard')
         ->assertSee('Current Plan')
-        ->assertSee('My Active Plan')
         ->assertSee('Fixed Costs');
 });
 

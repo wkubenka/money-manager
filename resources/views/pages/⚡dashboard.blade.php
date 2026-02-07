@@ -112,8 +112,8 @@ new class extends Component {
                                         {{ $total < 0 ? '-' : '' }}${{ number_format(abs($total) / 100) }}
                                     </span>
                                 @endif
-                                <flux:badge size="sm" color="{{ $percent < 0 ? 'red' : ($withinIdeal ? 'green' : 'amber') }}">
-                                    {{ $percent }}%
+                                <flux:badge size="sm" color="{{ $percent < 0 ? 'red' : ($withinIdeal ? 'green' : 'amber') }}" class="w-10 justify-center">
+                                    {{ round($percent) }}%
                                 </flux:badge>
                             </div>
                         </div>
