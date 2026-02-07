@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\AccountCategory;
+use App\Enums\SpendingCategory;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
