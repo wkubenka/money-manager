@@ -39,7 +39,7 @@ class SpendingPlan extends Model
 
     public function items(): HasMany
     {
-        return $this->hasMany(SpendingPlanItem::class);
+        return $this->hasMany(SpendingPlanItem::class)->orderBy('sort_order');
     }
 
     /**

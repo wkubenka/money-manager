@@ -89,10 +89,15 @@ new class extends Component {
         abort_unless(in_array($category, array_column(SpendingCategory::cases(), 'value')), 422);
         abort_if($category === SpendingCategory::GuiltFree->value, 422);
 
+        $maxSortOrder = $this->spendingPlan->items()
+            ->where('category', $category)
+            ->max('sort_order') ?? -1;
+
         $this->spendingPlan->items()->create([
             'category' => $category,
             'name' => $this->newItemNames[$category],
             'amount' => (int) round($this->newItemAmounts[$category] * 100),
+            'sort_order' => $maxSortOrder + 1,
         ]);
 
         $this->newItemNames[$category] = '';
@@ -144,6 +149,25 @@ new class extends Component {
         abort_unless($item->spendingPlan->user_id === Auth::id(), 403);
 
         $item->delete();
+        $this->spendingPlan->unsetRelation('items');
+        unset($this->plan);
+    }
+
+    public function reorderItems(string $category, array $orderedIds): void
+    {
+        abort_unless(in_array($category, array_column(SpendingCategory::cases(), 'value')), 422);
+        abort_if($category === SpendingCategory::GuiltFree->value, 422);
+
+        $validIds = $this->spendingPlan->items()
+            ->where('category', $category)
+            ->pluck('id')
+            ->all();
+
+        foreach ($orderedIds as $position => $id) {
+            abort_unless(in_array((int) $id, $validIds), 403);
+            SpendingPlanItem::where('id', $id)->update(['sort_order' => $position]);
+        }
+
         $this->spendingPlan->unsetRelation('items');
         unset($this->plan);
     }
@@ -242,9 +266,9 @@ new class extends Component {
 
                 {{-- Existing items --}}
                 @if ($items->isNotEmpty())
-                    <div class="space-y-1 mb-4">
+                    <div class="space-y-1 mb-4" data-sortable-category="{{ $catKey }}">
                         @foreach ($items as $item)
-                            <div class="flex items-center gap-2 py-1.5 group">
+                            <div class="flex items-center gap-2 py-1.5 group" data-item-id="{{ $item->id }}" wire:key="item-{{ $item->id }}">
                                 @if ($editingItemId === $item->id)
                                     {{-- Inline edit mode --}}
                                     <div class="flex-1 space-y-2">
@@ -259,6 +283,9 @@ new class extends Component {
                                     </div>
                                 @else
                                     {{-- Display mode --}}
+                                    <div class="drag-handle cursor-grab active:cursor-grabbing text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 touch-none">
+                                        <flux:icon.bars-3 variant="micro" />
+                                    </div>
                                     <span class="flex-1 text-sm text-zinc-700 dark:text-zinc-300">{{ $item->name }}</span>
                                     <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ number_format($item->amount / 100) }}</span>
                                     <div class="flex items-center gap-0.5">
@@ -344,3 +371,44 @@ new class extends Component {
     </div>
 
 </section>
+
+@assets
+<script src="/vendor/sortable.min.js"></script>
+@endassets
+
+@script
+<script>
+    function initSortables() {
+        $wire.$el.querySelectorAll('[data-sortable-category]').forEach(el => {
+            if (el._sortable) return;
+            el._sortable = Sortable.create(el, {
+                handle: '.drag-handle',
+                animation: 150,
+                ghostClass: 'opacity-30',
+                onEnd() {
+                    $wire.reorderItems(
+                        el.dataset.sortableCategory,
+                        Array.from(el.children)
+                            .filter(child => child.dataset.itemId)
+                            .map(child => child.dataset.itemId)
+                    );
+                }
+            });
+        });
+    }
+
+    initSortables();
+
+    // Re-init after Livewire updates (e.g. first item added to an empty category)
+    new MutationObserver(mutations => {
+        for (const mutation of mutations) {
+            for (const node of mutation.addedNodes) {
+                if (node.nodeType === 1) {
+                    if (node.dataset?.sortableCategory) initSortables();
+                    else if (node.querySelector?.('[data-sortable-category]')) initSortables();
+                }
+            }
+        }
+    }).observe($wire.$el, { childList: true, subtree: true });
+</script>
+@endscript

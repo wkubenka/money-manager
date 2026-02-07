@@ -238,6 +238,98 @@ test('negative pre-tax investments is rejected on edit', function () {
         ->assertHasErrors(['pre_tax_investments' => 'min']);
 });
 
+test('new items get incrementing sort order within category', function () {
+    $user = User::factory()->create();
+    $plan = SpendingPlan::factory()->create(['user_id' => $user->id]);
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::spending-plans.edit', ['spendingPlan' => $plan]);
+
+    $component
+        ->set('newItemNames.fixed_costs', 'Rent')
+        ->set('newItemAmounts.fixed_costs', '1500.00')
+        ->call('addItem', 'fixed_costs');
+
+    $component
+        ->set('newItemNames.fixed_costs', 'Utilities')
+        ->set('newItemAmounts.fixed_costs', '200.00')
+        ->call('addItem', 'fixed_costs');
+
+    $component
+        ->set('newItemNames.investments', '401k')
+        ->set('newItemAmounts.investments', '500.00')
+        ->call('addItem', 'investments');
+
+    $plan->refresh();
+    $fixedItems = $plan->items()->where('category', 'fixed_costs')->orderBy('sort_order')->get();
+    expect($fixedItems[0]->sort_order)->toBe(0);
+    expect($fixedItems[1]->sort_order)->toBe(1);
+
+    $investmentItems = $plan->items()->where('category', 'investments')->get();
+    expect($investmentItems[0]->sort_order)->toBe(0);
+});
+
+test('user can reorder items within a category', function () {
+    $user = User::factory()->create();
+    $plan = SpendingPlan::factory()->create(['user_id' => $user->id]);
+
+    $itemA = SpendingPlanItem::factory()->create([
+        'spending_plan_id' => $plan->id,
+        'category' => 'fixed_costs',
+        'name' => 'Rent',
+        'sort_order' => 0,
+    ]);
+    $itemB = SpendingPlanItem::factory()->create([
+        'spending_plan_id' => $plan->id,
+        'category' => 'fixed_costs',
+        'name' => 'Utilities',
+        'sort_order' => 1,
+    ]);
+    $itemC = SpendingPlanItem::factory()->create([
+        'spending_plan_id' => $plan->id,
+        'category' => 'fixed_costs',
+        'name' => 'Insurance',
+        'sort_order' => 2,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::spending-plans.edit', ['spendingPlan' => $plan])
+        ->call('reorderItems', 'fixed_costs', [$itemC->id, $itemA->id, $itemB->id])
+        ->assertHasNoErrors();
+
+    expect($itemC->refresh()->sort_order)->toBe(0);
+    expect($itemA->refresh()->sort_order)->toBe(1);
+    expect($itemB->refresh()->sort_order)->toBe(2);
+});
+
+test('user cannot reorder items from another users plan', function () {
+    $user = User::factory()->create();
+    $otherUser = User::factory()->create();
+    $otherPlan = SpendingPlan::factory()->create(['user_id' => $otherUser->id]);
+    $otherItem = SpendingPlanItem::factory()->create([
+        'spending_plan_id' => $otherPlan->id,
+        'category' => 'fixed_costs',
+        'sort_order' => 0,
+    ]);
+
+    $ownPlan = SpendingPlan::factory()->create(['user_id' => $user->id]);
+
+    Livewire::actingAs($user)
+        ->test('pages::spending-plans.edit', ['spendingPlan' => $ownPlan])
+        ->call('reorderItems', 'fixed_costs', [$otherItem->id])
+        ->assertForbidden();
+});
+
+test('reorder rejects guilt-free category', function () {
+    $user = User::factory()->create();
+    $plan = SpendingPlan::factory()->create(['user_id' => $user->id]);
+
+    Livewire::actingAs($user)
+        ->test('pages::spending-plans.edit', ['spendingPlan' => $plan])
+        ->call('reorderItems', 'guilt_free', [])
+        ->assertStatus(422);
+});
+
 test('user can delete a plan from dashboard', function () {
     $user = User::factory()->create();
     $plan = SpendingPlan::factory()->create(['user_id' => $user->id]);
