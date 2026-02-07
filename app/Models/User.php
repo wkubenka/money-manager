@@ -56,6 +56,11 @@ class User extends Authenticatable
         return $this->hasMany(SpendingPlan::class);
     }
 
+    public function currentSpendingPlan(): ?SpendingPlan
+    {
+        return $this->spendingPlans()->where('is_current', true)->first();
+    }
+
     public function netWorthAccounts(): HasMany
     {
         return $this->hasMany(NetWorthAccount::class);

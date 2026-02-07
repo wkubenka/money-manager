@@ -19,6 +19,7 @@ class SpendingPlan extends Model
         'monthly_income',
         'gross_monthly_income',
         'pre_tax_investments',
+        'is_current',
     ];
 
     protected function casts(): array
@@ -27,6 +28,7 @@ class SpendingPlan extends Model
             'monthly_income' => 'integer',
             'gross_monthly_income' => 'integer',
             'pre_tax_investments' => 'integer',
+            'is_current' => 'boolean',
         ];
     }
 

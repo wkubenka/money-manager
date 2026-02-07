@@ -1,7 +1,10 @@
 <?php
 
 use App\Enums\AccountCategory;
+use App\Enums\SpendingCategory;
 use App\Models\NetWorthAccount;
+use App\Models\SpendingPlan;
+use App\Models\SpendingPlanItem;
 use App\Models\User;
 use Livewire\Livewire;
 
@@ -56,4 +59,46 @@ test('dashboard has manage accounts link', function () {
     Livewire::actingAs($user)
         ->test('pages::dashboard')
         ->assertSee('Manage Accounts');
+});
+
+test('dashboard shows current spending plan', function () {
+    $user = User::factory()->create();
+    $plan = SpendingPlan::factory()->current()->create([
+        'user_id' => $user->id,
+        'name' => 'My Active Plan',
+        'monthly_income' => 500000,
+    ]);
+    SpendingPlanItem::factory()->create([
+        'spending_plan_id' => $plan->id,
+        'category' => SpendingCategory::FixedCosts,
+        'amount' => 250000,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->assertSee('Current Plan')
+        ->assertSee('My Active Plan')
+        ->assertSee('Fixed Costs');
+});
+
+test('dashboard shows prompt when no current plan', function () {
+    $user = User::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->assertSee('No current spending plan')
+        ->assertSee('Choose a Plan');
+});
+
+test('dashboard does not show non-current plans', function () {
+    $user = User::factory()->create();
+    SpendingPlan::factory()->create([
+        'user_id' => $user->id,
+        'name' => 'Not Current Plan',
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->assertDontSee('Not Current Plan')
+        ->assertSee('No current spending plan');
 });

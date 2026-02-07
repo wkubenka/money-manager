@@ -38,6 +38,25 @@ new class extends Component {
     {
         $this->deletingPlanId = null;
     }
+
+    public function markAsCurrent(int $planId): void
+    {
+        $plan = SpendingPlan::findOrFail($planId);
+        abort_unless($plan->user_id === Auth::id(), 403);
+
+        Auth::user()->spendingPlans()->where('is_current', true)->update(['is_current' => false]);
+        $plan->update(['is_current' => true]);
+        unset($this->plans);
+    }
+
+    public function unmarkCurrent(int $planId): void
+    {
+        $plan = SpendingPlan::findOrFail($planId);
+        abort_unless($plan->user_id === Auth::id(), 403);
+
+        $plan->update(['is_current' => false]);
+        unset($this->plans);
+    }
 }; ?>
 
 <section class="w-full">
@@ -62,13 +81,23 @@ new class extends Component {
     @else
         <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             @foreach ($this->plans as $plan)
-                <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-5 space-y-4">
+                <div class="rounded-xl border {{ $plan->is_current ? 'border-emerald-500 dark:border-emerald-400' : 'border-zinc-200 dark:border-zinc-700' }} p-5 space-y-4">
                     <div class="flex items-start justify-between">
                         <div>
-                            <flux:heading size="lg">{{ $plan->name }}</flux:heading>
+                            <div class="flex items-center gap-2">
+                                <flux:heading size="lg">{{ $plan->name }}</flux:heading>
+                                @if ($plan->is_current)
+                                    <flux:badge size="sm" color="emerald">{{ __('Current') }}</flux:badge>
+                                @endif
+                            </div>
                             <flux:subheading>${{ number_format($plan->monthly_income / 100) }}/mo</flux:subheading>
                         </div>
                         <div class="flex items-center gap-1">
+                            @if ($plan->is_current)
+                                <flux:button size="sm" variant="ghost" icon="star" class="text-emerald-500" wire:click="unmarkCurrent({{ $plan->id }})" />
+                            @else
+                                <flux:button size="sm" variant="ghost" icon="star" wire:click="markAsCurrent({{ $plan->id }})" />
+                            @endif
                             <flux:button size="sm" variant="ghost" icon="pencil" :href="route('spending-plans.edit', $plan)" wire:navigate />
                             <flux:button size="sm" variant="ghost" icon="trash" wire:click="confirmDelete({{ $plan->id }})" />
                         </div>

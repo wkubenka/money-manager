@@ -19,4 +19,11 @@ class SpendingPlanFactory extends Factory
             'pre_tax_investments' => fake()->numberBetween(20000, 200000),
         ];
     }
+
+    public function current(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_current' => true,
+        ]);
+    }
 }
