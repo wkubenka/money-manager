@@ -124,28 +124,4 @@ new class extends Component {
         </div>
     </div>
 
-    {{-- Summary --}}
-    <div class="mt-8 rounded-xl border border-zinc-200 dark:border-zinc-700 p-5 space-y-3">
-        <flux:heading>{{ __('Summary') }}</flux:heading>
-
-        <div class="flex items-center justify-between text-sm">
-            <span class="text-zinc-600 dark:text-zinc-400">{{ __('Monthly Income') }}</span>
-            <span class="font-medium">${{ number_format($spendingPlan->monthly_income / 100, 2) }}</span>
-        </div>
-
-        <div class="flex items-center justify-between text-sm">
-            <span class="text-zinc-600 dark:text-zinc-400">{{ __('Planned (Fixed + Investments + Savings)') }}</span>
-            <span class="font-medium">${{ number_format($spendingPlan->plannedTotal() / 100, 2) }}</span>
-        </div>
-
-        <flux:separator />
-
-        @php $guiltFreeRemaining = $spendingPlan->categoryTotal(SpendingCategory::GuiltFree); @endphp
-        <div class="flex items-center justify-between text-sm">
-            <span class="font-medium">{{ __('Guilt-Free Remaining') }}</span>
-            <span class="font-bold text-lg {{ $guiltFreeRemaining < 0 ? 'text-red-600 dark:text-red-400' : ($guiltFreeRemaining === 0 ? 'text-green-600 dark:text-green-400' : 'text-zinc-900 dark:text-zinc-100') }}">
-                {{ $guiltFreeRemaining < 0 ? '-' : '' }}${{ number_format(abs($guiltFreeRemaining) / 100, 2) }}
-            </span>
-        </div>
-    </div>
 </section>

@@ -98,9 +98,12 @@ test('is within ideal returns true when in range', function () {
     expect(SpendingCategory::GuiltFree->isWithinIdeal(25.0))->toBeTrue();
 });
 
-test('is within ideal returns false when outside range', function () {
-    expect(SpendingCategory::FixedCosts->isWithinIdeal(45.0))->toBeFalse();
+test('fixed costs below ideal range is still acceptable', function () {
+    expect(SpendingCategory::FixedCosts->isWithinIdeal(40.0))->toBeTrue();
     expect(SpendingCategory::FixedCosts->isWithinIdeal(65.0))->toBeFalse();
+});
+
+test('is within ideal returns false when outside range', function () {
     expect(SpendingCategory::Investments->isWithinIdeal(5.0))->toBeFalse();
     expect(SpendingCategory::Savings->isWithinIdeal(15.0))->toBeFalse();
     expect(SpendingCategory::GuiltFree->isWithinIdeal(40.0))->toBeFalse();

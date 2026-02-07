@@ -85,7 +85,7 @@ new class extends Component {
                             <div>
                                 <div class="flex items-center justify-between text-sm">
                                     <span class="text-zinc-600 dark:text-zinc-400">{{ $category->label() }}</span>
-                                    <span class="font-medium {{ $withinIdeal ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400' }}">
+                                    <span class="font-medium {{ $percent < 0 ? 'text-red-600 dark:text-red-400' : ($withinIdeal ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400') }}">
                                         {{ $percent }}%
                                     </span>
                                 </div>
@@ -94,14 +94,6 @@ new class extends Component {
                                 </div>
                             </div>
                         @endforeach
-                    </div>
-
-                    <div class="flex items-center justify-between pt-2 border-t border-zinc-100 dark:border-zinc-700 text-sm">
-                        <span class="text-zinc-500 dark:text-zinc-400">{{ __('Planned') }}</span>
-                        <span class="font-medium">
-                            ${{ number_format($plan->plannedTotal() / 100, 2) }}
-                            / ${{ number_format($plan->monthly_income / 100, 2) }}
-                        </span>
                     </div>
 
                     <flux:button variant="subtle" class="w-full" :href="route('spending-plans.show', $plan)" wire:navigate>

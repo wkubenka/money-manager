@@ -51,11 +51,17 @@ enum SpendingCategory: string
     }
 
     /**
-     * Get whether the actual percentage is within the ideal range.
+     * Get whether the actual percentage is acceptable.
+     * For Fixed Costs, under the max is good (lower is better).
+     * For other categories, must be within the ideal range.
      */
     public function isWithinIdeal(float $actualPercent): bool
     {
         [$min, $max] = $this->idealRange();
+
+        if ($this === self::FixedCosts) {
+            return $actualPercent <= $max;
+        }
 
         return $actualPercent >= $min && $actualPercent <= $max;
     }

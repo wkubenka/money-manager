@@ -312,18 +312,4 @@ new class extends Component {
         </div>
     </div>
 
-    {{-- Running total --}}
-    <div class="mt-8 rounded-xl border border-zinc-200 dark:border-zinc-700 p-5">
-        <div class="flex items-center justify-between text-sm mb-2">
-            <span class="text-zinc-600 dark:text-zinc-400">{{ __('Planned (Fixed + Investments + Savings)') }}</span>
-            <span class="font-medium">${{ number_format($this->plan->plannedTotal() / 100, 2) }} / ${{ number_format($this->plan->monthly_income / 100, 2) }}</span>
-        </div>
-        <div class="flex items-center justify-between">
-            <span class="font-medium">{{ __('Guilt-Free Remaining') }}</span>
-            @php $gfRemaining = $this->plan->categoryTotal(SpendingCategory::GuiltFree); @endphp
-            <span class="font-bold text-lg {{ $gfRemaining < 0 ? 'text-red-600 dark:text-red-400' : ($gfRemaining === 0 ? 'text-green-600 dark:text-green-400' : 'text-zinc-900 dark:text-zinc-100') }}">
-                {{ $gfRemaining < 0 ? '-' : '' }}${{ number_format(abs($gfRemaining) / 100, 2) }}
-            </span>
-        </div>
-    </div>
 </section>
