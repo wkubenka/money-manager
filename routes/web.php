@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
-})->name('home');
+})->middleware('guest')->name('home');
 
 Route::livewire('dashboard', 'pages::dashboard')
     ->middleware(['auth', 'verified'])
