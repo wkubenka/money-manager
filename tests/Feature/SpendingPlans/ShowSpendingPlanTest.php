@@ -52,5 +52,5 @@ test('plan detail shows line items', function () {
     $this->actingAs($user)
         ->get(route('spending-plans.show', $plan))
         ->assertSee('Monthly Rent')
-        ->assertSee('1,500.00');
+        ->assertSee('1,500');
 });

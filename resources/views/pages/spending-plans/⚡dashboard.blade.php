@@ -66,7 +66,7 @@ new class extends Component {
                     <div class="flex items-start justify-between">
                         <div>
                             <flux:heading size="lg">{{ $plan->name }}</flux:heading>
-                            <flux:subheading>${{ number_format($plan->monthly_income / 100, 2) }}/mo</flux:subheading>
+                            <flux:subheading>${{ number_format($plan->monthly_income / 100) }}/mo</flux:subheading>
                         </div>
                         <div class="flex items-center gap-1">
                             <flux:button size="sm" variant="ghost" icon="pencil" :href="route('spending-plans.edit', $plan)" wire:navigate />

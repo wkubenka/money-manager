@@ -258,7 +258,7 @@ new class extends Component {
                                 @else
                                     {{-- Display mode --}}
                                     <span class="flex-1 text-sm text-zinc-700 dark:text-zinc-300">{{ $item->name }}</span>
-                                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ number_format($item->amount / 100, 2) }}</span>
+                                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ number_format($item->amount / 100) }}</span>
                                     <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <flux:button size="xs" variant="ghost" icon="pencil" wire:click="editItem({{ $item->id }})" />
                                         <flux:button size="xs" variant="ghost" icon="trash" wire:click="removeItem({{ $item->id }})" wire:confirm="{{ __('Remove this item?') }}" />
@@ -302,7 +302,7 @@ new class extends Component {
                 {{-- Category subtotal --}}
                 <div class="flex items-center justify-between mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-700 text-sm font-medium">
                     <span>{{ __('Subtotal') }}</span>
-                    <span>${{ number_format($total / 100, 2) }}</span>
+                    <span>${{ number_format($total / 100) }}</span>
                 </div>
             </div>
         @endforeach
@@ -334,7 +334,7 @@ new class extends Component {
             <div class="flex items-center justify-between text-sm">
                 <span class="text-zinc-500 dark:text-zinc-400">{{ __('Automatically calculated from remaining income') }}</span>
                 <span class="text-lg font-bold {{ $guiltFreeTotal < 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-900 dark:text-zinc-100' }}">
-                    {{ $guiltFreeTotal < 0 ? '-' : '' }}${{ number_format(abs($guiltFreeTotal) / 100, 2) }}
+                    {{ $guiltFreeTotal < 0 ? '-' : '' }}${{ number_format(abs($guiltFreeTotal) / 100) }}
                 </span>
             </div>
         </div>
