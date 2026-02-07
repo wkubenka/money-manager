@@ -124,6 +124,120 @@ test('user can remove a line item', function () {
     expect(SpendingPlanItem::find($item->id))->toBeNull();
 });
 
+test('user cannot edit another users item', function () {
+    $user = User::factory()->create();
+    $otherUser = User::factory()->create();
+    $plan = SpendingPlan::factory()->create(['user_id' => $otherUser->id]);
+    $item = SpendingPlanItem::factory()->create(['spending_plan_id' => $plan->id]);
+
+    Livewire::actingAs($user)
+        ->test('pages::spending-plans.edit', ['spendingPlan' => SpendingPlan::factory()->create(['user_id' => $user->id])])
+        ->call('editItem', $item->id)
+        ->assertForbidden();
+});
+
+test('user cannot update another users item', function () {
+    $user = User::factory()->create();
+    $otherUser = User::factory()->create();
+    $plan = SpendingPlan::factory()->create(['user_id' => $otherUser->id]);
+    $item = SpendingPlanItem::factory()->create([
+        'spending_plan_id' => $plan->id,
+        'name' => 'Original',
+        'amount' => 100000,
+    ]);
+
+    $ownPlan = SpendingPlan::factory()->create(['user_id' => $user->id]);
+
+    Livewire::actingAs($user)
+        ->test('pages::spending-plans.edit', ['spendingPlan' => $ownPlan])
+        ->set('editingItemId', $item->id)
+        ->set('editingItemName', 'Hacked')
+        ->set('editingItemAmount', '999.00')
+        ->call('updateItem')
+        ->assertForbidden();
+
+    $item->refresh();
+    expect($item->name)->toBe('Original');
+});
+
+test('user cannot remove another users item', function () {
+    $user = User::factory()->create();
+    $otherUser = User::factory()->create();
+    $plan = SpendingPlan::factory()->create(['user_id' => $otherUser->id]);
+    $item = SpendingPlanItem::factory()->create(['spending_plan_id' => $plan->id]);
+
+    $ownPlan = SpendingPlan::factory()->create(['user_id' => $user->id]);
+
+    Livewire::actingAs($user)
+        ->test('pages::spending-plans.edit', ['spendingPlan' => $ownPlan])
+        ->call('removeItem', $item->id)
+        ->assertForbidden();
+
+    expect(SpendingPlanItem::find($item->id))->not->toBeNull();
+});
+
+test('deleting a plan cascades to its items', function () {
+    $user = User::factory()->create();
+    $plan = SpendingPlan::factory()->create(['user_id' => $user->id]);
+    SpendingPlanItem::factory()->count(3)->create(['spending_plan_id' => $plan->id]);
+
+    expect(SpendingPlanItem::where('spending_plan_id', $plan->id)->count())->toBe(3);
+
+    $plan->delete();
+
+    expect(SpendingPlanItem::where('spending_plan_id', $plan->id)->count())->toBe(0);
+});
+
+test('negative gross income is rejected on create', function () {
+    $user = User::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test('pages::spending-plans.create')
+        ->set('name', 'My Plan')
+        ->set('monthly_income', '5000.00')
+        ->set('gross_monthly_income', '-1000.00')
+        ->call('createPlan')
+        ->assertHasErrors(['gross_monthly_income' => 'min']);
+});
+
+test('negative pre-tax investments is rejected on create', function () {
+    $user = User::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test('pages::spending-plans.create')
+        ->set('name', 'My Plan')
+        ->set('monthly_income', '5000.00')
+        ->set('pre_tax_investments', '-500.00')
+        ->call('createPlan')
+        ->assertHasErrors(['pre_tax_investments' => 'min']);
+});
+
+test('negative gross income is rejected on edit', function () {
+    $user = User::factory()->create();
+    $plan = SpendingPlan::factory()->create(['user_id' => $user->id]);
+
+    Livewire::actingAs($user)
+        ->test('pages::spending-plans.edit', ['spendingPlan' => $plan])
+        ->set('name', 'Test')
+        ->set('monthly_income', '5000.00')
+        ->set('gross_monthly_income', '-1000.00')
+        ->call('updatePlan')
+        ->assertHasErrors(['gross_monthly_income' => 'min']);
+});
+
+test('negative pre-tax investments is rejected on edit', function () {
+    $user = User::factory()->create();
+    $plan = SpendingPlan::factory()->create(['user_id' => $user->id]);
+
+    Livewire::actingAs($user)
+        ->test('pages::spending-plans.edit', ['spendingPlan' => $plan])
+        ->set('name', 'Test')
+        ->set('monthly_income', '5000.00')
+        ->set('pre_tax_investments', '-500.00')
+        ->call('updatePlan')
+        ->assertHasErrors(['pre_tax_investments' => 'min']);
+});
+
 test('user can delete a plan from dashboard', function () {
     $user = User::factory()->create();
     $plan = SpendingPlan::factory()->create(['user_id' => $user->id]);

@@ -152,6 +152,54 @@ test('user can cancel editing', function () {
     expect($account->name)->toBe('Original');
 });
 
+test('update account rejects empty name', function () {
+    $user = User::factory()->create();
+    $account = NetWorthAccount::factory()->create([
+        'user_id' => $user->id,
+        'name' => 'Original',
+        'balance' => 100000,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::net-worth.index')
+        ->call('editAccount', $account->id)
+        ->set('editingAccountName', '')
+        ->set('editingAccountBalance', '2000.00')
+        ->call('updateAccount')
+        ->assertHasErrors(['editingAccountName' => 'required']);
+
+    $account->refresh();
+    expect($account->name)->toBe('Original');
+});
+
+test('update account rejects invalid balance', function () {
+    $user = User::factory()->create();
+    $account = NetWorthAccount::factory()->create([
+        'user_id' => $user->id,
+        'name' => 'Test',
+        'balance' => 100000,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::net-worth.index')
+        ->call('editAccount', $account->id)
+        ->set('editingAccountName', 'Test')
+        ->set('editingAccountBalance', '0')
+        ->call('updateAccount')
+        ->assertHasErrors(['editingAccountBalance' => 'min']);
+});
+
+test('deleting a user cascades to net worth accounts', function () {
+    $user = User::factory()->create();
+    NetWorthAccount::factory()->count(3)->create(['user_id' => $user->id]);
+
+    expect(NetWorthAccount::where('user_id', $user->id)->count())->toBe(3);
+
+    $user->delete();
+
+    expect(NetWorthAccount::where('user_id', $user->id)->count())->toBe(0);
+});
+
 test('inputs are cleared after adding an account', function () {
     $user = User::factory()->create();
 

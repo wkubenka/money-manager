@@ -89,6 +89,81 @@ test('dashboard shows prompt when no current plan', function () {
         ->assertSee('Choose a Plan');
 });
 
+test('dashboard shows negative guilt-free spending in red', function () {
+    $user = User::factory()->create();
+    $plan = SpendingPlan::factory()->current()->create([
+        'user_id' => $user->id,
+        'monthly_income' => 500000, // $5,000
+    ]);
+    // Overspend: $3,000 + $1,500 + $1,000 = $5,500 > $5,000
+    SpendingPlanItem::factory()->create([
+        'spending_plan_id' => $plan->id,
+        'category' => SpendingCategory::FixedCosts,
+        'amount' => 300000,
+    ]);
+    SpendingPlanItem::factory()->create([
+        'spending_plan_id' => $plan->id,
+        'category' => SpendingCategory::Investments,
+        'amount' => 150000,
+    ]);
+    SpendingPlanItem::factory()->create([
+        'spending_plan_id' => $plan->id,
+        'category' => SpendingCategory::Savings,
+        'amount' => 100000,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->assertSee('Guilt-Free Spending')
+        ->assertSeeHtml('text-red-600');
+});
+
+test('dashboard renders with zero monthly income plan', function () {
+    $user = User::factory()->create();
+    SpendingPlan::factory()->current()->create([
+        'user_id' => $user->id,
+        'monthly_income' => 0,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->assertOk()
+        ->assertSee('Current Plan')
+        ->assertSee('0%');
+});
+
+test('dashboard shows rounded percentages', function () {
+    $user = User::factory()->create();
+    $plan = SpendingPlan::factory()->current()->create([
+        'user_id' => $user->id,
+        'monthly_income' => 300000, // $3,000
+    ]);
+    // $1,000 / $3,000 = 33.333...% → rounds to 33%
+    SpendingPlanItem::factory()->create([
+        'spending_plan_id' => $plan->id,
+        'category' => SpendingCategory::FixedCosts,
+        'amount' => 100000,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->assertSee('33%');
+});
+
+test('deleting a user cascades to spending plans and items', function () {
+    $user = User::factory()->create();
+    $plan = SpendingPlan::factory()->create(['user_id' => $user->id]);
+    SpendingPlanItem::factory()->count(2)->create(['spending_plan_id' => $plan->id]);
+
+    $userId = $user->id;
+    $planId = $plan->id;
+
+    $user->delete();
+
+    expect(SpendingPlan::where('user_id', $userId)->count())->toBe(0);
+    expect(SpendingPlanItem::where('spending_plan_id', $planId)->count())->toBe(0);
+});
+
 test('dashboard does not show non-current plans', function () {
     $user = User::factory()->create();
     SpendingPlan::factory()->create([
