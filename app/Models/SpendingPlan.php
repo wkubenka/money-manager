@@ -13,6 +13,8 @@ class SpendingPlan extends Model
     /** @use HasFactory<\Database\Factories\SpendingPlanFactory> */
     use HasFactory;
 
+    public const MAX_PER_USER = 6;
+
     protected $fillable = [
         'user_id',
         'name',

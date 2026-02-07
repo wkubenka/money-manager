@@ -43,6 +43,7 @@ new class extends Component {
     {
         $plan = SpendingPlan::findOrFail($planId);
         abort_unless($plan->user_id === Auth::id(), 403);
+        abort_if(Auth::user()->spendingPlans()->count() >= SpendingPlan::MAX_PER_USER, 422);
 
         $copy = SpendingPlan::create([
             'user_id' => Auth::id(),
@@ -88,11 +89,15 @@ new class extends Component {
 <section class="w-full">
     @include('partials.spending-plans-heading')
 
+    @php $atLimit = $this->plans->count() >= SpendingPlan::MAX_PER_USER; @endphp
+
     <div class="flex items-center justify-between mb-6">
         <flux:heading>{{ __('Your Plans') }}</flux:heading>
-        <flux:button variant="primary" :href="route('spending-plans.create')" wire:navigate>
-            {{ __('Create New Plan') }}
-        </flux:button>
+        @unless ($atLimit)
+            <flux:button variant="primary" :href="route('spending-plans.create')" wire:navigate>
+                {{ __('Create New Plan') }}
+            </flux:button>
+        @endunless
     </div>
 
     @if ($this->plans->isEmpty())
@@ -125,7 +130,9 @@ new class extends Component {
                                 <flux:button size="sm" variant="ghost" icon="star" icon-variant="outline" wire:click="markAsCurrent({{ $plan->id }})" aria-label="{{ __('Mark as current') }}" />
                             @endif
                             <flux:button size="sm" variant="ghost" icon="pencil" :href="route('spending-plans.edit', $plan)" wire:navigate aria-label="{{ __('Edit plan') }}" />
-                            <flux:button size="sm" variant="ghost" icon="document-duplicate" wire:click="copyPlan({{ $plan->id }})" aria-label="{{ __('Copy plan') }}" />
+                            @unless ($atLimit)
+                                <flux:button size="sm" variant="ghost" icon="document-duplicate" wire:click="copyPlan({{ $plan->id }})" aria-label="{{ __('Copy plan') }}" />
+                            @endunless
                             <flux:button size="sm" variant="ghost" icon="trash" wire:click="confirmDelete({{ $plan->id }})" aria-label="{{ __('Delete plan') }}" />
                         </div>
                     </div>

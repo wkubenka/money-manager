@@ -104,3 +104,17 @@ test('gross income and pre-tax investments are optional', function () {
     expect($plan->gross_monthly_income)->toBe(0);
     expect($plan->pre_tax_investments)->toBe(0);
 });
+
+test('user cannot create more than max plans', function () {
+    $user = User::factory()->create();
+    SpendingPlan::factory()->count(SpendingPlan::MAX_PER_USER)->create(['user_id' => $user->id]);
+
+    Livewire::actingAs($user)
+        ->test('pages::spending-plans.create')
+        ->set('name', 'One Too Many')
+        ->set('monthly_income', '5000.00')
+        ->call('createPlan')
+        ->assertStatus(422);
+
+    expect(SpendingPlan::where('user_id', $user->id)->count())->toBe(SpendingPlan::MAX_PER_USER);
+});

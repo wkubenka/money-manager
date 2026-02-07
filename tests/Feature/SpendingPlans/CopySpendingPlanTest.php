@@ -115,3 +115,27 @@ test('user cannot copy another users plan from show page', function () {
         ->get(route('spending-plans.show', $plan))
         ->assertForbidden();
 });
+
+test('user cannot copy plan when at max limit from dashboard', function () {
+    $user = User::factory()->create();
+    $plans = SpendingPlan::factory()->count(SpendingPlan::MAX_PER_USER)->create(['user_id' => $user->id]);
+
+    Livewire::actingAs($user)
+        ->test('pages::spending-plans.dashboard')
+        ->call('copyPlan', $plans->first()->id)
+        ->assertStatus(422);
+
+    expect(SpendingPlan::where('user_id', $user->id)->count())->toBe(SpendingPlan::MAX_PER_USER);
+});
+
+test('user cannot copy plan when at max limit from show page', function () {
+    $user = User::factory()->create();
+    $plans = SpendingPlan::factory()->count(SpendingPlan::MAX_PER_USER)->create(['user_id' => $user->id]);
+
+    Livewire::actingAs($user)
+        ->test('pages::spending-plans.show', ['spendingPlan' => $plans->first()])
+        ->call('copyPlan')
+        ->assertStatus(422);
+
+    expect(SpendingPlan::where('user_id', $user->id)->count())->toBe(SpendingPlan::MAX_PER_USER);
+});

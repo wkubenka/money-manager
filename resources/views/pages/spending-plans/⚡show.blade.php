@@ -19,6 +19,7 @@ new class extends Component {
     {
         $plan = $this->spendingPlan;
         abort_unless($plan->user_id === Auth::id(), 403);
+        abort_if(Auth::user()->spendingPlans()->count() >= SpendingPlan::MAX_PER_USER, 422);
 
         $copy = SpendingPlan::create([
             'user_id' => Auth::id(),
@@ -67,9 +68,11 @@ new class extends Component {
             @endif
         </div>
         <div class="flex items-center gap-2">
-            <flux:button variant="ghost" size="sm" icon="document-duplicate" wire:click="copyPlan" aria-label="{{ __('Copy plan') }}">
-                {{ __('Copy Plan') }}
-            </flux:button>
+            @if (Auth::user()->spendingPlans()->count() < SpendingPlan::MAX_PER_USER)
+                <flux:button variant="ghost" size="sm" icon="document-duplicate" wire:click="copyPlan" aria-label="{{ __('Copy plan') }}">
+                    {{ __('Copy Plan') }}
+                </flux:button>
+            @endif
             <flux:button variant="primary" size="sm" icon="pencil" :href="route('spending-plans.edit', $spendingPlan)" wire:navigate>
                 {{ __('Edit Plan') }}
             </flux:button>

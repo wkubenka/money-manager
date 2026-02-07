@@ -12,6 +12,8 @@ new class extends Component {
 
     public function createPlan(): void
     {
+        abort_if(Auth::user()->spendingPlans()->count() >= SpendingPlan::MAX_PER_USER, 422);
+
         $validated = $this->validate([
             'name' => ['required', 'string', 'max:255'],
             'monthly_income' => ['required', 'numeric', 'min:0.01'],
