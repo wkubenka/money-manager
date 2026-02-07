@@ -58,7 +58,7 @@ test('dashboard has manage accounts link', function () {
 
     Livewire::actingAs($user)
         ->test('pages::dashboard')
-        ->assertSee('Manage Accounts');
+        ->assertSee('Manage');
 });
 
 test('dashboard shows current spending plan', function () {

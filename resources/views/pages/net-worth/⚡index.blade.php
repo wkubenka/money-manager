@@ -195,7 +195,7 @@ new class extends Component {
                         <flux:input
                             wire:model="newAccountNames.{{ $catKey }}"
                             size="sm"
-                            :placeholder="__('Account name')"
+                            :placeholder="__('Name')"
                             wire:keydown.enter="addAccount('{{ $catKey }}')"
                         />
                     </div>

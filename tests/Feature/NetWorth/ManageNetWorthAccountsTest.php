@@ -50,7 +50,7 @@ test('balance is stored as cents', function () {
     expect(NetWorthAccount::first()->balance)->toBe(150050);
 });
 
-test('account name is required', function () {
+test('name is required', function () {
     $user = User::factory()->create();
 
     Livewire::actingAs($user)

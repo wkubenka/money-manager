@@ -43,35 +43,32 @@ new class extends Component {
 }; ?>
 
 <div class="flex h-full w-full flex-1 flex-col gap-6 rounded-xl">
-    {{-- Net Worth Hero --}}
+    {{-- Net Worth --}}
     <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
-        <flux:subheading>{{ __('Net Worth') }}</flux:subheading>
-        <div class="mt-1 text-3xl font-bold {{ $this->netWorthSummary['net_worth'] < 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-900 dark:text-zinc-100' }}">
-            {{ $this->netWorthSummary['net_worth'] < 0 ? '-' : '' }}${{ number_format(abs($this->netWorthSummary['net_worth']) / 100) }}
-        </div>
-    </div>
-
-    {{-- Category Cards --}}
-    <div class="grid auto-rows-min gap-4 md:grid-cols-2 lg:grid-cols-4">
-        @foreach (AccountCategory::cases() as $category)
-            @php $total = $this->netWorthSummary['categories'][$category->value]; @endphp
-            <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-5">
-                <div class="flex items-center gap-2 mb-2">
-                    <div class="size-3 rounded-full {{ $category->color() }}"></div>
-                    <flux:subheading>{{ $category->label() }}</flux:subheading>
-                </div>
-                <div class="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
-                    ${{ number_format($total / 100) }}
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <flux:subheading>{{ __('Net Worth') }}</flux:subheading>
+                <div class="mt-1 text-3xl font-bold {{ $this->netWorthSummary['net_worth'] < 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-900 dark:text-zinc-100' }}">
+                    {{ $this->netWorthSummary['net_worth'] < 0 ? '-' : '' }}${{ number_format(abs($this->netWorthSummary['net_worth']) / 100) }}
                 </div>
             </div>
-        @endforeach
-    </div>
+            <flux:button variant="subtle" size="sm" :href="route('net-worth.index')" wire:navigate>
+                {{ __('Manage') }}
+            </flux:button>
+        </div>
 
-    {{-- Manage link --}}
-    <div>
-        <flux:button variant="subtle" :href="route('net-worth.index')" wire:navigate>
-            {{ __('Manage Accounts') }}
-        </flux:button>
+        <div class="space-y-2">
+            @foreach (AccountCategory::cases() as $category)
+                @php $total = $this->netWorthSummary['categories'][$category->value]; @endphp
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <div class="size-3 rounded-full {{ $category->color() }}"></div>
+                        <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ $category->label() }}</span>
+                    </div>
+                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ number_format($total / 100) }}</span>
+                </div>
+            @endforeach
+        </div>
     </div>
 
     {{-- Current Spending Plan --}}
@@ -82,11 +79,11 @@ new class extends Component {
                 <div>
                     <flux:subheading>{{ __('Current Plan') }}</flux:subheading>
                     <div class="mt-1 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
-                        {{ $plan->name }} &mdash; ${{ number_format($plan->monthly_income / 100) }}/mo
+                        ${{ number_format($plan->monthly_income / 100) }}/mo
                     </div>
                 </div>
                 <flux:button variant="subtle" size="sm" :href="route('spending-plans.edit', $plan)" wire:navigate>
-                    {{ __('Edit Plan') }}
+                    {{ __('Edit') }}
                 </flux:button>
             </div>
 
