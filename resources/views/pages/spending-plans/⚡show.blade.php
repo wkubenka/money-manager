@@ -9,10 +9,21 @@ use Livewire\Component;
 new class extends Component {
     public SpendingPlan $spendingPlan;
 
+    public bool $confirmingDelete = false;
+
     public function mount(SpendingPlan $spendingPlan): void
     {
         abort_unless($spendingPlan->user_id === Auth::id(), 403);
         $this->spendingPlan = $spendingPlan->load('items');
+    }
+
+    public function deletePlan(): void
+    {
+        abort_unless($this->spendingPlan->user_id === Auth::id(), 403);
+
+        $this->spendingPlan->delete();
+
+        $this->redirect(route('spending-plans.dashboard'), navigate: true);
     }
 
     public function copyPlan(): void
@@ -168,4 +179,29 @@ new class extends Component {
         </div>
     </div>
 
+    <div class="mt-8">
+        <flux:button variant="ghost" size="sm" icon="trash" wire:click="$set('confirmingDelete', true)" class="text-red-600! dark:text-red-400!">
+            {{ __('Delete Plan') }}
+        </flux:button>
+    </div>
+
+    <flux:modal wire:model="confirmingDelete" focusable class="max-w-lg">
+        <div class="space-y-6">
+            <div>
+                <flux:heading size="lg">{{ __('Delete spending plan?') }}</flux:heading>
+                <flux:subheading>
+                    {{ __('This will permanently delete this spending plan and all of its items. This action cannot be undone.') }}
+                </flux:subheading>
+            </div>
+
+            <div class="flex justify-end space-x-2">
+                <flux:modal.close>
+                    <flux:button variant="filled">{{ __('Cancel') }}</flux:button>
+                </flux:modal.close>
+                <flux:button variant="danger" wire:click="deletePlan">
+                    {{ __('Delete Plan') }}
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
 </section>

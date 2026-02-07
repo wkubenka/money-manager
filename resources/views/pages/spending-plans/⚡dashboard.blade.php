@@ -7,36 +7,10 @@ use Livewire\Attributes\Computed;
 use Livewire\Component;
 
 new class extends Component {
-    public ?int $deletingPlanId = null;
-
     #[Computed]
     public function plans()
     {
         return Auth::user()->spendingPlans()->oldest()->with('items')->get();
-    }
-
-    public function confirmDelete(int $planId): void
-    {
-        $this->deletingPlanId = $planId;
-    }
-
-    public function deletePlan(): void
-    {
-        if (! $this->deletingPlanId) {
-            return;
-        }
-
-        $plan = SpendingPlan::findOrFail($this->deletingPlanId);
-        abort_unless($plan->user_id === Auth::id(), 403);
-
-        $plan->delete();
-        $this->deletingPlanId = null;
-        unset($this->plans);
-    }
-
-    public function cancelDelete(): void
-    {
-        $this->deletingPlanId = null;
     }
 
     public function copyPlan(int $planId): void
@@ -133,7 +107,6 @@ new class extends Component {
                             @unless ($atLimit)
                                 <flux:button size="sm" variant="ghost" icon="document-duplicate" wire:click="copyPlan({{ $plan->id }})" aria-label="{{ __('Copy plan') }}" />
                             @endunless
-                            <flux:button size="sm" variant="ghost" icon="trash" wire:click="confirmDelete({{ $plan->id }})" aria-label="{{ __('Delete plan') }}" />
                         </div>
                     </div>
 
@@ -165,28 +138,5 @@ new class extends Component {
                 </div>
             @endforeach
         </div>
-    @endif
-
-    {{-- Delete confirmation modal --}}
-    @if ($deletingPlanId)
-        <flux:modal name="confirm-plan-deletion" :show="true" focusable class="max-w-lg">
-            <div class="space-y-6">
-                <div>
-                    <flux:heading size="lg">{{ __('Delete spending plan?') }}</flux:heading>
-                    <flux:subheading>
-                        {{ __('This will permanently delete this spending plan and all of its items. This action cannot be undone.') }}
-                    </flux:subheading>
-                </div>
-
-                <div class="flex justify-end space-x-2">
-                    <flux:button variant="filled" wire:click="cancelDelete">
-                        {{ __('Cancel') }}
-                    </flux:button>
-                    <flux:button variant="danger" wire:click="deletePlan">
-                        {{ __('Delete Plan') }}
-                    </flux:button>
-                </div>
-            </div>
-        </flux:modal>
     @endif
 </section>

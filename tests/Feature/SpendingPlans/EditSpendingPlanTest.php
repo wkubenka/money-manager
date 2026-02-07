@@ -330,13 +330,13 @@ test('reorder rejects guilt-free category', function () {
         ->assertStatus(422);
 });
 
-test('user can delete a plan from dashboard', function () {
+test('user can delete a plan from show page', function () {
     $user = User::factory()->create();
     $plan = SpendingPlan::factory()->create(['user_id' => $user->id]);
 
     Livewire::actingAs($user)
-        ->test('pages::spending-plans.dashboard')
-        ->call('confirmDelete', $plan->id)
+        ->test('pages::spending-plans.show', ['spendingPlan' => $plan])
+        ->set('confirmingDelete', true)
         ->call('deletePlan');
 
     expect(SpendingPlan::find($plan->id))->toBeNull();
