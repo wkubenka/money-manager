@@ -17,12 +17,16 @@ class SpendingPlan extends Model
         'user_id',
         'name',
         'monthly_income',
+        'gross_monthly_income',
+        'pre_tax_investments',
     ];
 
     protected function casts(): array
     {
         return [
             'monthly_income' => 'integer',
+            'gross_monthly_income' => 'integer',
+            'pre_tax_investments' => 'integer',
         ];
     }
 

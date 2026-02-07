@@ -29,6 +29,16 @@ new class extends Component {
         <div>
             <flux:heading size="lg">{{ $spendingPlan->name }}</flux:heading>
             <flux:subheading>{{ __('Monthly take-home:') }} ${{ number_format($spendingPlan->monthly_income / 100, 2) }}</flux:subheading>
+            @if ($spendingPlan->gross_monthly_income || $spendingPlan->pre_tax_investments)
+                <div class="mt-1 flex gap-4 text-sm text-zinc-500 dark:text-zinc-400">
+                    @if ($spendingPlan->gross_monthly_income)
+                        <span>{{ __('Gross:') }} ${{ number_format($spendingPlan->gross_monthly_income / 100, 2) }}</span>
+                    @endif
+                    @if ($spendingPlan->pre_tax_investments)
+                        <span>{{ __('Pre-tax investments:') }} ${{ number_format($spendingPlan->pre_tax_investments / 100, 2) }}</span>
+                    @endif
+                </div>
+            @endif
         </div>
         <flux:button variant="primary" size="sm" icon="pencil" :href="route('spending-plans.edit', $spendingPlan)" wire:navigate>
             {{ __('Edit Plan') }}

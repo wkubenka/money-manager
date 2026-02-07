@@ -72,3 +72,35 @@ test('income is stored as cents', function () {
 
     expect(SpendingPlan::first()->monthly_income)->toBe(500000);
 });
+
+test('gross income and pre-tax investments are stored as cents', function () {
+    $user = User::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test('pages::spending-plans.create')
+        ->set('name', 'My Plan')
+        ->set('monthly_income', '5000.00')
+        ->set('gross_monthly_income', '7000.00')
+        ->set('pre_tax_investments', '500.00')
+        ->call('createPlan')
+        ->assertHasNoErrors();
+
+    $plan = SpendingPlan::first();
+    expect($plan->gross_monthly_income)->toBe(700000);
+    expect($plan->pre_tax_investments)->toBe(50000);
+});
+
+test('gross income and pre-tax investments are optional', function () {
+    $user = User::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test('pages::spending-plans.create')
+        ->set('name', 'My Plan')
+        ->set('monthly_income', '5000.00')
+        ->call('createPlan')
+        ->assertHasNoErrors();
+
+    $plan = SpendingPlan::first();
+    expect($plan->gross_monthly_income)->toBe(0);
+    expect($plan->pre_tax_investments)->toBe(0);
+});

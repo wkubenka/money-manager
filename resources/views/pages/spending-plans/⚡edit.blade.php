@@ -13,6 +13,8 @@ new class extends Component {
     // Plan details
     public string $name = '';
     public string $monthly_income = '';
+    public string $gross_monthly_income = '';
+    public string $pre_tax_investments = '';
 
     // Per-category new item form
     public array $newItemNames = [];
@@ -29,6 +31,8 @@ new class extends Component {
         $this->spendingPlan = $spendingPlan;
         $this->name = $spendingPlan->name;
         $this->monthly_income = number_format($spendingPlan->monthly_income / 100, 2, '.', '');
+        $this->gross_monthly_income = $spendingPlan->gross_monthly_income ? number_format($spendingPlan->gross_monthly_income / 100, 2, '.', '') : '';
+        $this->pre_tax_investments = $spendingPlan->pre_tax_investments ? number_format($spendingPlan->pre_tax_investments / 100, 2, '.', '') : '';
     }
 
     #[Computed]
@@ -57,11 +61,15 @@ new class extends Component {
         $validated = $this->validate([
             'name' => ['required', 'string', 'max:255'],
             'monthly_income' => ['required', 'numeric', 'min:0.01'],
+            'gross_monthly_income' => ['nullable', 'numeric', 'min:0'],
+            'pre_tax_investments' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $this->spendingPlan->update([
             'name' => $validated['name'],
             'monthly_income' => (int) round($validated['monthly_income'] * 100),
+            'gross_monthly_income' => (int) round(((float) $validated['gross_monthly_income']) * 100),
+            'pre_tax_investments' => (int) round(((float) $validated['pre_tax_investments']) * 100),
         ]);
 
         unset($this->plan);
@@ -169,6 +177,26 @@ new class extends Component {
                     step="0.01"
                     min="0.01"
                     required
+                >
+                    <x-slot:prefix>$</x-slot:prefix>
+                </flux:input>
+                <flux:input
+                    wire:model="gross_monthly_income"
+                    :label="__('Gross Monthly Income')"
+                    :description="__('Your total income before taxes and deductions.')"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                >
+                    <x-slot:prefix>$</x-slot:prefix>
+                </flux:input>
+                <flux:input
+                    wire:model="pre_tax_investments"
+                    :label="__('Pre-Tax Investments')"
+                    :description="__('401(k), HSA, and other pre-tax contributions.')"
+                    type="number"
+                    step="0.01"
+                    min="0"
                 >
                     <x-slot:prefix>$</x-slot:prefix>
                 </flux:input>

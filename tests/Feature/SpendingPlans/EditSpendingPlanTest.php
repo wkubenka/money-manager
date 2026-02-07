@@ -47,6 +47,26 @@ test('user can update plan name and income', function () {
     expect($plan->monthly_income)->toBe(600000);
 });
 
+test('user can update gross income and pre-tax investments', function () {
+    $user = User::factory()->create();
+    $plan = SpendingPlan::factory()->create([
+        'user_id' => $user->id,
+        'gross_monthly_income' => 0,
+        'pre_tax_investments' => 0,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::spending-plans.edit', ['spendingPlan' => $plan])
+        ->set('gross_monthly_income', '8000.00')
+        ->set('pre_tax_investments', '750.00')
+        ->call('updatePlan')
+        ->assertHasNoErrors();
+
+    $plan->refresh();
+    expect($plan->gross_monthly_income)->toBe(800000);
+    expect($plan->pre_tax_investments)->toBe(75000);
+});
+
 test('user can add a line item', function () {
     $user = User::factory()->create();
     $plan = SpendingPlan::factory()->create(['user_id' => $user->id]);

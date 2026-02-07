@@ -15,6 +15,8 @@ class SpendingPlanFactory extends Factory
             'user_id' => User::factory(),
             'name' => fake()->randomElement(['Current Plan', 'Dream Plan', 'If I Move Cities', 'After Raise']),
             'monthly_income' => fake()->numberBetween(300000, 1000000),
+            'gross_monthly_income' => fake()->numberBetween(400000, 1500000),
+            'pre_tax_investments' => fake()->numberBetween(20000, 200000),
         ];
     }
 }
