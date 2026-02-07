@@ -7,7 +7,7 @@
         <div class="flex min-h-svh flex-col items-center justify-center gap-6 p-6">
             <div class="flex flex-col items-center gap-4">
                 <span class="flex h-12 w-12 items-center justify-center rounded-md">
-                    <x-app-logo-icon class="size-12 fill-current text-black dark:text-white" />
+                    <x-app-logo-icon class="size-12 fill-current text-emerald-500" />
                 </span>
                 <flux:heading size="xl">{{ config('app.name') }}</flux:heading>
             </div>
