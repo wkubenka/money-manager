@@ -80,6 +80,21 @@ test('user can copy a plan from the show page', function () {
     expect($copy->items->first()->name)->toBe('Emergency Fund');
 });
 
+test('copied plan preserves miscellaneous percentage', function () {
+    $user = User::factory()->create();
+    $plan = SpendingPlan::factory()->create([
+        'user_id' => $user->id,
+        'fixed_costs_misc_percent' => 10,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::spending-plans.dashboard')
+        ->call('copyPlan', $plan->id);
+
+    $copy = SpendingPlan::where('id', '!=', $plan->id)->where('user_id', $user->id)->first();
+    expect($copy->fixed_costs_misc_percent)->toBe(10);
+});
+
 test('copied plan is not marked as current', function () {
     $user = User::factory()->create();
     $plan = SpendingPlan::factory()->create([

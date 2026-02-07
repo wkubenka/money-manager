@@ -67,6 +67,57 @@ test('user can update gross income and pre-tax investments', function () {
     expect($plan->pre_tax_investments)->toBe(75000);
 });
 
+test('user can update miscellaneous percentage', function () {
+    $user = User::factory()->create();
+    $plan = SpendingPlan::factory()->create([
+        'user_id' => $user->id,
+        'fixed_costs_misc_percent' => 15,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::spending-plans.edit', ['spendingPlan' => $plan])
+        ->set('fixed_costs_misc_percent', '10')
+        ->call('updatePlan')
+        ->assertHasNoErrors();
+
+    $plan->refresh();
+    expect($plan->fixed_costs_misc_percent)->toBe(10);
+});
+
+test('miscellaneous percentage can be set to zero', function () {
+    $user = User::factory()->create();
+    $plan = SpendingPlan::factory()->create([
+        'user_id' => $user->id,
+        'fixed_costs_misc_percent' => 15,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::spending-plans.edit', ['spendingPlan' => $plan])
+        ->set('fixed_costs_misc_percent', '0')
+        ->call('updatePlan')
+        ->assertHasNoErrors();
+
+    $plan->refresh();
+    expect($plan->fixed_costs_misc_percent)->toBe(0);
+});
+
+test('miscellaneous percentage cannot exceed 30', function () {
+    $user = User::factory()->create();
+    $plan = SpendingPlan::factory()->create([
+        'user_id' => $user->id,
+        'fixed_costs_misc_percent' => 15,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::spending-plans.edit', ['spendingPlan' => $plan])
+        ->set('fixed_costs_misc_percent', '31')
+        ->call('updatePlan')
+        ->assertHasErrors(['fixed_costs_misc_percent' => 'max']);
+
+    $plan->refresh();
+    expect($plan->fixed_costs_misc_percent)->toBe(15);
+});
+
 test('user can add a line item', function () {
     $user = User::factory()->create();
     $plan = SpendingPlan::factory()->create(['user_id' => $user->id]);

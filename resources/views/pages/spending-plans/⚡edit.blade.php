@@ -15,6 +15,7 @@ new class extends Component {
     public string $monthly_income = '';
     public string $gross_monthly_income = '';
     public string $pre_tax_investments = '';
+    public string $fixed_costs_misc_percent = '';
 
     // Per-category new item form
     public array $newItemNames = [];
@@ -33,6 +34,7 @@ new class extends Component {
         $this->monthly_income = number_format($spendingPlan->monthly_income / 100, 2, '.', '');
         $this->gross_monthly_income = $spendingPlan->gross_monthly_income ? number_format($spendingPlan->gross_monthly_income / 100, 2, '.', '') : '';
         $this->pre_tax_investments = $spendingPlan->pre_tax_investments ? number_format($spendingPlan->pre_tax_investments / 100, 2, '.', '') : '';
+        $this->fixed_costs_misc_percent = (string) $spendingPlan->fixed_costs_misc_percent;
     }
 
     #[Computed]
@@ -63,6 +65,7 @@ new class extends Component {
             'monthly_income' => ['required', 'numeric', 'min:0.01'],
             'gross_monthly_income' => ['nullable', 'numeric', 'min:0'],
             'pre_tax_investments' => ['nullable', 'numeric', 'min:0'],
+            'fixed_costs_misc_percent' => ['required', 'integer', 'min:0', 'max:30'],
         ]);
 
         $this->spendingPlan->update([
@@ -70,6 +73,7 @@ new class extends Component {
             'monthly_income' => (int) round($validated['monthly_income'] * 100),
             'gross_monthly_income' => (int) round(((float) $validated['gross_monthly_income']) * 100),
             'pre_tax_investments' => (int) round(((float) $validated['pre_tax_investments']) * 100),
+            'fixed_costs_misc_percent' => (int) $validated['fixed_costs_misc_percent'],
         ]);
 
         unset($this->plan);
@@ -224,6 +228,18 @@ new class extends Component {
                 >
                     <x-slot:prefix>$</x-slot:prefix>
                 </flux:input>
+                <flux:input
+                    wire:model="fixed_costs_misc_percent"
+                    :label="__('Fixed Costs Miscellaneous')"
+                    :description="__('Buffer percentage added to fixed costs for unexpected expenses.')"
+                    type="number"
+                    step="1"
+                    min="0"
+                    max="30"
+                    required
+                >
+                    <x-slot:suffix>%</x-slot:suffix>
+                </flux:input>
             </div>
 
             <div class="flex items-center gap-4">
@@ -330,9 +346,17 @@ new class extends Component {
                 </div>
 
                 {{-- Category subtotal --}}
-                <div class="flex items-center justify-between mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-700 text-sm font-medium">
-                    <span>{{ __('Subtotal') }}</span>
-                    <span>${{ number_format($total / 100) }}</span>
+                <div class="mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-700">
+                    @if ($category === SpendingCategory::FixedCosts && $this->plan->fixed_costs_misc_percent > 0)
+                        <div class="flex items-center justify-between py-1.5 text-sm italic">
+                            <span>{{ __('Miscellaneous') }} ({{ $this->plan->fixed_costs_misc_percent }}%)</span>
+                            <span>${{ number_format($this->plan->fixedCostsMiscellaneous() / 100) }}</span>
+                        </div>
+                    @endif
+                    <div class="flex items-center justify-between text-sm font-medium">
+                        <span>{{ __('Subtotal') }}</span>
+                        <span>${{ number_format($total / 100) }}</span>
+                    </div>
                 </div>
             </div>
         @endforeach

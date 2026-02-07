@@ -105,6 +105,45 @@ test('gross income and pre-tax investments are optional', function () {
     expect($plan->pre_tax_investments)->toBe(0);
 });
 
+test('plan is created with default miscellaneous percentage', function () {
+    $user = User::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test('pages::spending-plans.create')
+        ->set('name', 'My Plan')
+        ->set('monthly_income', '5000.00')
+        ->call('createPlan')
+        ->assertHasNoErrors();
+
+    expect(SpendingPlan::first()->fixed_costs_misc_percent)->toBe(15);
+});
+
+test('plan can be created with custom miscellaneous percentage', function () {
+    $user = User::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test('pages::spending-plans.create')
+        ->set('name', 'My Plan')
+        ->set('monthly_income', '5000.00')
+        ->set('fixed_costs_misc_percent', '10')
+        ->call('createPlan')
+        ->assertHasNoErrors();
+
+    expect(SpendingPlan::first()->fixed_costs_misc_percent)->toBe(10);
+});
+
+test('miscellaneous percentage cannot exceed 30', function () {
+    $user = User::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test('pages::spending-plans.create')
+        ->set('name', 'My Plan')
+        ->set('monthly_income', '5000.00')
+        ->set('fixed_costs_misc_percent', '31')
+        ->call('createPlan')
+        ->assertHasErrors(['fixed_costs_misc_percent' => 'max']);
+});
+
 test('user cannot create more than max plans', function () {
     $user = User::factory()->create();
     SpendingPlan::factory()->count(SpendingPlan::MAX_PER_USER)->create(['user_id' => $user->id]);

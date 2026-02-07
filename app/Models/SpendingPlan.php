@@ -22,6 +22,7 @@ class SpendingPlan extends Model
         'gross_monthly_income',
         'pre_tax_investments',
         'is_current',
+        'fixed_costs_misc_percent',
     ];
 
     protected function casts(): array
@@ -31,6 +32,7 @@ class SpendingPlan extends Model
             'gross_monthly_income' => 'integer',
             'pre_tax_investments' => 'integer',
             'is_current' => 'boolean',
+            'fixed_costs_misc_percent' => 'integer',
         ];
     }
 
@@ -45,7 +47,22 @@ class SpendingPlan extends Model
     }
 
     /**
+     * Get the miscellaneous buffer for Fixed Costs (15% of fixed cost items).
+     */
+    public function fixedCostsMiscellaneous(): int
+    {
+        if ($this->fixed_costs_misc_percent === 0) {
+            return 0;
+        }
+
+        $itemsTotal = (int) $this->items->where('category', SpendingCategory::FixedCosts)->sum('amount');
+
+        return (int) round($itemsTotal * $this->fixed_costs_misc_percent / 100);
+    }
+
+    /**
      * Get the total amount for a given category in cents.
+     * Fixed Costs includes a miscellaneous buffer.
      * Guilt-Free is auto-calculated as the remainder after the other three categories.
      */
     public function categoryTotal(SpendingCategory $category): int
@@ -54,9 +71,13 @@ class SpendingPlan extends Model
             return $this->monthly_income - $this->plannedTotal();
         }
 
-        return (int) $this->items
-            ->where('category', $category)
-            ->sum('amount');
+        $itemsTotal = (int) $this->items->where('category', $category)->sum('amount');
+
+        if ($category === SpendingCategory::FixedCosts) {
+            return $itemsTotal + $this->fixedCostsMiscellaneous();
+        }
+
+        return $itemsTotal;
     }
 
     /**
@@ -76,6 +97,6 @@ class SpendingPlan extends Model
      */
     public function plannedTotal(): int
     {
-        return (int) $this->items->sum('amount');
+        return (int) $this->items->sum('amount') + $this->fixedCostsMiscellaneous();
     }
 }

@@ -9,6 +9,7 @@ new class extends Component {
     public string $monthly_income = '';
     public string $gross_monthly_income = '';
     public string $pre_tax_investments = '';
+    public string $fixed_costs_misc_percent = '15';
 
     public function createPlan(): void
     {
@@ -19,6 +20,7 @@ new class extends Component {
             'monthly_income' => ['required', 'numeric', 'min:0.01'],
             'gross_monthly_income' => ['nullable', 'numeric', 'min:0'],
             'pre_tax_investments' => ['nullable', 'numeric', 'min:0'],
+            'fixed_costs_misc_percent' => ['required', 'integer', 'min:0', 'max:30'],
         ]);
 
         $plan = Auth::user()->spendingPlans()->create([
@@ -26,6 +28,7 @@ new class extends Component {
             'monthly_income' => (int) round($validated['monthly_income'] * 100),
             'gross_monthly_income' => (int) round(((float) $validated['gross_monthly_income']) * 100),
             'pre_tax_investments' => (int) round(((float) $validated['pre_tax_investments']) * 100),
+            'fixed_costs_misc_percent' => (int) $validated['fixed_costs_misc_percent'],
         ]);
 
         $this->redirect(route('spending-plans.edit', $plan), navigate: true);
@@ -80,6 +83,19 @@ new class extends Component {
                 min="0"
             >
                 <x-slot:prefix>$</x-slot:prefix>
+            </flux:input>
+
+            <flux:input
+                wire:model="fixed_costs_misc_percent"
+                :label="__('Fixed Costs Miscellaneous')"
+                :description="__('Buffer percentage added to fixed costs for unexpected expenses.')"
+                type="number"
+                step="1"
+                min="0"
+                max="30"
+                required
+            >
+                <x-slot:suffix>%</x-slot:suffix>
             </flux:input>
 
             <div class="flex items-center gap-4">

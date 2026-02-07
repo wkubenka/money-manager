@@ -25,6 +25,7 @@ new class extends Component {
             'monthly_income' => $plan->monthly_income,
             'gross_monthly_income' => $plan->gross_monthly_income,
             'pre_tax_investments' => $plan->pre_tax_investments,
+            'fixed_costs_misc_percent' => $plan->fixed_costs_misc_percent,
             'is_current' => false,
         ]);
 

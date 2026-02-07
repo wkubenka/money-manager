@@ -138,7 +138,7 @@ test('dashboard shows rounded percentages', function () {
         'user_id' => $user->id,
         'monthly_income' => 300000, // $3,000
     ]);
-    // $1,000 / $3,000 = 33.333...% → rounds to 33%
+    // $1,000 items + $150 misc (15%) = $1,150 / $3,000 = 38.333...% → rounds to 38.3%
     SpendingPlanItem::factory()->create([
         'spending_plan_id' => $plan->id,
         'category' => SpendingCategory::FixedCosts,
@@ -147,7 +147,7 @@ test('dashboard shows rounded percentages', function () {
 
     Livewire::actingAs($user)
         ->test('pages::dashboard')
-        ->assertSee('33%');
+        ->assertSee('38.3%');
 });
 
 test('deleting a user cascades to spending plans and items', function () {

@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\AccountCategory;
-use App\Enums\SpendingCategory;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
@@ -42,9 +41,9 @@ new class extends Component {
     }
 }; ?>
 
-<div class="flex h-full w-full flex-1 flex-col gap-6 rounded-xl">
+<div class="grid w-full gap-6 lg:grid-cols-2 lg:items-start">
     {{-- Net Worth --}}
-    <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
+    <div class="self-start rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
         <div class="flex items-center justify-between mb-4">
             <div>
                 <flux:subheading>{{ __('Net Worth') }}</flux:subheading>
@@ -72,7 +71,7 @@ new class extends Component {
     {{-- Current Spending Plan --}}
     @if ($this->currentPlan)
         @php $plan = $this->currentPlan; @endphp
-        <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
+        <div class="self-start rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
             <div class="flex items-center justify-between mb-5">
                 <div>
                     <flux:subheading>{{ __('Current Plan') }}</flux:subheading>
@@ -118,7 +117,7 @@ new class extends Component {
                             <div class="h-full rounded-full {{ $category->color() }}" style="width: {{ min(max($percent, 0), 100) }}%"></div>
                         </div>
 
-                        @if ($items->isNotEmpty())
+                        @if ($items->isNotEmpty() || ($category === SpendingCategory::FixedCosts && $plan->fixed_costs_misc_percent > 0))
                             <div class="mt-2 space-y-0.5">
                                 @foreach ($items as $item)
                                     <div class="flex items-center justify-between text-sm">
@@ -126,6 +125,12 @@ new class extends Component {
                                         <span class="text-zinc-600 dark:text-zinc-300">${{ number_format($item->amount / 100) }}</span>
                                     </div>
                                 @endforeach
+                                @if ($category === SpendingCategory::FixedCosts && $plan->fixed_costs_misc_percent > 0)
+                                    <div class="flex items-center justify-between text-sm italic text-zinc-500 dark:text-zinc-400">
+                                        <span>{{ __('Miscellaneous') }} ({{ $plan->fixed_costs_misc_percent }}%)</span>
+                                        <span class="text-zinc-600 dark:text-zinc-300">${{ number_format($plan->fixedCostsMiscellaneous() / 100) }}</span>
+                                    </div>
+                                @endif
                             </div>
                         @endif
                     </div>
@@ -133,7 +138,7 @@ new class extends Component {
             </div>
         </div>
     @else
-        <div class="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-600 p-6 text-center">
+        <div class="self-start rounded-xl border border-dashed border-zinc-300 dark:border-zinc-600 p-6 text-center">
             <flux:subheading class="mb-2">{{ __('No current spending plan') }}</flux:subheading>
             <flux:button variant="subtle" size="sm" :href="route('spending-plans.dashboard')" wire:navigate>
                 {{ __('Choose a Plan') }}

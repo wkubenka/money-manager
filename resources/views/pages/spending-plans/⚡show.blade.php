@@ -38,6 +38,7 @@ new class extends Component {
             'monthly_income' => $plan->monthly_income,
             'gross_monthly_income' => $plan->gross_monthly_income,
             'pre_tax_investments' => $plan->pre_tax_investments,
+            'fixed_costs_misc_percent' => $plan->fixed_costs_misc_percent,
             'is_current' => false,
         ]);
 
@@ -63,12 +64,12 @@ new class extends Component {
         </flux:link>
     </div>
 
-    <div class="flex items-start justify-between mb-8">
+    <div class="mb-8">
         <div>
             <flux:heading size="lg">{{ $spendingPlan->name }}</flux:heading>
             <flux:subheading>{{ __('Monthly take-home:') }} ${{ number_format($spendingPlan->monthly_income / 100) }}</flux:subheading>
             @if ($spendingPlan->gross_monthly_income || $spendingPlan->pre_tax_investments)
-                <div class="mt-1 flex gap-4 text-sm text-zinc-500 dark:text-zinc-400">
+                <div class="mt-1 flex flex-wrap gap-4 text-sm text-zinc-500 dark:text-zinc-400">
                     @if ($spendingPlan->gross_monthly_income)
                         <span>{{ __('Gross:') }} ${{ number_format($spendingPlan->gross_monthly_income / 100) }}</span>
                     @endif
@@ -78,7 +79,7 @@ new class extends Component {
                 </div>
             @endif
         </div>
-        <div class="flex items-center gap-2">
+        <div class="mt-3 flex items-center gap-2">
             @if (Auth::user()->spendingPlans()->count() < SpendingPlan::MAX_PER_USER)
                 <flux:button variant="ghost" size="sm" icon="document-duplicate" wire:click="copyPlan" aria-label="{{ __('Copy plan') }}">
                     {{ __('Copy Plan') }}
@@ -135,9 +136,17 @@ new class extends Component {
                     </div>
                 @endif
 
-                <div class="flex items-center justify-between mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-700 text-sm font-medium">
-                    <span>{{ __('Subtotal') }}</span>
-                    <span>${{ number_format($total / 100) }}</span>
+                <div class="mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-700">
+                    @if ($category === SpendingCategory::FixedCosts && $spendingPlan->fixed_costs_misc_percent > 0)
+                        <div class="flex items-center justify-between py-1.5 text-sm italic">
+                            <span>{{ __('Miscellaneous') }} ({{ $spendingPlan->fixed_costs_misc_percent }}%)</span>
+                            <span>${{ number_format($spendingPlan->fixedCostsMiscellaneous() / 100) }}</span>
+                        </div>
+                    @endif
+                    <div class="flex items-center justify-between text-sm font-medium">
+                        <span>{{ __('Subtotal') }}</span>
+                        <span>${{ number_format($total / 100) }}</span>
+                    </div>
                 </div>
             </div>
         @endforeach

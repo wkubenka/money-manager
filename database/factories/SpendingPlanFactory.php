@@ -17,6 +17,7 @@ class SpendingPlanFactory extends Factory
             'monthly_income' => fake()->numberBetween(300000, 1000000),
             'gross_monthly_income' => fake()->numberBetween(400000, 1500000),
             'pre_tax_investments' => fake()->numberBetween(20000, 200000),
+            'fixed_costs_misc_percent' => fake()->numberBetween(0, 30),
         ];
     }
 

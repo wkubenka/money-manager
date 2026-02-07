@@ -22,7 +22,7 @@ test('category total is calculated correctly', function () {
     ]);
 
     $plan->load('items');
-    expect($plan->categoryTotal(SpendingCategory::FixedCosts))->toBe(150000);
+    expect($plan->categoryTotal(SpendingCategory::FixedCosts))->toBe(172500);
 });
 
 test('category percent is calculated correctly', function () {
@@ -35,7 +35,7 @@ test('category percent is calculated correctly', function () {
     ]);
 
     $plan->load('items');
-    expect($plan->categoryPercent(SpendingCategory::FixedCosts))->toBe(50.0);
+    expect($plan->categoryPercent(SpendingCategory::FixedCosts))->toBe(57.5);
 });
 
 test('category percent returns zero when income is zero', function () {
@@ -67,8 +67,8 @@ test('guilt free total is auto-calculated from remaining income', function () {
     ]);
 
     $plan->load('items');
-    expect($plan->categoryTotal(SpendingCategory::GuiltFree))->toBe(150000);
-    expect($plan->categoryPercent(SpendingCategory::GuiltFree))->toBe(30.0);
+    expect($plan->categoryTotal(SpendingCategory::GuiltFree))->toBe(112500);
+    expect($plan->categoryPercent(SpendingCategory::GuiltFree))->toBe(22.5);
 });
 
 test('planned total sums non-guilt-free categories', function () {
@@ -81,7 +81,26 @@ test('planned total sums non-guilt-free categories', function () {
     ]);
 
     $plan->load('items');
-    expect($plan->plannedTotal())->toBe(300000);
+    expect($plan->plannedTotal())->toBe(345000);
+});
+
+test('zero miscellaneous percent excludes buffer from totals', function () {
+    $plan = SpendingPlan::factory()->create([
+        'monthly_income' => 500000,
+        'fixed_costs_misc_percent' => 0,
+    ]);
+
+    SpendingPlanItem::factory()->create([
+        'spending_plan_id' => $plan->id,
+        'category' => SpendingCategory::FixedCosts,
+        'amount' => 200000,
+    ]);
+
+    $plan->load('items');
+
+    expect($plan->fixedCostsMiscellaneous())->toBe(0);
+    expect($plan->categoryTotal(SpendingCategory::FixedCosts))->toBe(200000);
+    expect($plan->categoryTotal(SpendingCategory::GuiltFree))->toBe(300000);
 });
 
 test('spending category ideal ranges are correct', function () {
