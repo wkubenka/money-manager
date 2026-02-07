@@ -94,12 +94,12 @@ new class extends Component {
                         </div>
                         <div class="flex items-center gap-1">
                             @if ($plan->is_current)
-                                <flux:button size="sm" variant="ghost" icon="star" class="text-emerald-500" wire:click="unmarkCurrent({{ $plan->id }})" />
+                                <flux:button size="sm" variant="ghost" icon="star" class="text-emerald-500" wire:click="unmarkCurrent({{ $plan->id }})" aria-label="{{ __('Unmark as current') }}" />
                             @else
-                                <flux:button size="sm" variant="ghost" icon="star" wire:click="markAsCurrent({{ $plan->id }})" />
+                                <flux:button size="sm" variant="ghost" icon="star" wire:click="markAsCurrent({{ $plan->id }})" aria-label="{{ __('Mark as current') }}" />
                             @endif
-                            <flux:button size="sm" variant="ghost" icon="pencil" :href="route('spending-plans.edit', $plan)" wire:navigate />
-                            <flux:button size="sm" variant="ghost" icon="trash" wire:click="confirmDelete({{ $plan->id }})" />
+                            <flux:button size="sm" variant="ghost" icon="pencil" :href="route('spending-plans.edit', $plan)" wire:navigate aria-label="{{ __('Edit plan') }}" />
+                            <flux:button size="sm" variant="ghost" icon="trash" wire:click="confirmDelete({{ $plan->id }})" aria-label="{{ __('Delete plan') }}" />
                         </div>
                     </div>
 
