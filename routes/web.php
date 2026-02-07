@@ -6,6 +6,10 @@ Route::get('/', function () {
     return view('welcome');
 })->middleware('guest')->name('home');
 
+Route::get('/offline', function () {
+    return view('offline');
+});
+
 Route::livewire('dashboard', 'pages::dashboard')
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
