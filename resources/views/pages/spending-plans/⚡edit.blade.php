@@ -92,6 +92,7 @@ new class extends Component {
 
         abort_unless(in_array($category, array_column(SpendingCategory::cases(), 'value')), 422);
         abort_if($category === SpendingCategory::GuiltFree->value, 422);
+        abort_if($this->spendingPlan->items()->where('category', $category)->count() >= SpendingPlan::MAX_ITEMS_PER_CATEGORY, 422);
 
         $maxSortOrder = $this->spendingPlan->items()
             ->where('category', $category)
@@ -315,35 +316,37 @@ new class extends Component {
                 @endif
 
                 {{-- Add new item (per-category inputs) --}}
-                <div class="flex items-end gap-2 pt-3 border-t border-zinc-100 dark:border-zinc-700">
-                    <div class="flex-1">
-                        <flux:input
-                            wire:model="newItemNames.{{ $catKey }}"
+                @if ($items->count() < \App\Models\SpendingPlan::MAX_ITEMS_PER_CATEGORY)
+                    <div class="flex items-end gap-2 pt-3 border-t border-zinc-100 dark:border-zinc-700">
+                        <div class="flex-1">
+                            <flux:input
+                                wire:model="newItemNames.{{ $catKey }}"
+                                size="sm"
+                                :placeholder="__('Item name')"
+                                wire:keydown.enter="addItem('{{ $catKey }}')"
+                            />
+                        </div>
+                        <div class="w-32">
+                            <flux:input
+                                wire:model="newItemAmounts.{{ $catKey }}"
+                                type="number"
+                                step="0.01"
+                                min="0.01"
+                                size="sm"
+                                :placeholder="__('0.00')"
+                            >
+                                <x-slot:prefix>$</x-slot:prefix>
+                            </flux:input>
+                        </div>
+                        <flux:button
                             size="sm"
-                            :placeholder="__('Item name')"
-                            wire:keydown.enter="addItem('{{ $catKey }}')"
+                            variant="ghost"
+                            icon="plus"
+                            wire:click="addItem('{{ $catKey }}')"
+                            aria-label="{{ __('Add item') }}"
                         />
                     </div>
-                    <div class="w-32">
-                        <flux:input
-                            wire:model="newItemAmounts.{{ $catKey }}"
-                            type="number"
-                            step="0.01"
-                            min="0.01"
-                            size="sm"
-                            :placeholder="__('0.00')"
-                        >
-                            <x-slot:prefix>$</x-slot:prefix>
-                        </flux:input>
-                    </div>
-                    <flux:button
-                        size="sm"
-                        variant="ghost"
-                        icon="plus"
-                        wire:click="addItem('{{ $catKey }}')"
-                        aria-label="{{ __('Add item') }}"
-                    />
-                </div>
+                @endif
 
                 {{-- Category subtotal --}}
                 <div class="mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-700">

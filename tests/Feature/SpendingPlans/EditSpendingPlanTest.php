@@ -381,6 +381,25 @@ test('reorder rejects guilt-free category', function () {
         ->assertStatus(422);
 });
 
+test('user cannot add more than max items per category', function () {
+    $user = User::factory()->create();
+    $plan = SpendingPlan::factory()->create(['user_id' => $user->id]);
+
+    SpendingPlanItem::factory()->count(SpendingPlan::MAX_ITEMS_PER_CATEGORY)->create([
+        'spending_plan_id' => $plan->id,
+        'category' => SpendingCategory::FixedCosts,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::spending-plans.edit', ['spendingPlan' => $plan])
+        ->set('newItemNames.fixed_costs', 'One Too Many')
+        ->set('newItemAmounts.fixed_costs', '100.00')
+        ->call('addItem', 'fixed_costs')
+        ->assertStatus(422);
+
+    expect($plan->items()->where('category', 'fixed_costs')->count())->toBe(SpendingPlan::MAX_ITEMS_PER_CATEGORY);
+});
+
 test('user can delete a plan from show page', function () {
     $user = User::factory()->create();
     $plan = SpendingPlan::factory()->create(['user_id' => $user->id]);

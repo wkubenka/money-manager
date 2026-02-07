@@ -15,6 +15,8 @@ class SpendingPlan extends Model
 
     public const MAX_PER_USER = 6;
 
+    public const MAX_ITEMS_PER_CATEGORY = 15;
+
     protected $fillable = [
         'user_id',
         'name',
