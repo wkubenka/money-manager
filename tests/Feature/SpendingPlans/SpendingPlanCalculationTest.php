@@ -7,7 +7,7 @@ use App\Models\SpendingPlanItem;
 uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
 
 test('category total is calculated correctly', function () {
-    $plan = SpendingPlan::factory()->create(['monthly_income' => 500000]);
+    $plan = SpendingPlan::factory()->create(['monthly_income' => 500000, 'fixed_costs_misc_percent' => 15]);
 
     SpendingPlanItem::factory()->create([
         'spending_plan_id' => $plan->id,
@@ -26,7 +26,7 @@ test('category total is calculated correctly', function () {
 });
 
 test('category percent is calculated correctly', function () {
-    $plan = SpendingPlan::factory()->create(['monthly_income' => 500000]);
+    $plan = SpendingPlan::factory()->create(['monthly_income' => 500000, 'fixed_costs_misc_percent' => 15]);
 
     SpendingPlanItem::factory()->create([
         'spending_plan_id' => $plan->id,
@@ -46,7 +46,7 @@ test('category percent returns zero when income is zero', function () {
 });
 
 test('guilt free total is auto-calculated from remaining income', function () {
-    $plan = SpendingPlan::factory()->create(['monthly_income' => 500000]);
+    $plan = SpendingPlan::factory()->create(['monthly_income' => 500000, 'fixed_costs_misc_percent' => 15]);
 
     SpendingPlanItem::factory()->create([
         'spending_plan_id' => $plan->id,
@@ -72,7 +72,7 @@ test('guilt free total is auto-calculated from remaining income', function () {
 });
 
 test('planned total sums non-guilt-free categories', function () {
-    $plan = SpendingPlan::factory()->create(['monthly_income' => 500000]);
+    $plan = SpendingPlan::factory()->create(['monthly_income' => 500000, 'fixed_costs_misc_percent' => 15]);
 
     SpendingPlanItem::factory()->create([
         'spending_plan_id' => $plan->id,

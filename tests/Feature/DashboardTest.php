@@ -137,6 +137,7 @@ test('dashboard shows rounded percentages', function () {
     $plan = SpendingPlan::factory()->current()->create([
         'user_id' => $user->id,
         'monthly_income' => 300000, // $3,000
+        'fixed_costs_misc_percent' => 15,
     ]);
     // $1,000 items + $150 misc (15%) = $1,150 / $3,000 = 38.333...% → rounds to 38.3%
     SpendingPlanItem::factory()->create([
@@ -175,4 +176,68 @@ test('dashboard does not show non-current plans', function () {
         ->test('pages::dashboard')
         ->assertDontSee('Not Current Plan')
         ->assertSee('No current spending plan');
+});
+
+test('dashboard shows emergency fund card', function () {
+    $user = User::factory()->create();
+    $ef = $user->emergencyFund();
+    $ef->update(['balance' => 1500000]); // $15,000
+
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->assertSee('Emergency Fund')
+        ->assertSee('$15,000');
+});
+
+test('dashboard shows emergency fund coverage months with current plan', function () {
+    $user = User::factory()->create();
+    $ef = $user->emergencyFund();
+    $ef->update(['balance' => 1500000]); // $15,000
+
+    $plan = SpendingPlan::factory()->current()->create([
+        'user_id' => $user->id,
+        'monthly_income' => 500000, // $5,000
+        'fixed_costs_misc_percent' => 0,
+    ]);
+    SpendingPlanItem::factory()->create([
+        'spending_plan_id' => $plan->id,
+        'category' => SpendingCategory::FixedCosts,
+        'amount' => 250000, // $2,500
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->assertSee('Months of total spending')
+        ->assertSee('3') // $15,000 / $5,000 = 3
+        ->assertSee('Months of fixed costs')
+        ->assertSee('6'); // $15,000 / $2,500 = 6
+});
+
+test('dashboard shows prompt when no current plan for emergency fund', function () {
+    $user = User::factory()->create();
+    $ef = $user->emergencyFund();
+    $ef->update(['balance' => 1000000]);
+
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->assertSee('Emergency Fund')
+        ->assertSee('Set a current spending plan to see coverage months');
+});
+
+test('dashboard shows n/a for fixed costs when zero', function () {
+    $user = User::factory()->create();
+    $ef = $user->emergencyFund();
+    $ef->update(['balance' => 1000000]);
+
+    SpendingPlan::factory()->current()->create([
+        'user_id' => $user->id,
+        'monthly_income' => 500000,
+        'fixed_costs_misc_percent' => 0,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->assertSee('Months of total spending')
+        ->assertSee('2') // $10,000 / $5,000 = 2
+        ->assertSee('N/A'); // no fixed costs items
 });

@@ -63,6 +63,11 @@ class User extends Authenticatable
         return $this->hasMany(NetWorthAccount::class);
     }
 
+    public function emergencyFund(): ?NetWorthAccount
+    {
+        return $this->netWorthAccounts()->where('is_emergency_fund', true)->first();
+    }
+
     /**
      * Get the user's initials
      */

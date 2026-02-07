@@ -31,4 +31,13 @@ class NetWorthAccountFactory extends Factory
             'category' => $category,
         ]);
     }
+
+    public function emergencyFund(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'category' => AccountCategory::Savings,
+            'name' => 'Emergency Fund',
+            'is_emergency_fund' => true,
+        ]);
+    }
 }

@@ -95,10 +95,13 @@ new class extends Component {
         $account = NetWorthAccount::findOrFail($this->editingAccountId);
         abort_unless($account->user_id === Auth::id(), 403);
 
-        $account->update([
-            'name' => $validated['editingAccountName'],
-            'balance' => (int) round($validated['editingAccountBalance'] * 100),
-        ]);
+        $data = ['balance' => (int) round($validated['editingAccountBalance'] * 100)];
+
+        if (! $account->is_emergency_fund) {
+            $data['name'] = $validated['editingAccountName'];
+        }
+
+        $account->update($data);
 
         $this->cancelEdit();
         unset($this->accounts, $this->netWorth);
@@ -115,6 +118,7 @@ new class extends Component {
     {
         $account = NetWorthAccount::findOrFail($accountId);
         abort_unless($account->user_id === Auth::id(), 403);
+        abort_if($account->is_emergency_fund, 422);
 
         $account->delete();
         unset($this->accounts, $this->netWorth);
@@ -166,7 +170,11 @@ new class extends Component {
                                 @if ($editingAccountId === $account->id)
                                     {{-- Inline edit mode --}}
                                     <div class="flex-1 space-y-2">
-                                        <flux:input wire:model="editingAccountName" size="sm" />
+                                        @if ($account->is_emergency_fund)
+                                            <span class="text-sm text-zinc-700 dark:text-zinc-300">{{ $account->name }}</span>
+                                        @else
+                                            <flux:input wire:model="editingAccountName" size="sm" />
+                                        @endif
                                         <div class="flex items-center gap-2">
                                             <flux:input wire:model="editingAccountBalance" type="number" step="0.01" min="0.01" size="sm" class="w-28">
                                                 <x-slot:prefix>$</x-slot:prefix>
@@ -181,7 +189,9 @@ new class extends Component {
                                     <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ number_format($account->balance / 100) }}</span>
                                     <div class="flex items-center gap-0.5">
                                         <flux:button size="xs" variant="ghost" icon="pencil" wire:click="editAccount({{ $account->id }})" aria-label="{{ __('Edit account') }}" />
-                                        <flux:button size="xs" variant="ghost" icon="trash" wire:click="removeAccount({{ $account->id }})" wire:confirm="{{ __('Remove this account?') }}" aria-label="{{ __('Remove account') }}" />
+                                        @unless ($account->is_emergency_fund)
+                                            <flux:button size="xs" variant="ghost" icon="trash" wire:click="removeAccount({{ $account->id }})" wire:confirm="{{ __('Remove this account?') }}" aria-label="{{ __('Remove account') }}" />
+                                        @endunless
                                     </div>
                                 @endif
                             </div>

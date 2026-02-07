@@ -2,6 +2,7 @@
 
 use App\Enums\AccountCategory;
 use App\Enums\SpendingCategory;
+use App\Models\NetWorthAccount;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
@@ -40,39 +41,95 @@ new class extends Component {
     {
         return Auth::user()->currentSpendingPlan()?->load('items');
     }
+
+    #[Computed]
+    public function emergencyFund(): ?NetWorthAccount
+    {
+        return Auth::user()->emergencyFund();
+    }
 }; ?>
 
-<div class="grid w-full gap-6 lg:grid-cols-2 lg:items-start">
-    {{-- Net Worth --}}
-    <div class="self-start rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
-        <div class="flex items-center justify-between mb-4">
-            <div>
-                <flux:subheading>{{ __('Net Worth') }}</flux:subheading>
-                <div class="mt-1 text-3xl font-bold {{ $this->netWorthSummary['net_worth'] < 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-900 dark:text-zinc-100' }}">
-                    {{ $this->netWorthSummary['net_worth'] < 0 ? '-' : '' }}${{ number_format(abs($this->netWorthSummary['net_worth']) / 100) }}
+<div class="grid w-full gap-6 lg:grid-cols-2">
+    {{-- Left column: block on desktop, flattened on mobile via contents --}}
+    <div class="contents lg:block lg:space-y-6">
+        {{-- Net Worth --}}
+        <div class="order-1 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <flux:subheading>{{ __('Net Worth') }}</flux:subheading>
+                    <div class="mt-1 text-3xl font-bold {{ $this->netWorthSummary['net_worth'] < 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-900 dark:text-zinc-100' }}">
+                        {{ $this->netWorthSummary['net_worth'] < 0 ? '-' : '' }}${{ number_format(abs($this->netWorthSummary['net_worth']) / 100) }}
+                    </div>
                 </div>
+                <flux:button variant="subtle" size="sm" icon="cog-6-tooth" :href="route('net-worth.index')" wire:navigate aria-label="{{ __('Manage accounts') }}" />
             </div>
-            <flux:button variant="subtle" size="sm" icon="cog-6-tooth" :href="route('net-worth.index')" wire:navigate aria-label="{{ __('Manage accounts') }}" />
+
+            <div class="space-y-2">
+                @foreach (AccountCategory::cases() as $category)
+                    @php $total = $this->netWorthSummary['categories'][$category->value]; @endphp
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="size-3 rounded-full {{ $category->color() }}"></div>
+                            <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ $category->label() }}</span>
+                        </div>
+                        <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ number_format($total / 100) }}</span>
+                    </div>
+                @endforeach
+            </div>
         </div>
 
-        <div class="space-y-2">
-            @foreach (AccountCategory::cases() as $category)
-                @php $total = $this->netWorthSummary['categories'][$category->value]; @endphp
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                        <div class="size-3 rounded-full {{ $category->color() }}"></div>
-                        <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ $category->label() }}</span>
+        {{-- Emergency Fund --}}
+        @if ($this->emergencyFund)
+            @php
+                $ef = $this->emergencyFund;
+                $plan = $this->currentPlan;
+                $monthsTotal = $plan && $plan->monthly_income > 0
+                    ? round($ef->balance / $plan->monthly_income, 1)
+                    : null;
+                $fixedCosts = $plan ? $plan->categoryTotal(SpendingCategory::FixedCosts) : 0;
+                $monthsFixed = $plan && $fixedCosts > 0
+                    ? round($ef->balance / $fixedCosts, 1)
+                    : null;
+            @endphp
+            <div class="order-3 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <flux:subheading>{{ __('Emergency Fund') }}</flux:subheading>
+                        <div class="mt-1 text-3xl font-bold text-zinc-900 dark:text-zinc-100">
+                            ${{ number_format($ef->balance / 100) }}
+                        </div>
                     </div>
-                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ number_format($total / 100) }}</span>
+                    <flux:button variant="subtle" size="sm" icon="pencil-square" :href="route('net-worth.index')" wire:navigate aria-label="{{ __('Edit emergency fund') }}" />
                 </div>
-            @endforeach
-        </div>
+
+                @if ($plan)
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Months of total spending') }}</span>
+                            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                                {{ $monthsTotal !== null ? $monthsTotal : __('N/A') }}
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Months of fixed costs') }}</span>
+                            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                                {{ $monthsFixed !== null ? $monthsFixed : __('N/A') }}
+                            </span>
+                        </div>
+                    </div>
+                @else
+                    <flux:text class="text-sm text-zinc-500 dark:text-zinc-400">
+                        {{ __('Set a current spending plan to see coverage months.') }}
+                    </flux:text>
+                @endif
+            </div>
+        @endif
     </div>
 
     {{-- Current Spending Plan --}}
     @if ($this->currentPlan)
         @php $plan = $this->currentPlan; @endphp
-        <div class="self-start rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
+        <div class="order-2 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
             <div class="flex items-center justify-between mb-5">
                 <div>
                     <flux:subheading>{{ __('Current Plan') }}</flux:subheading>
@@ -139,7 +196,7 @@ new class extends Component {
             </div>
         </div>
     @else
-        <div class="self-start rounded-xl border border-dashed border-zinc-300 dark:border-zinc-600 p-6 text-center">
+        <div class="order-2 rounded-xl border border-dashed border-zinc-300 dark:border-zinc-600 p-6 text-center">
             <flux:subheading class="mb-2">{{ __('No current spending plan') }}</flux:subheading>
             <flux:button variant="subtle" size="sm" :href="route('spending-plans.dashboard')" wire:navigate>
                 {{ __('Choose a Plan') }}

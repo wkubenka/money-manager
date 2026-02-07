@@ -30,7 +30,9 @@ test('user can add an account', function () {
         ->call('addAccount', 'assets')
         ->assertHasNoErrors();
 
-    $account = NetWorthAccount::where('user_id', $user->id)->first();
+    $account = NetWorthAccount::where('user_id', $user->id)
+        ->where('is_emergency_fund', false)
+        ->first();
     expect($account)->not->toBeNull();
     expect($account->name)->toBe('House');
     expect($account->balance)->toBe(25000000);
@@ -47,7 +49,7 @@ test('balance is stored as cents', function () {
         ->call('addAccount', 'savings')
         ->assertHasNoErrors();
 
-    expect(NetWorthAccount::first()->balance)->toBe(150050);
+    expect(NetWorthAccount::where('is_emergency_fund', false)->first()->balance)->toBe(150050);
 });
 
 test('name is required', function () {
@@ -193,11 +195,66 @@ test('deleting a user cascades to net worth accounts', function () {
     $user = User::factory()->create();
     NetWorthAccount::factory()->count(3)->create(['user_id' => $user->id]);
 
-    expect(NetWorthAccount::where('user_id', $user->id)->count())->toBe(3);
+    expect(NetWorthAccount::where('user_id', $user->id)->count())->toBe(4);
 
     $user->delete();
 
     expect(NetWorthAccount::where('user_id', $user->id)->count())->toBe(0);
+});
+
+test('emergency fund is auto-created for new users', function () {
+    $user = User::factory()->create();
+
+    $ef = $user->emergencyFund();
+    expect($ef)->not->toBeNull();
+    expect($ef->name)->toBe('Emergency Fund');
+    expect($ef->category)->toBe(AccountCategory::Savings);
+    expect($ef->balance)->toBe(0);
+    expect($ef->is_emergency_fund)->toBeTrue();
+});
+
+test('emergency fund cannot be deleted', function () {
+    $user = User::factory()->create();
+    $ef = $user->emergencyFund();
+
+    Livewire::actingAs($user)
+        ->test('pages::net-worth.index')
+        ->call('removeAccount', $ef->id)
+        ->assertStatus(422);
+
+    expect(NetWorthAccount::find($ef->id))->not->toBeNull();
+});
+
+test('emergency fund name cannot be changed', function () {
+    $user = User::factory()->create();
+    $ef = $user->emergencyFund();
+
+    Livewire::actingAs($user)
+        ->test('pages::net-worth.index')
+        ->call('editAccount', $ef->id)
+        ->set('editingAccountName', 'Renamed')
+        ->set('editingAccountBalance', '5000.00')
+        ->call('updateAccount')
+        ->assertHasNoErrors();
+
+    $ef->refresh();
+    expect($ef->name)->toBe('Emergency Fund');
+    expect($ef->balance)->toBe(500000);
+});
+
+test('emergency fund balance can be updated', function () {
+    $user = User::factory()->create();
+    $ef = $user->emergencyFund();
+
+    Livewire::actingAs($user)
+        ->test('pages::net-worth.index')
+        ->call('editAccount', $ef->id)
+        ->set('editingAccountBalance', '10000.00')
+        ->call('updateAccount')
+        ->assertHasNoErrors();
+
+    $ef->refresh();
+    expect($ef->balance)->toBe(1000000);
 });
 
 test('inputs are cleared after adding an account', function () {

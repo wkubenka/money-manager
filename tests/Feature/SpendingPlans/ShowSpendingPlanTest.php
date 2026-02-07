@@ -60,6 +60,7 @@ test('fixed costs shows miscellaneous line with correct amount', function () {
     $plan = SpendingPlan::factory()->create([
         'user_id' => $user->id,
         'monthly_income' => 500000,
+        'fixed_costs_misc_percent' => 15,
     ]);
 
     SpendingPlanItem::factory()->create([
@@ -77,7 +78,7 @@ test('fixed costs shows miscellaneous line with correct amount', function () {
 });
 
 test('fixed costs total includes miscellaneous buffer', function () {
-    $plan = SpendingPlan::factory()->create(['monthly_income' => 500000]);
+    $plan = SpendingPlan::factory()->create(['monthly_income' => 500000, 'fixed_costs_misc_percent' => 15]);
 
     SpendingPlanItem::factory()->create([
         'spending_plan_id' => $plan->id,
@@ -94,7 +95,7 @@ test('fixed costs total includes miscellaneous buffer', function () {
 });
 
 test('guilt free accounts for fixed costs miscellaneous', function () {
-    $plan = SpendingPlan::factory()->create(['monthly_income' => 500000]);
+    $plan = SpendingPlan::factory()->create(['monthly_income' => 500000, 'fixed_costs_misc_percent' => 15]);
 
     SpendingPlanItem::factory()->create([
         'spending_plan_id' => $plan->id,

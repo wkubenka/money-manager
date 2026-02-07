@@ -18,6 +18,7 @@ class NetWorthAccount extends Model
         'name',
         'balance',
         'sort_order',
+        'is_emergency_fund',
     ];
 
     protected function casts(): array
@@ -26,6 +27,7 @@ class NetWorthAccount extends Model
             'category' => AccountCategory::class,
             'balance' => 'integer',
             'sort_order' => 'integer',
+            'is_emergency_fund' => 'boolean',
         ];
     }
 
