@@ -14,6 +14,32 @@ new class extends Component {
         abort_unless($spendingPlan->user_id === Auth::id(), 403);
         $this->spendingPlan = $spendingPlan->load('items');
     }
+
+    public function copyPlan(): void
+    {
+        $plan = $this->spendingPlan;
+        abort_unless($plan->user_id === Auth::id(), 403);
+
+        $copy = SpendingPlan::create([
+            'user_id' => Auth::id(),
+            'name' => "Copy of {$plan->name}",
+            'monthly_income' => $plan->monthly_income,
+            'gross_monthly_income' => $plan->gross_monthly_income,
+            'pre_tax_investments' => $plan->pre_tax_investments,
+            'is_current' => false,
+        ]);
+
+        foreach ($plan->items as $item) {
+            $copy->items()->create([
+                'category' => $item->category,
+                'name' => $item->name,
+                'amount' => $item->amount,
+                'sort_order' => $item->sort_order,
+            ]);
+        }
+
+        $this->redirect(route('spending-plans.edit', $copy), navigate: true);
+    }
 }; ?>
 
 <section class="w-full">
@@ -40,9 +66,14 @@ new class extends Component {
                 </div>
             @endif
         </div>
-        <flux:button variant="primary" size="sm" icon="pencil" :href="route('spending-plans.edit', $spendingPlan)" wire:navigate>
-            {{ __('Edit Plan') }}
-        </flux:button>
+        <div class="flex items-center gap-2">
+            <flux:button variant="ghost" size="sm" icon="document-duplicate" wire:click="copyPlan" aria-label="{{ __('Copy plan') }}">
+                {{ __('Copy Plan') }}
+            </flux:button>
+            <flux:button variant="primary" size="sm" icon="pencil" :href="route('spending-plans.edit', $spendingPlan)" wire:navigate>
+                {{ __('Edit Plan') }}
+            </flux:button>
+        </div>
     </div>
 
     <div class="space-y-8">

@@ -12,7 +12,7 @@ new class extends Component {
     #[Computed]
     public function plans()
     {
-        return Auth::user()->spendingPlans()->latest()->with('items')->get();
+        return Auth::user()->spendingPlans()->oldest()->with('items')->get();
     }
 
     public function confirmDelete(int $planId): void
@@ -37,6 +37,32 @@ new class extends Component {
     public function cancelDelete(): void
     {
         $this->deletingPlanId = null;
+    }
+
+    public function copyPlan(int $planId): void
+    {
+        $plan = SpendingPlan::findOrFail($planId);
+        abort_unless($plan->user_id === Auth::id(), 403);
+
+        $copy = SpendingPlan::create([
+            'user_id' => Auth::id(),
+            'name' => "Copy of {$plan->name}",
+            'monthly_income' => $plan->monthly_income,
+            'gross_monthly_income' => $plan->gross_monthly_income,
+            'pre_tax_investments' => $plan->pre_tax_investments,
+            'is_current' => false,
+        ]);
+
+        foreach ($plan->items as $item) {
+            $copy->items()->create([
+                'category' => $item->category,
+                'name' => $item->name,
+                'amount' => $item->amount,
+                'sort_order' => $item->sort_order,
+            ]);
+        }
+
+        $this->redirect(route('spending-plans.edit', $copy), navigate: true);
     }
 
     public function markAsCurrent(int $planId): void
@@ -96,9 +122,10 @@ new class extends Component {
                             @if ($plan->is_current)
                                 <flux:button size="sm" variant="ghost" icon="star" class="text-emerald-500" wire:click="unmarkCurrent({{ $plan->id }})" aria-label="{{ __('Unmark as current') }}" />
                             @else
-                                <flux:button size="sm" variant="ghost" icon="star" wire:click="markAsCurrent({{ $plan->id }})" aria-label="{{ __('Mark as current') }}" />
+                                <flux:button size="sm" variant="ghost" icon="star" icon-variant="outline" wire:click="markAsCurrent({{ $plan->id }})" aria-label="{{ __('Mark as current') }}" />
                             @endif
                             <flux:button size="sm" variant="ghost" icon="pencil" :href="route('spending-plans.edit', $plan)" wire:navigate aria-label="{{ __('Edit plan') }}" />
+                            <flux:button size="sm" variant="ghost" icon="document-duplicate" wire:click="copyPlan({{ $plan->id }})" aria-label="{{ __('Copy plan') }}" />
                             <flux:button size="sm" variant="ghost" icon="trash" wire:click="confirmDelete({{ $plan->id }})" aria-label="{{ __('Delete plan') }}" />
                         </div>
                     </div>
