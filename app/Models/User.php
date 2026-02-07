@@ -56,6 +56,11 @@ class User extends Authenticatable
         return $this->hasMany(SpendingPlan::class);
     }
 
+    public function netWorthAccounts(): HasMany
+    {
+        return $this->hasMany(NetWorthAccount::class);
+    }
+
     /**
      * Get the user's initials
      */

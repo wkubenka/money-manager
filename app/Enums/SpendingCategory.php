@@ -45,7 +45,7 @@ enum SpendingCategory: string
         return match ($this) {
             self::FixedCosts => 'bg-blue-500',
             self::Investments => 'bg-emerald-500',
-            self::Savings => 'bg-amber-500',
+            self::Savings => 'bg-cyan-500',
             self::GuiltFree => 'bg-purple-500',
         };
     }
