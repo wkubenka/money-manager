@@ -132,7 +132,7 @@ new class extends Component {
         <div class="order-2 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
             <div class="flex items-center justify-between mb-5">
                 <div>
-                    <flux:subheading>{{ __('Current Plan') }}</flux:subheading>
+                    <flux:subheading>{{ __('Current Spending Plan') }}</flux:subheading>
                     <div class="mt-1 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
                         ${{ number_format($plan->monthly_income / 100) }}/mo
                     </div>

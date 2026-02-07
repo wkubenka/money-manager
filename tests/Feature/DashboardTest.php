@@ -76,7 +76,7 @@ test('dashboard shows current spending plan', function () {
 
     Livewire::actingAs($user)
         ->test('pages::dashboard')
-        ->assertSee('Current Plan')
+        ->assertSee('Current Spending Plan')
         ->assertSee('Fixed Costs');
 });
 
@@ -128,7 +128,7 @@ test('dashboard renders with zero monthly income plan', function () {
     Livewire::actingAs($user)
         ->test('pages::dashboard')
         ->assertOk()
-        ->assertSee('Current Plan')
+        ->assertSee('Current Spending Plan')
         ->assertSee('0%');
 });
 
