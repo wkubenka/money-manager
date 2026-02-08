@@ -173,10 +173,10 @@ new class extends Component {
                                         @if ($account->is_emergency_fund)
                                             <span class="text-sm text-zinc-700 dark:text-zinc-300">{{ $account->name }}</span>
                                         @else
-                                            <flux:input wire:model="editingAccountName" size="sm" />
+                                            <flux:input wire:model="editingAccountName" size="sm" wire:keydown.enter="updateAccount" />
                                         @endif
                                         <div class="flex items-center gap-2">
-                                            <flux:input wire:model="editingAccountBalance" type="number" step="0.01" min="0.01" size="sm" class="w-28">
+                                            <flux:input wire:model="editingAccountBalance" type="number" step="0.01" min="0.01" size="sm" class="w-28" wire:keydown.enter="updateAccount">
                                                 <x-slot:prefix>$</x-slot:prefix>
                                             </flux:input>
                                             <flux:button size="xs" variant="primary" wire:click="updateAccount">{{ __('Save') }}</flux:button>
@@ -217,6 +217,7 @@ new class extends Component {
                             min="0.01"
                             size="sm"
                             :placeholder="__('0.00')"
+                            wire:keydown.enter="addAccount('{{ $catKey }}')"
                         >
                             <x-slot:prefix>$</x-slot:prefix>
                         </flux:input>

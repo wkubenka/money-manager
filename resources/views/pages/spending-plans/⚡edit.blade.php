@@ -289,9 +289,9 @@ new class extends Component {
                                 @if ($editingItemId === $item->id)
                                     {{-- Inline edit mode --}}
                                     <div class="flex-1 space-y-2">
-                                        <flux:input wire:model="editingItemName" size="sm" />
+                                        <flux:input wire:model="editingItemName" size="sm" wire:keydown.enter="updateItem" />
                                         <div class="flex items-center gap-2">
-                                            <flux:input wire:model="editingItemAmount" type="number" step="0.01" min="0.01" size="sm" class="w-28">
+                                            <flux:input wire:model="editingItemAmount" type="number" step="0.01" min="0.01" size="sm" class="w-28" wire:keydown.enter="updateItem">
                                                 <x-slot:prefix>$</x-slot:prefix>
                                             </flux:input>
                                             <flux:button size="xs" variant="primary" wire:click="updateItem">{{ __('Save') }}</flux:button>
@@ -334,6 +334,7 @@ new class extends Component {
                                 min="0.01"
                                 size="sm"
                                 :placeholder="__('0.00')"
+                                wire:keydown.enter="addItem('{{ $catKey }}')"
                             >
                                 <x-slot:prefix>$</x-slot:prefix>
                             </flux:input>
