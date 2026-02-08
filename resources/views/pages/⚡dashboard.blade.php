@@ -90,6 +90,13 @@ new class extends Component {
                 $monthsFixed = $plan && $fixedCosts > 0
                     ? round($ef->balance / $fixedCosts, 1)
                     : null;
+                $totalSavings = $this->netWorthSummary['categories'][AccountCategory::Savings->value];
+                $monthsTotalAllSavings = $plan && $plan->monthly_income > 0
+                    ? round($totalSavings / $plan->monthly_income, 1)
+                    : null;
+                $monthsFixedAllSavings = $plan && $fixedCosts > 0
+                    ? round($totalSavings / $fixedCosts, 1)
+                    : null;
             @endphp
             <div class="order-3 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
                 <div class="flex items-center justify-between mb-4">
@@ -114,6 +121,18 @@ new class extends Component {
                             <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Months of fixed costs') }}</span>
                             <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
                                 {{ $monthsFixed !== null ? $monthsFixed : __('N/A') }}
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Months of total spending (all savings)') }}</span>
+                            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                                {{ $monthsTotalAllSavings !== null ? $monthsTotalAllSavings : __('N/A') }}
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Months of fixed costs (all savings)') }}</span>
+                            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                                {{ $monthsFixedAllSavings !== null ? $monthsFixedAllSavings : __('N/A') }}
                             </span>
                         </div>
                     </div>

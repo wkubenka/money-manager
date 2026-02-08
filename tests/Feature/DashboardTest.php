@@ -213,6 +213,40 @@ test('dashboard shows emergency fund coverage months with current plan', functio
         ->assertSee('6'); // $15,000 / $2,500 = 6
 });
 
+test('dashboard shows months of fixed costs using all savings', function () {
+    $user = User::factory()->create();
+    $ef = $user->emergencyFund();
+    $ef->update(['balance' => 1500000]); // $15,000
+
+    // Add another savings account
+    NetWorthAccount::factory()->create([
+        'user_id' => $user->id,
+        'category' => AccountCategory::Savings,
+        'balance' => 500000, // $5,000
+    ]);
+
+    $plan = SpendingPlan::factory()->current()->create([
+        'user_id' => $user->id,
+        'monthly_income' => 500000,
+        'fixed_costs_misc_percent' => 0,
+    ]);
+    SpendingPlanItem::factory()->create([
+        'spending_plan_id' => $plan->id,
+        'category' => SpendingCategory::FixedCosts,
+        'amount' => 250000, // $2,500
+    ]);
+
+    // Total savings: $15,000 + $5,000 = $20,000
+    // $20,000 / $5,000 monthly income = 4 months total spending
+    // $20,000 / $2,500 fixed costs = 8 months fixed costs
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->assertSee('Months of total spending (all savings)')
+        ->assertSee('4')
+        ->assertSee('Months of fixed costs (all savings)')
+        ->assertSee('8');
+});
+
 test('dashboard shows prompt when no current plan for emergency fund', function () {
     $user = User::factory()->create();
     $ef = $user->emergencyFund();
