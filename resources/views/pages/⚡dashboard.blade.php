@@ -224,18 +224,18 @@ new class extends Component {
                 $ef = $this->emergencyFund;
                 $plan = $this->currentPlan;
                 $monthsTotal = $plan && $plan->monthly_income > 0
-                    ? round($ef->balance / $plan->monthly_income, 1)
+                    ? $ef->balance / $plan->monthly_income
                     : null;
                 $fixedCosts = $plan ? $plan->categoryTotal(SpendingCategory::FixedCosts) : 0;
                 $monthsFixed = $plan && $fixedCosts > 0
-                    ? round($ef->balance / $fixedCosts, 1)
+                    ? $ef->balance / $fixedCosts
                     : null;
                 $totalSavings = $this->netWorthSummary['categories'][AccountCategory::Savings->value];
                 $monthsTotalAllSavings = $plan && $plan->monthly_income > 0
-                    ? round($totalSavings / $plan->monthly_income, 1)
+                    ? $totalSavings / $plan->monthly_income
                     : null;
                 $monthsFixedAllSavings = $plan && $fixedCosts > 0
-                    ? round($totalSavings / $fixedCosts, 1)
+                    ? $totalSavings / $fixedCosts
                     : null;
             @endphp
             <div class="order-3 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
@@ -264,12 +264,12 @@ new class extends Component {
                                 @if ($metric['months'] !== null && $metric['months'] < 2)
                                     <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Weeks of ' . $metric['label']) }}</span>
                                     <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                                        {{ round($metric['months'] * (52 / 12), 1) }}
+                                        {{ (int) floor($metric['months'] * (52 / 12)) }}
                                     </span>
                                 @else
                                     <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Months of ' . $metric['label']) }}</span>
                                     <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                                        {{ $metric['months'] !== null ? $metric['months'] : __('N/A') }}
+                                        {{ $metric['months'] !== null ? (int) floor($metric['months']) : __('N/A') }}
                                     </span>
                                 @endif
                             </div>

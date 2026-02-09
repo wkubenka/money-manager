@@ -264,14 +264,32 @@ test('dashboard shows weeks when emergency fund covers less than 2 months', func
         'amount' => 250000, // $2,500
     ]);
 
-    // $3,000 / $5,000 = 0.6 months total spending → 0.6 * 52/12 = 2.6 weeks
-    // $3,000 / $2,500 = 1.2 months fixed costs → 1.2 * 52/12 = 5.2 weeks
+    // $3,000 / $5,000 = 0.6 months total spending → floor(0.6 * 52/12) = 2 weeks
+    // $3,000 / $2,500 = 1.2 months fixed costs → floor(1.2 * 52/12) = 5 weeks
     Livewire::actingAs($user)
         ->test('pages::dashboard')
         ->assertSee('Weeks of total spending')
-        ->assertSee('2.6')
+        ->assertSeeInOrder(['Weeks of total spending', '2'])
         ->assertSee('Weeks of fixed costs')
-        ->assertSee('5.2');
+        ->assertSeeInOrder(['Weeks of fixed costs', '5']);
+});
+
+test('emergency fund weeks are not zero when fund covers less than one month', function () {
+    $user = User::factory()->create();
+    $ef = $user->emergencyFund();
+    $ef->update(['balance' => 230000]); // $2,300
+
+    SpendingPlan::factory()->current()->create([
+        'user_id' => $user->id,
+        'monthly_income' => 540000, // $5,400
+        'fixed_costs_misc_percent' => 0,
+    ]);
+
+    // $2,300 / $5,400 = 0.43 months → floor(0.43 * 52/12) = 1 week (not 0)
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->assertSee('Weeks of total spending')
+        ->assertSeeInOrder(['Weeks of total spending', '1']);
 });
 
 test('dashboard shows prompt when no current plan for emergency fund', function () {
