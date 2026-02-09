@@ -50,6 +50,28 @@ class SpendingPlan extends Model
         'fixed_costs_misc_percent',
     ];
 
+    /**
+     * Mark this plan as the user's only plan if no other plans exist.
+     */
+    public function markCurrentIfOnly(): void
+    {
+        if (! $this->is_current && $this->user->spendingPlans()->count() === 1) {
+            $this->update(['is_current' => true]);
+        }
+    }
+
+    /**
+     * After deleting a plan, ensure the user still has a current plan.
+     */
+    public static function ensureCurrentPlanForUser(User $user): void
+    {
+        if ($user->spendingPlans()->where('is_current', true)->exists()) {
+            return;
+        }
+
+        $user->spendingPlans()->oldest()->first()?->update(['is_current' => true]);
+    }
+
     protected function casts(): array
     {
         return [

@@ -20,8 +20,11 @@ new class extends Component {
     public function deletePlan(): void
     {
         abort_unless($this->spendingPlan->user_id === Auth::id(), 403);
+        abort_if(Auth::user()->spendingPlans()->count() <= 1, 422);
 
+        $user = Auth::user();
         $this->spendingPlan->delete();
+        SpendingPlan::ensureCurrentPlanForUser($user);
 
         $this->redirect(route('spending-plans.dashboard'), navigate: true);
     }
@@ -188,11 +191,13 @@ new class extends Component {
         </div>
     </div>
 
-    <div class="mt-8">
-        <flux:button variant="ghost" size="sm" icon="trash" wire:click="$set('confirmingDelete', true)" class="text-red-600! dark:text-red-400!">
-            {{ __('Delete Plan') }}
-        </flux:button>
-    </div>
+    @if (Auth::user()->spendingPlans()->count() > 1)
+        <div class="mt-8">
+            <flux:button variant="ghost" size="sm" icon="trash" wire:click="$set('confirmingDelete', true)" class="text-red-600! dark:text-red-400!">
+                {{ __('Delete Plan') }}
+            </flux:button>
+        </div>
+    @endif
 
     <flux:modal wire:model="confirmingDelete" focusable class="max-w-lg">
         <div class="space-y-6">

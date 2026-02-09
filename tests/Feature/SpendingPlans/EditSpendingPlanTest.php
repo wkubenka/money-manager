@@ -403,6 +403,7 @@ test('user cannot add more than max items per category', function () {
 test('user can delete a plan from show page', function () {
     $user = User::factory()->create();
     $plan = SpendingPlan::factory()->create(['user_id' => $user->id]);
+    SpendingPlan::factory()->current()->create(['user_id' => $user->id]);
 
     Livewire::actingAs($user)
         ->test('pages::spending-plans.show', ['spendingPlan' => $plan])

@@ -48,6 +48,8 @@ new class extends Component {
             }
         }
 
+        $plan->markCurrentIfOnly();
+
         $this->redirect(route('spending-plans.edit', $plan), navigate: true);
     }
 }; ?>

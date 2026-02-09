@@ -51,14 +51,6 @@ new class extends Component {
         unset($this->plans);
     }
 
-    public function unmarkCurrent(int $planId): void
-    {
-        $plan = SpendingPlan::findOrFail($planId);
-        abort_unless($plan->user_id === Auth::id(), 403);
-
-        $plan->update(['is_current' => false]);
-        unset($this->plans);
-    }
 }; ?>
 
 <section class="w-full">
@@ -99,9 +91,7 @@ new class extends Component {
                             <flux:subheading>${{ number_format($plan->monthly_income / 100) }}/mo</flux:subheading>
                         </div>
                         <div class="flex items-center gap-1">
-                            @if ($plan->is_current)
-                                <flux:button size="sm" variant="ghost" icon="star" class="text-emerald-500" wire:click="unmarkCurrent({{ $plan->id }})" aria-label="{{ __('Unmark as current') }}" />
-                            @else
+                            @if (!$plan->is_current)
                                 <flux:button size="sm" variant="ghost" icon="star" icon-variant="outline" wire:click="markAsCurrent({{ $plan->id }})" aria-label="{{ __('Mark as current') }}" />
                             @endif
                             <flux:button size="sm" variant="ghost" icon="pencil" :href="route('spending-plans.edit', $plan)" wire:navigate aria-label="{{ __('Edit plan') }}" />
