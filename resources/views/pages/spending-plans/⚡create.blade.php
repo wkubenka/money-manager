@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\SpendingCategory;
 use App\Models\SpendingPlan;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
@@ -10,6 +11,7 @@ new class extends Component {
     public string $gross_monthly_income = '';
     public string $pre_tax_investments = '';
     public string $fixed_costs_misc_percent = '15';
+    public bool $includeDefaults = true;
 
     public function createPlan(): void
     {
@@ -30,6 +32,21 @@ new class extends Component {
             'pre_tax_investments' => (int) round(((float) $validated['pre_tax_investments']) * 100),
             'fixed_costs_misc_percent' => (int) $validated['fixed_costs_misc_percent'],
         ]);
+
+        if ($this->includeDefaults) {
+            $sortOrder = 0;
+
+            foreach (SpendingPlan::DEFAULT_ITEMS as $categoryValue => $items) {
+                foreach ($items as $itemName) {
+                    $plan->items()->create([
+                        'category' => SpendingCategory::from($categoryValue),
+                        'name' => $itemName,
+                        'amount' => 0,
+                        'sort_order' => $sortOrder++,
+                    ]);
+                }
+            }
+        }
 
         $this->redirect(route('spending-plans.edit', $plan), navigate: true);
     }
@@ -97,6 +114,11 @@ new class extends Component {
             >
                 <x-slot:suffix>%</x-slot:suffix>
             </flux:input>
+
+            <flux:field variant="inline">
+                <flux:checkbox wire:model="includeDefaults" />
+                <flux:label>{{ __('Include common expenses') }}</flux:label>
+            </flux:field>
 
             <div class="flex items-center gap-4">
                 <flux:button variant="primary" type="submit">

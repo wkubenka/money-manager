@@ -17,6 +17,29 @@ class SpendingPlan extends Model
 
     public const MAX_ITEMS_PER_CATEGORY = 15;
 
+    /** @var array<string, list<string>> */
+    public const DEFAULT_ITEMS = [
+        'fixed_costs' => [
+            'Rent / Mortgage',
+            'Utilities (gas, water, electric, internet, cable, etc.)',
+            'Insurance (medical, auto, home / renters, etc.)',
+            'Car Payment / Transportation',
+            'Debt Payments',
+            'Groceries',
+            'Clothes',
+            'Phone',
+            'Subscriptions (Netflix, gym membership, meal services, Amazon, etc.)',
+        ],
+        'investments' => [
+            'Post-Tax Retirement Savings',
+            'Stocks',
+        ],
+        'savings' => [
+            'Vacations',
+            'Gifts',
+        ],
+    ];
+
     protected $fillable = [
         'user_id',
         'name',

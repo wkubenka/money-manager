@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\SpendingCategory;
 use App\Models\SpendingPlan;
+use App\Models\SpendingPlanItem;
 use App\Models\User;
 use Livewire\Livewire;
 
@@ -156,4 +158,55 @@ test('user cannot create more than max plans', function () {
         ->assertStatus(422);
 
     expect(SpendingPlan::where('user_id', $user->id)->count())->toBe(SpendingPlan::MAX_PER_USER);
+});
+
+test('creating with defaults populates default items', function () {
+    $user = User::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test('pages::spending-plans.create')
+        ->set('name', 'My Plan')
+        ->set('monthly_income', '5000.00')
+        ->set('includeDefaults', true)
+        ->call('createPlan')
+        ->assertHasNoErrors();
+
+    $plan = SpendingPlan::first();
+    $expectedCount = collect(SpendingPlan::DEFAULT_ITEMS)->flatten()->count();
+
+    expect($plan->items)->toHaveCount($expectedCount);
+
+    // Spot-check items exist with correct categories
+    expect(SpendingPlanItem::where('spending_plan_id', $plan->id)
+        ->where('name', 'Rent / Mortgage')
+        ->where('category', SpendingCategory::FixedCosts)
+        ->exists())->toBeTrue();
+
+    expect(SpendingPlanItem::where('spending_plan_id', $plan->id)
+        ->where('name', 'Post-Tax Retirement Savings')
+        ->where('category', SpendingCategory::Investments)
+        ->exists())->toBeTrue();
+
+    expect(SpendingPlanItem::where('spending_plan_id', $plan->id)
+        ->where('name', 'Vacations')
+        ->where('category', SpendingCategory::Savings)
+        ->exists())->toBeTrue();
+
+    // All items should have zero amount
+    expect($plan->items->every(fn ($item) => $item->amount === 0))->toBeTrue();
+});
+
+test('creating without defaults produces zero items', function () {
+    $user = User::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test('pages::spending-plans.create')
+        ->set('name', 'My Plan')
+        ->set('monthly_income', '5000.00')
+        ->set('includeDefaults', false)
+        ->call('createPlan')
+        ->assertHasNoErrors();
+
+    $plan = SpendingPlan::first();
+    expect($plan->items)->toHaveCount(0);
 });
