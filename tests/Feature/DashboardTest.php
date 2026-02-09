@@ -3,6 +3,7 @@
 use App\Enums\AccountCategory;
 use App\Enums\SpendingCategory;
 use App\Models\NetWorthAccount;
+use App\Models\RichLifeVision;
 use App\Models\SpendingPlan;
 use App\Models\SpendingPlanItem;
 use App\Models\User;
@@ -274,4 +275,160 @@ test('dashboard shows n/a for fixed costs when zero', function () {
         ->assertSee('Months of total spending')
         ->assertSee('2') // $10,000 / $5,000 = 2
         ->assertSee('N/A'); // no fixed costs items
+});
+
+// Rich Life Vision tests
+
+test('user can add a vision item', function () {
+    $user = User::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->set('newVisionText', 'Travel the world')
+        ->call('addVision')
+        ->assertHasNoErrors()
+        ->assertSet('newVisionText', '');
+
+    $vision = RichLifeVision::where('user_id', $user->id)->first();
+    expect($vision)->not->toBeNull();
+    expect($vision->text)->toBe('Travel the world');
+});
+
+test('vision text is required', function () {
+    $user = User::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->set('newVisionText', '')
+        ->call('addVision')
+        ->assertHasErrors(['newVisionText' => 'required']);
+});
+
+test('user can edit a vision item', function () {
+    $user = User::factory()->create();
+    $vision = RichLifeVision::factory()->create([
+        'user_id' => $user->id,
+        'text' => 'Old vision',
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->call('editVision', $vision->id)
+        ->set('editingVisionText', 'Updated vision')
+        ->call('updateVision')
+        ->assertHasNoErrors();
+
+    expect($vision->refresh()->text)->toBe('Updated vision');
+});
+
+test('user can remove a vision item', function () {
+    $user = User::factory()->create();
+    $vision = RichLifeVision::factory()->create([
+        'user_id' => $user->id,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->call('removeVision', $vision->id)
+        ->assertHasNoErrors();
+
+    expect(RichLifeVision::find($vision->id))->toBeNull();
+});
+
+test('user cannot edit another users vision', function () {
+    $user = User::factory()->create();
+    $otherUser = User::factory()->create();
+    $vision = RichLifeVision::factory()->create([
+        'user_id' => $otherUser->id,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->call('editVision', $vision->id)
+        ->assertForbidden();
+});
+
+test('user cannot remove another users vision', function () {
+    $user = User::factory()->create();
+    $otherUser = User::factory()->create();
+    $vision = RichLifeVision::factory()->create([
+        'user_id' => $otherUser->id,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->call('removeVision', $vision->id)
+        ->assertForbidden();
+
+    expect(RichLifeVision::find($vision->id))->not->toBeNull();
+});
+
+test('user can reorder vision items', function () {
+    $user = User::factory()->create();
+    $a = RichLifeVision::factory()->create(['user_id' => $user->id, 'text' => 'First', 'sort_order' => 0]);
+    $b = RichLifeVision::factory()->create(['user_id' => $user->id, 'text' => 'Second', 'sort_order' => 1]);
+    $c = RichLifeVision::factory()->create(['user_id' => $user->id, 'text' => 'Third', 'sort_order' => 2]);
+
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->call('reorderVisions', [$c->id, $a->id, $b->id])
+        ->assertHasNoErrors();
+
+    expect($c->refresh()->sort_order)->toBe(0);
+    expect($a->refresh()->sort_order)->toBe(1);
+    expect($b->refresh()->sort_order)->toBe(2);
+});
+
+test('user cannot reorder another users visions', function () {
+    $user = User::factory()->create();
+    $otherUser = User::factory()->create();
+    $vision = RichLifeVision::factory()->create(['user_id' => $otherUser->id, 'sort_order' => 0]);
+
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->call('reorderVisions', [$vision->id])
+        ->assertForbidden();
+});
+
+test('dashboard displays vision items', function () {
+    $user = User::factory()->create();
+    RichLifeVision::factory()->create([
+        'user_id' => $user->id,
+        'text' => 'Own a beach house',
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->assertSee('Rich Life Vision')
+        ->assertSee('Own a beach house');
+});
+
+test('vision list is locked by default and hides editing controls', function () {
+    $user = User::factory()->create();
+    RichLifeVision::factory()->create([
+        'user_id' => $user->id,
+        'text' => 'My vision',
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->assertSet('visionEditing', false)
+        ->assertSee('My vision')
+        ->assertDontSeeHtml('wire:click="addVision"')
+        ->assertDontSeeHtml('wire:click="editVision');
+});
+
+test('unlocking vision list shows editing controls', function () {
+    $user = User::factory()->create();
+    RichLifeVision::factory()->create([
+        'user_id' => $user->id,
+        'text' => 'My vision',
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->toggle('visionEditing')
+        ->assertSet('visionEditing', true)
+        ->assertSeeHtml('wire:click="addVision"')
+        ->assertSeeHtml('wire:click="editVision');
 });

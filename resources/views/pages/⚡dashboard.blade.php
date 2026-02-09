@@ -3,11 +3,90 @@
 use App\Enums\AccountCategory;
 use App\Enums\SpendingCategory;
 use App\Models\NetWorthAccount;
+use App\Models\RichLifeVision;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
 new class extends Component {
+    public bool $visionEditing = false;
+    public string $newVisionText = '';
+    public ?int $editingVisionId = null;
+    public string $editingVisionText = '';
+
+    #[Computed]
+    public function visions()
+    {
+        return Auth::user()->richLifeVisions()->orderBy('sort_order')->orderBy('id')->get();
+    }
+
+    public function addVision(): void
+    {
+        $this->validate([
+            'newVisionText' => ['required', 'string', 'max:255'],
+        ]);
+
+        $nextOrder = Auth::user()->richLifeVisions()->max('sort_order') + 1;
+
+        Auth::user()->richLifeVisions()->create([
+            'text' => $this->newVisionText,
+            'sort_order' => $nextOrder,
+        ]);
+
+        $this->newVisionText = '';
+        unset($this->visions);
+    }
+
+    public function editVision(int $visionId): void
+    {
+        $vision = RichLifeVision::findOrFail($visionId);
+        abort_unless($vision->user_id === Auth::id(), 403);
+
+        $this->editingVisionId = $visionId;
+        $this->editingVisionText = $vision->text;
+    }
+
+    public function updateVision(): void
+    {
+        $this->validate([
+            'editingVisionText' => ['required', 'string', 'max:255'],
+        ]);
+
+        $vision = RichLifeVision::findOrFail($this->editingVisionId);
+        abort_unless($vision->user_id === Auth::id(), 403);
+
+        $vision->update(['text' => $this->editingVisionText]);
+
+        $this->cancelEditVision();
+        unset($this->visions);
+    }
+
+    public function cancelEditVision(): void
+    {
+        $this->editingVisionId = null;
+        $this->editingVisionText = '';
+    }
+
+    public function removeVision(int $visionId): void
+    {
+        $vision = RichLifeVision::findOrFail($visionId);
+        abort_unless($vision->user_id === Auth::id(), 403);
+
+        $vision->delete();
+        unset($this->visions);
+    }
+
+    public function reorderVisions(array $orderedIds): void
+    {
+        foreach ($orderedIds as $index => $id) {
+            $vision = RichLifeVision::findOrFail($id);
+            abort_unless($vision->user_id === Auth::id(), 403);
+            $vision->update(['sort_order' => $index]);
+        }
+
+        unset($this->visions);
+    }
+
     #[Computed]
     public function accounts()
     {
@@ -52,6 +131,67 @@ new class extends Component {
 <div class="grid w-full gap-6 lg:grid-cols-2">
     {{-- Left column: block on desktop, flattened on mobile via contents --}}
     <div class="contents lg:block lg:space-y-6">
+        {{-- Rich Life Vision --}}
+        <div class="order-0 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <flux:heading>{{ __('Rich Life Vision') }}</flux:heading>
+                <flux:button
+                    size="sm"
+                    variant="subtle"
+                    :icon="$visionEditing ? 'lock-open' : 'lock-closed'"
+                    wire:click="$toggle('visionEditing')"
+                    aria-label="{{ $visionEditing ? __('Lock list') : __('Unlock list') }}"
+                />
+            </div>
+
+            @if ($this->visions->isNotEmpty())
+                <ul class="space-y-1 {{ $visionEditing ? 'mb-4' : '' }}" data-sortable-visions>
+                    @foreach ($this->visions as $vision)
+                        <li class="flex items-center gap-2 py-1.5 group" data-vision-id="{{ $vision->id }}" wire:key="vision-{{ $vision->id }}">
+                            @if ($visionEditing && $editingVisionId === $vision->id)
+                                <div class="flex-1 flex items-center gap-2">
+                                    <flux:input wire:model="editingVisionText" size="sm" wire:keydown.enter="updateVision" />
+                                    <flux:button size="xs" variant="primary" wire:click="updateVision">{{ __('Save') }}</flux:button>
+                                    <flux:button size="xs" variant="ghost" wire:click="cancelEditVision">{{ __('Cancel') }}</flux:button>
+                                </div>
+                            @elseif ($visionEditing)
+                                <div class="drag-handle cursor-grab active:cursor-grabbing text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 touch-none">
+                                    <flux:icon.bars-3 variant="micro" />
+                                </div>
+                                <span class="flex-1 text-sm text-zinc-700 dark:text-zinc-300">{{ $vision->text }}</span>
+                                <div class="flex items-center gap-0.5">
+                                    <flux:button size="xs" variant="ghost" icon="pencil" wire:click="editVision({{ $vision->id }})" aria-label="{{ __('Edit vision') }}" />
+                                    <flux:button size="xs" variant="ghost" icon="trash" wire:click="removeVision({{ $vision->id }})" wire:confirm="{{ __('Remove this item?') }}" aria-label="{{ __('Remove vision') }}" />
+                                </div>
+                            @else
+                                <span class="text-sm text-zinc-700 dark:text-zinc-300">{{ $vision->text }}</span>
+                            @endif
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+
+            @if ($visionEditing)
+                <div class="flex items-center gap-2 {{ $this->visions->isNotEmpty() ? 'pt-3 border-t border-zinc-100 dark:border-zinc-700' : '' }}">
+                    <div class="flex-1">
+                        <flux:input
+                            wire:model="newVisionText"
+                            size="sm"
+                            :placeholder="__('Add a vision...')"
+                            wire:keydown.enter="addVision"
+                        />
+                    </div>
+                    <flux:button
+                        size="sm"
+                        variant="ghost"
+                        icon="plus"
+                        wire:click="addVision"
+                        aria-label="{{ __('Add vision') }}"
+                    />
+                </div>
+            @endif
+        </div>
+
         {{-- Net Worth --}}
         <div class="order-1 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
             <div class="flex items-center justify-between mb-4">
@@ -223,3 +363,33 @@ new class extends Component {
         </div>
     @endif
 </div>
+
+@assets
+<script src="/vendor/sortable.min.js"></script>
+@endassets
+
+@script
+<script>
+    function initVisionSortable() {
+        const el = $wire.$el.querySelector('[data-sortable-visions]');
+        if (!el || el._sortable) return;
+        el._sortable = Sortable.create(el, {
+            handle: '.drag-handle',
+            animation: 150,
+            ghostClass: 'opacity-30',
+            onEnd() {
+                $wire.reorderVisions(
+                    Array.from(el.children)
+                        .filter(child => child.dataset.visionId)
+                        .map(child => child.dataset.visionId)
+                );
+            }
+        });
+    }
+
+    initVisionSortable();
+
+    new MutationObserver(() => initVisionSortable())
+        .observe($wire.$el, { childList: true, subtree: true });
+</script>
+@endscript
