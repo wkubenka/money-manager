@@ -248,6 +248,32 @@ test('dashboard shows months of fixed costs using all savings', function () {
         ->assertSee('8');
 });
 
+test('dashboard shows weeks when emergency fund covers less than 2 months', function () {
+    $user = User::factory()->create();
+    $ef = $user->emergencyFund();
+    $ef->update(['balance' => 300000]); // $3,000
+
+    $plan = SpendingPlan::factory()->current()->create([
+        'user_id' => $user->id,
+        'monthly_income' => 500000, // $5,000
+        'fixed_costs_misc_percent' => 0,
+    ]);
+    SpendingPlanItem::factory()->create([
+        'spending_plan_id' => $plan->id,
+        'category' => SpendingCategory::FixedCosts,
+        'amount' => 250000, // $2,500
+    ]);
+
+    // $3,000 / $5,000 = 0.6 months total spending → 0.6 * 52/12 = 2.6 weeks
+    // $3,000 / $2,500 = 1.2 months fixed costs → 1.2 * 52/12 = 5.2 weeks
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->assertSee('Weeks of total spending')
+        ->assertSee('2.6')
+        ->assertSee('Weeks of fixed costs')
+        ->assertSee('5.2');
+});
+
 test('dashboard shows prompt when no current plan for emergency fund', function () {
     $user = User::factory()->create();
     $ef = $user->emergencyFund();

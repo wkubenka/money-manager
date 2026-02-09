@@ -250,31 +250,30 @@ new class extends Component {
                 </div>
 
                 @if ($plan)
+                    @php
+                        $efMetrics = [
+                            ['months' => $monthsTotal, 'label' => 'total spending'],
+                            ['months' => $monthsFixed, 'label' => 'fixed costs'],
+                            ['months' => $monthsTotalAllSavings, 'label' => 'total spending (all savings)'],
+                            ['months' => $monthsFixedAllSavings, 'label' => 'fixed costs (all savings)'],
+                        ];
+                    @endphp
                     <div class="space-y-2">
-                        <div class="flex items-center justify-between">
-                            <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Months of total spending') }}</span>
-                            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                                {{ $monthsTotal !== null ? $monthsTotal : __('N/A') }}
-                            </span>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Months of fixed costs') }}</span>
-                            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                                {{ $monthsFixed !== null ? $monthsFixed : __('N/A') }}
-                            </span>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Months of total spending (all savings)') }}</span>
-                            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                                {{ $monthsTotalAllSavings !== null ? $monthsTotalAllSavings : __('N/A') }}
-                            </span>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Months of fixed costs (all savings)') }}</span>
-                            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                                {{ $monthsFixedAllSavings !== null ? $monthsFixedAllSavings : __('N/A') }}
-                            </span>
-                        </div>
+                        @foreach ($efMetrics as $metric)
+                            <div class="flex items-center justify-between">
+                                @if ($metric['months'] !== null && $metric['months'] < 2)
+                                    <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Weeks of ' . $metric['label']) }}</span>
+                                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                                        {{ round($metric['months'] * (52 / 12), 1) }}
+                                    </span>
+                                @else
+                                    <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Months of ' . $metric['label']) }}</span>
+                                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                                        {{ $metric['months'] !== null ? $metric['months'] : __('N/A') }}
+                                    </span>
+                                @endif
+                            </div>
+                        @endforeach
                     </div>
                 @else
                     <flux:text class="text-sm text-zinc-500 dark:text-zinc-400">
