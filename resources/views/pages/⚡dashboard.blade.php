@@ -13,6 +13,20 @@ new class extends Component {
     public string $newVisionText = '';
     public ?int $editingVisionId = null;
     public string $editingVisionText = '';
+    public ?string $dateOfBirth = null;
+    public ?int $retirementAge = null;
+    public ?float $expectedReturn = null;
+    public ?float $withdrawalRate = null;
+    public bool $retirementEditing = false;
+
+    public function mount(): void
+    {
+        $user = Auth::user();
+        $this->dateOfBirth = $user->date_of_birth?->format('Y-m-d');
+        $this->retirementAge = $user->retirement_age;
+        $this->expectedReturn = (float) $user->expected_return;
+        $this->withdrawalRate = (float) $user->withdrawal_rate;
+    }
 
     #[Computed]
     public function visions()
@@ -125,6 +139,23 @@ new class extends Component {
     public function emergencyFund(): ?NetWorthAccount
     {
         return Auth::user()->emergencyFund();
+    }
+
+    public function saveRetirementSettings(): void
+    {
+        $this->validate([
+            'dateOfBirth' => ['nullable', 'date', 'before:today'],
+            'retirementAge' => ['nullable', 'integer', 'min:1', 'max:120'],
+            'expectedReturn' => ['nullable', 'numeric', 'min:0', 'max:30'],
+            'withdrawalRate' => ['nullable', 'numeric', 'min:0', 'max:30'],
+        ]);
+
+        Auth::user()->update([
+            'date_of_birth' => $this->dateOfBirth,
+            'retirement_age' => $this->retirementAge,
+            'expected_return' => $this->expectedReturn,
+            'withdrawal_rate' => $this->withdrawalRate,
+        ]);
     }
 }; ?>
 
@@ -284,83 +315,174 @@ new class extends Component {
         @endif
     </div>
 
-    {{-- Current Spending Plan --}}
-    @if ($this->currentPlan)
-        @php $plan = $this->currentPlan; @endphp
-        <div class="order-2 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
-            <div class="flex items-center justify-between mb-5">
-                <div>
-                    <flux:subheading>{{ __('Current Spending Plan') }}</flux:subheading>
-                    <div class="mt-1 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
-                        ${{ number_format($plan->monthly_income / 100) }}/mo
+    {{-- Right column --}}
+    <div class="contents lg:block lg:space-y-6">
+        {{-- Current Spending Plan --}}
+        @if ($this->currentPlan)
+            @php $plan = $this->currentPlan; @endphp
+            <div class="order-2 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
+                <div class="flex items-center justify-between mb-5">
+                    <div>
+                        <flux:subheading>{{ __('Current Spending Plan') }}</flux:subheading>
+                        <div class="mt-1 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+                            ${{ number_format($plan->monthly_income / 100) }}/mo
+                        </div>
                     </div>
+                    <flux:button variant="subtle" size="sm" icon="pencil-square" :href="route('spending-plans.edit', $plan)" wire:navigate aria-label="{{ __('Edit plan') }}" />
                 </div>
-                <flux:button variant="subtle" size="sm" icon="pencil-square" :href="route('spending-plans.edit', $plan)" wire:navigate aria-label="{{ __('Edit plan') }}" />
+
+                <div class="space-y-5">
+                    @foreach (SpendingCategory::cases() as $category)
+                        @php
+                            $total = $plan->categoryTotal($category);
+                            $percent = $plan->categoryPercent($category);
+                            [$min, $max] = $category->idealRange();
+                            $withinIdeal = $category->isWithinIdeal($percent);
+                            $items = $category !== SpendingCategory::GuiltFree
+                                ? $plan->items->where('category', $category)
+                                : collect();
+                        @endphp
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <div class="flex items-center gap-2">
+                                    <div class="size-3 rounded-full {{ $category->color() }}"></div>
+                                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $category->label() }}</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    @if ($category !== SpendingCategory::GuiltFree)
+                                        <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ number_format($total / 100) }}</span>
+                                    @else
+                                        <span class="text-sm font-medium {{ $total < 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-900 dark:text-zinc-100' }}">
+                                            {{ $total < 0 ? '-' : '' }}${{ number_format(abs($total) / 100) }}
+                                        </span>
+                                    @endif
+                                    <flux:badge size="sm" color="{{ $percent < 0 ? 'red' : ($withinIdeal ? 'green' : 'amber') }}" class="w-10 justify-center">
+                                        {{ round($percent) }}%
+                                    </flux:badge>
+                                </div>
+                            </div>
+
+                            <div class="mt-1 h-2 rounded-full bg-zinc-100 dark:bg-zinc-700 overflow-hidden">
+                                <div class="h-full rounded-full {{ $category->color() }}" style="width: {{ min(max($percent, 0), 100) }}%"></div>
+                            </div>
+
+                            @if ($items->isNotEmpty() || ($category === SpendingCategory::FixedCosts && $plan->fixed_costs_misc_percent > 0))
+                                <div class="mt-2 space-y-0.5">
+                                    @foreach ($items as $item)
+                                        <div class="flex items-center justify-between text-sm">
+                                            <span class="text-zinc-500 dark:text-zinc-400">{{ $item->name }}</span>
+                                            <span class="text-zinc-600 dark:text-zinc-300">${{ number_format($item->amount / 100) }}</span>
+                                        </div>
+                                    @endforeach
+                                    @if ($category === SpendingCategory::FixedCosts && $plan->fixed_costs_misc_percent > 0)
+                                        <div class="flex items-center justify-between text-sm italic text-zinc-500 dark:text-zinc-400">
+                                            <span>{{ __('Miscellaneous') }} ({{ $plan->fixed_costs_misc_percent }}%)</span>
+                                            <span class="text-zinc-600 dark:text-zinc-300">${{ number_format($plan->fixedCostsMiscellaneous() / 100) }}</span>
+                                        </div>
+                                    @endif
+                                </div>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @else
+            <div class="order-2 rounded-xl border border-dashed border-zinc-300 dark:border-zinc-600 p-6 text-center">
+                <flux:subheading class="mb-2">{{ __('No current spending plan') }}</flux:subheading>
+                <flux:button variant="subtle" size="sm" :href="route('spending-plans.dashboard')" wire:navigate>
+                    {{ __('Choose a Plan') }}
+                </flux:button>
+            </div>
+        @endif
+
+        {{-- Investments at Retirement --}}
+        <div class="order-4 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
+            @php
+                $investmentBalance = $this->netWorthSummary['categories'][AccountCategory::Investments->value];
+                $plan = $this->currentPlan;
+                $monthlyContribution = $plan
+                    ? $plan->categoryTotal(SpendingCategory::Investments) + ($plan->pre_tax_investments ?? 0)
+                    : 0;
+                $currentAge = $dateOfBirth ? \Carbon\Carbon::parse($dateOfBirth)->age : null;
+                $canProject = $currentAge && $retirementAge && $retirementAge > $currentAge;
+                $projectedCents = null;
+                $yearsToRetirement = null;
+
+                if ($canProject) {
+                    $yearsToRetirement = $retirementAge - $currentAge;
+                    $monthsToRetirement = $yearsToRetirement * 12;
+                    $monthlyRate = ($expectedReturn / 100) / 12;
+
+                    if ($monthlyRate > 0) {
+                        $growthFactor = pow(1 + $monthlyRate, $monthsToRetirement);
+                        $projectedCents = (int) round(
+                            ($investmentBalance * $growthFactor)
+                            + ($monthlyContribution * ($growthFactor - 1) / $monthlyRate)
+                        );
+                    } else {
+                        $projectedCents = $investmentBalance + ($monthlyContribution * $monthsToRetirement);
+                    }
+                }
+            @endphp
+
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <flux:subheading>{{ __('Est. Investments at Retirement') }}</flux:subheading>
+                    @if ($canProject)
+                        <div class="mt-1 text-3xl font-bold text-zinc-900 dark:text-zinc-100">
+                            ${{ number_format($projectedCents / 100) }}
+                        </div>
+                    @endif
+                </div>
+                @if ($dateOfBirth)
+                    <flux:button
+                        size="sm"
+                        variant="subtle"
+                        icon="cog-6-tooth"
+                        wire:click="$toggle('retirementEditing')"
+                        aria-label="{{ __('Edit retirement settings') }}"
+                    />
+                @endif
             </div>
 
-            <div class="space-y-5">
-                @foreach (SpendingCategory::cases() as $category)
-                    @php
-                        $total = $plan->categoryTotal($category);
-                        $percent = $plan->categoryPercent($category);
-                        [$min, $max] = $category->idealRange();
-                        $withinIdeal = $category->isWithinIdeal($percent);
-                        $items = $category !== SpendingCategory::GuiltFree
-                            ? $plan->items->where('category', $category)
-                            : collect();
-                    @endphp
-                    <div>
-                        <div class="flex items-center justify-between mb-1">
-                            <div class="flex items-center gap-2">
-                                <div class="size-3 rounded-full {{ $category->color() }}"></div>
-                                <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $category->label() }}</span>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                @if ($category !== SpendingCategory::GuiltFree)
-                                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ number_format($total / 100) }}</span>
-                                @else
-                                    <span class="text-sm font-medium {{ $total < 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-900 dark:text-zinc-100' }}">
-                                        {{ $total < 0 ? '-' : '' }}${{ number_format(abs($total) / 100) }}
-                                    </span>
-                                @endif
-                                <flux:badge size="sm" color="{{ $percent < 0 ? 'red' : ($withinIdeal ? 'green' : 'amber') }}" class="w-10 justify-center">
-                                    {{ round($percent) }}%
-                                </flux:badge>
-                            </div>
+            <div class="space-y-3">
+                @if ($retirementEditing || ! $dateOfBirth)
+                    <div class="space-y-3">
+                        <flux:input type="date" size="sm" wire:model="dateOfBirth" wire:change="saveRetirementSettings" max="{{ now()->format('Y-m-d') }}" label="{{ __('Birthday') }}" />
+                        <div class="grid grid-cols-3 gap-3">
+                            <flux:input type="number" size="sm" wire:model="retirementAge" wire:change="saveRetirementSettings" min="1" max="120" label="{{ __('Retire Age') }}" />
+                            <flux:input type="number" size="sm" wire:model="expectedReturn" wire:change="saveRetirementSettings" min="0" max="30" step="0.1" label="{{ __('Return %') }}" />
+                            <flux:input type="number" size="sm" wire:model="withdrawalRate" wire:change="saveRetirementSettings" min="0" max="30" step="0.1" label="{{ __('Withdrawal %') }}" />
                         </div>
+                    </div>
+                @endif
 
-                        <div class="mt-1 h-2 rounded-full bg-zinc-100 dark:bg-zinc-700 overflow-hidden">
-                            <div class="h-full rounded-full {{ $category->color() }}" style="width: {{ min(max($percent, 0), 100) }}%"></div>
+                @if ($canProject)
+                    <div class="space-y-2 pt-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Current investments') }}</span>
+                            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ number_format($investmentBalance / 100) }}</span>
                         </div>
-
-                        @if ($items->isNotEmpty() || ($category === SpendingCategory::FixedCosts && $plan->fixed_costs_misc_percent > 0))
-                            <div class="mt-2 space-y-0.5">
-                                @foreach ($items as $item)
-                                    <div class="flex items-center justify-between text-sm">
-                                        <span class="text-zinc-500 dark:text-zinc-400">{{ $item->name }}</span>
-                                        <span class="text-zinc-600 dark:text-zinc-300">${{ number_format($item->amount / 100) }}</span>
-                                    </div>
-                                @endforeach
-                                @if ($category === SpendingCategory::FixedCosts && $plan->fixed_costs_misc_percent > 0)
-                                    <div class="flex items-center justify-between text-sm italic text-zinc-500 dark:text-zinc-400">
-                                        <span>{{ __('Miscellaneous') }} ({{ $plan->fixed_costs_misc_percent }}%)</span>
-                                        <span class="text-zinc-600 dark:text-zinc-300">${{ number_format($plan->fixedCostsMiscellaneous() / 100) }}</span>
-                                    </div>
-                                @endif
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Monthly contributions') }}</span>
+                            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ number_format($monthlyContribution / 100) }}</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Years until retirement') }}</span>
+                            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $yearsToRetirement }}</span>
+                        </div>
+                        @if ($withdrawalRate > 0)
+                            @php $monthlyWithdrawal = (int) round($projectedCents * ($withdrawalRate / 100) / 12); @endphp
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Safe monthly withdrawal') }}</span>
+                                <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ number_format($monthlyWithdrawal / 100) }}</span>
                             </div>
                         @endif
                     </div>
-                @endforeach
+                @endif
             </div>
         </div>
-    @else
-        <div class="order-2 rounded-xl border border-dashed border-zinc-300 dark:border-zinc-600 p-6 text-center">
-            <flux:subheading class="mb-2">{{ __('No current spending plan') }}</flux:subheading>
-            <flux:button variant="subtle" size="sm" :href="route('spending-plans.dashboard')" wire:navigate>
-                {{ __('Choose a Plan') }}
-            </flux:button>
-        </div>
-    @endif
+    </div>
 </div>
 
 @assets

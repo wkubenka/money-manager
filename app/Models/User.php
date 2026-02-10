@@ -23,6 +23,10 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'date_of_birth',
+        'retirement_age',
+        'expected_return',
+        'withdrawal_rate',
     ];
 
     /**
@@ -45,6 +49,10 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'date_of_birth' => 'date',
+            'retirement_age' => 'integer',
+            'expected_return' => 'decimal:1',
+            'withdrawal_rate' => 'decimal:1',
         ];
     }
 
@@ -71,6 +79,11 @@ class User extends Authenticatable
     public function emergencyFund(): ?NetWorthAccount
     {
         return $this->netWorthAccounts()->where('is_emergency_fund', true)->first();
+    }
+
+    public function age(): ?int
+    {
+        return $this->date_of_birth?->age;
     }
 
     /**

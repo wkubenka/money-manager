@@ -476,3 +476,110 @@ test('unlocking vision list shows editing controls', function () {
         ->assertSeeHtml('wire:click="addVision"')
         ->assertSeeHtml('wire:click="editVision');
 });
+
+// Retirement Projection tests
+
+test('dashboard shows retirement projection with known values', function () {
+    $user = User::factory()->create([
+        'date_of_birth' => now()->subYears(30)->format('Y-m-d'),
+        'retirement_age' => 65,
+        'expected_return' => 7.0,
+        'withdrawal_rate' => 4.0,
+    ]);
+
+    NetWorthAccount::factory()->create([
+        'user_id' => $user->id,
+        'category' => AccountCategory::Investments,
+        'balance' => 5000000, // $50,000
+    ]);
+
+    $plan = SpendingPlan::factory()->current()->create([
+        'user_id' => $user->id,
+        'monthly_income' => 500000,
+        'pre_tax_investments' => 50000, // $500/mo pre-tax
+    ]);
+    SpendingPlanItem::factory()->create([
+        'spending_plan_id' => $plan->id,
+        'category' => SpendingCategory::Investments,
+        'amount' => 50000, // $500/mo post-tax
+    ]);
+
+    // PV = 5,000,000 cents, PMT = 100,000 cents/mo, r = 0.07/12, n = 35*12 = 420 months
+    // FV ≈ 237,636,219 cents → $2,376,362
+
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->assertSee('Est. Investments at Retirement')
+        ->assertSee('$2,376,362')
+        ->assertSee('Current investments')
+        ->assertSee('$50,000')
+        ->assertSee('Monthly contributions')
+        ->assertSee('$1,000')
+        ->assertSee('Years until retirement')
+        ->assertSeeInOrder(['Years until retirement', '35'])
+        ->assertSee('Safe monthly withdrawal')
+        ->assertSee('$7,921'); // $2,376,362 * 4% / 12 = $7,921
+});
+
+test('dashboard shows retirement card without projection when birthday not set', function () {
+    $user = User::factory()->create([
+        'date_of_birth' => null,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->assertSee('Investments at Retirement')
+        ->assertSee('Birthday')
+        ->assertDontSee('Years until retirement');
+});
+
+test('user can save retirement settings from dashboard', function () {
+    $user = User::factory()->create([
+        'date_of_birth' => null,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->set('dateOfBirth', '1998-06-15')
+        ->set('retirementAge', 60)
+        ->set('expectedReturn', 8.0)
+        ->set('withdrawalRate', 3.5)
+        ->call('saveRetirementSettings')
+        ->assertHasNoErrors();
+
+    $user->refresh();
+    expect($user->date_of_birth->format('Y-m-d'))->toBe('1998-06-15');
+    expect($user->retirement_age)->toBe(60);
+    expect((float) $user->expected_return)->toBe(8.0);
+    expect((float) $user->withdrawal_rate)->toBe(3.5);
+});
+
+test('retirement projection includes pre-tax investments', function () {
+    $user = User::factory()->create([
+        'date_of_birth' => now()->subYears(30)->format('Y-m-d'),
+        'retirement_age' => 65,
+        'expected_return' => 0.0, // 0% return for simple math
+    ]);
+
+    NetWorthAccount::factory()->create([
+        'user_id' => $user->id,
+        'category' => AccountCategory::Investments,
+        'balance' => 0,
+    ]);
+
+    $plan = SpendingPlan::factory()->current()->create([
+        'user_id' => $user->id,
+        'monthly_income' => 500000,
+        'pre_tax_investments' => 100000, // $1,000/mo pre-tax
+    ]);
+    SpendingPlanItem::factory()->create([
+        'spending_plan_id' => $plan->id,
+        'category' => SpendingCategory::Investments,
+        'amount' => 50000, // $500/mo post-tax
+    ]);
+
+    // 0% return: FV = 0 + $1,500/mo * 420 months = $630,000
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->assertSee('$630,000');
+});
