@@ -327,6 +327,11 @@ new class extends Component {
                         <div class="mt-1 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
                             ${{ number_format($plan->monthly_income / 100) }}/mo
                         </div>
+                        @if ($plan->gross_monthly_income)
+                            <div class="text-sm text-zinc-500 dark:text-zinc-400">
+                                ${{ number_format($plan->gross_monthly_income * 12 / 100) }}/yr {{ __('gross') }}
+                            </div>
+                        @endif
                     </div>
                     <flux:button variant="subtle" size="sm" icon="pencil-square" :href="route('spending-plans.edit', $plan)" wire:navigate aria-label="{{ __('Edit plan') }}" />
                 </div>
