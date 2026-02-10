@@ -73,6 +73,8 @@ new class extends Component {
         $this->newAccountNames[$category] = '';
         $this->newAccountBalances[$category] = '';
         unset($this->accounts, $this->netWorth);
+
+        $this->js("document.getElementById('new-account-name-{$category}')?.focus()");
     }
 
     public function editAccount(int $accountId): void
@@ -189,9 +191,11 @@ new class extends Component {
                                     <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ number_format($account->balance / 100) }}</span>
                                     <div class="flex items-center gap-0.5">
                                         <flux:button size="xs" variant="ghost" icon="pencil" wire:click="editAccount({{ $account->id }})" aria-label="{{ __('Edit account') }}" />
-                                        @unless ($account->is_emergency_fund)
+                                        @if ($account->is_emergency_fund)
+                                            <div class="size-8"></div>
+                                        @else
                                             <flux:button size="xs" variant="ghost" icon="trash" wire:click="removeAccount({{ $account->id }})" wire:confirm="{{ __('Remove this account?') }}" aria-label="{{ __('Remove account') }}" />
-                                        @endunless
+                                        @endif
                                     </div>
                                 @endif
                             </div>
@@ -203,6 +207,7 @@ new class extends Component {
                 <div class="flex items-end gap-2 pt-3 border-t border-zinc-100 dark:border-zinc-700">
                     <div class="flex-1">
                         <flux:input
+                            id="new-account-name-{{ $catKey }}"
                             wire:model="newAccountNames.{{ $catKey }}"
                             size="sm"
                             :placeholder="__('Name')"

@@ -109,6 +109,8 @@ new class extends Component {
         $this->newItemAmounts[$category] = '';
         $this->spendingPlan->unsetRelation('items');
         unset($this->plan);
+
+        $this->js("document.getElementById('new-item-name-{$category}')?.focus()");
     }
 
     public function editItem(int $itemId): void
@@ -320,6 +322,7 @@ new class extends Component {
                     <div class="flex items-end gap-2 pt-3 border-t border-zinc-100 dark:border-zinc-700">
                         <div class="flex-1">
                             <flux:input
+                                id="new-item-name-{{ $catKey }}"
                                 wire:model="newItemNames.{{ $catKey }}"
                                 size="sm"
                                 :placeholder="__('Item name')"
