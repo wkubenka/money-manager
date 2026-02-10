@@ -257,6 +257,10 @@ new class extends Component {
     </div>
 
     {{-- Line items for planned categories (Fixed Costs, Investments, Savings) --}}
+    @php
+        $gfPercent = $this->plan->categoryPercent(SpendingCategory::GuiltFree);
+        $gfHealthy = SpendingCategory::GuiltFree->isWithinIdeal($gfPercent);
+    @endphp
     <div class="space-y-6">
         @foreach ($this->plannedCategories as $category)
             @php
@@ -265,7 +269,7 @@ new class extends Component {
                 $total = $this->plan->categoryTotal($category);
                 $percent = $this->plan->categoryPercent($category);
                 [$min, $max] = $category->idealRange();
-                $withinIdeal = $category->isWithinIdeal($percent);
+                $withinIdeal = $category->isWithinIdeal($percent, $gfHealthy);
             @endphp
             <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-5">
                 <div class="flex items-center justify-between mb-4">

@@ -94,6 +94,10 @@ new class extends Component {
         </div>
     </div>
 
+    @php
+        $gfPercent = $spendingPlan->categoryPercent(SpendingCategory::GuiltFree);
+        $gfHealthy = SpendingCategory::GuiltFree->isWithinIdeal($gfPercent);
+    @endphp
     <div class="space-y-8">
         {{-- Planned categories (Fixed Costs, Investments, Savings) --}}
         @foreach ([SpendingCategory::FixedCosts, SpendingCategory::Investments, SpendingCategory::Savings] as $category)
@@ -102,7 +106,7 @@ new class extends Component {
                 $total = $spendingPlan->categoryTotal($category);
                 $percent = $spendingPlan->categoryPercent($category);
                 [$min, $max] = $category->idealRange();
-                $withinIdeal = $category->isWithinIdeal($percent);
+                $withinIdeal = $category->isWithinIdeal($percent, $gfHealthy);
             @endphp
             <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-5">
                 <div class="flex items-center justify-between mb-3">

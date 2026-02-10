@@ -101,13 +101,17 @@ new class extends Component {
                         </div>
                     </div>
 
+                    @php
+                        $gfPercent = $plan->categoryPercent(SpendingCategory::GuiltFree);
+                        $gfHealthy = SpendingCategory::GuiltFree->isWithinIdeal($gfPercent);
+                    @endphp
                     <div class="space-y-2">
                         @foreach (SpendingCategory::cases() as $category)
                             @php
                                 $percent = $plan->categoryPercent($category);
                                 $total = $plan->categoryTotal($category);
                                 [$min, $max] = $category->idealRange();
-                                $withinIdeal = $category->isWithinIdeal($percent);
+                                $withinIdeal = $category->isWithinIdeal($percent, $gfHealthy);
                             @endphp
                             <div>
                                 <div class="flex items-center justify-between text-sm">

@@ -127,3 +127,17 @@ test('is within ideal returns false when outside range', function () {
     expect(SpendingCategory::Savings->isWithinIdeal(15.0))->toBeFalse();
     expect(SpendingCategory::GuiltFree->isWithinIdeal(40.0))->toBeFalse();
 });
+
+test('investments and savings over ideal are acceptable when guilt-free is healthy', function () {
+    // Over ideal without guilt-free healthy flag — still false
+    expect(SpendingCategory::Investments->isWithinIdeal(15.0))->toBeFalse();
+    expect(SpendingCategory::Savings->isWithinIdeal(15.0))->toBeFalse();
+
+    // Over ideal with guilt-free healthy — acceptable
+    expect(SpendingCategory::Investments->isWithinIdeal(15.0, guiltFreeIsHealthy: true))->toBeTrue();
+    expect(SpendingCategory::Savings->isWithinIdeal(15.0, guiltFreeIsHealthy: true))->toBeTrue();
+
+    // Under minimum with guilt-free healthy — still not acceptable
+    expect(SpendingCategory::Investments->isWithinIdeal(5.0, guiltFreeIsHealthy: true))->toBeFalse();
+    expect(SpendingCategory::Savings->isWithinIdeal(3.0, guiltFreeIsHealthy: true))->toBeFalse();
+});

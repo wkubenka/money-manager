@@ -331,13 +331,17 @@ new class extends Component {
                     <flux:button variant="subtle" size="sm" icon="pencil-square" :href="route('spending-plans.edit', $plan)" wire:navigate aria-label="{{ __('Edit plan') }}" />
                 </div>
 
+                @php
+                    $gfPercent = $plan->categoryPercent(SpendingCategory::GuiltFree);
+                    $gfHealthy = SpendingCategory::GuiltFree->isWithinIdeal($gfPercent);
+                @endphp
                 <div class="space-y-5">
                     @foreach (SpendingCategory::cases() as $category)
                         @php
                             $total = $plan->categoryTotal($category);
                             $percent = $plan->categoryPercent($category);
                             [$min, $max] = $category->idealRange();
-                            $withinIdeal = $category->isWithinIdeal($percent);
+                            $withinIdeal = $category->isWithinIdeal($percent, $gfHealthy);
                             $items = $category !== SpendingCategory::GuiltFree
                                 ? $plan->items->where('category', $category)
                                 : collect();

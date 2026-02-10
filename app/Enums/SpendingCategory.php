@@ -53,14 +53,19 @@ enum SpendingCategory: string
     /**
      * Get whether the actual percentage is acceptable.
      * For Fixed Costs, under the max is good (lower is better).
+     * For Investments/Savings, exceeding the ideal is good when guilt-free is healthy.
      * For other categories, must be within the ideal range.
      */
-    public function isWithinIdeal(float $actualPercent): bool
+    public function isWithinIdeal(float $actualPercent, bool $guiltFreeIsHealthy = false): bool
     {
         [$min, $max] = $this->idealRange();
 
         if ($this === self::FixedCosts) {
             return $actualPercent <= $max;
+        }
+
+        if ($guiltFreeIsHealthy && ($this === self::Investments || $this === self::Savings)) {
+            return $actualPercent >= $min;
         }
 
         return $actualPercent >= $min && $actualPercent <= $max;
