@@ -420,7 +420,7 @@ new class extends Component {
                 if ($canProject) {
                     $yearsToRetirement = $retirementAge - $currentAge;
                     $monthsToRetirement = $yearsToRetirement * 12;
-                    $monthlyRate = ($expectedReturn / 100) / 12;
+                    $monthlyRate = pow(1 + $expectedReturn / 100, 1 / 12) - 1;
 
                     if ($monthlyRate > 0) {
                         $growthFactor = pow(1 + $monthlyRate, $monthsToRetirement);

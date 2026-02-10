@@ -504,13 +504,14 @@ test('dashboard shows retirement projection with known values', function () {
         'amount' => 50000, // $500/mo post-tax
     ]);
 
-    // PV = 5,000,000 cents, PMT = 100,000 cents/mo, r = 0.07/12, n = 35*12 = 420 months
-    // FV ≈ 237,636,219 cents → $2,376,362
+    // PV = 5,000,000 cents, PMT = 100,000 cents/mo
+    // monthly rate = (1.07)^(1/12) - 1, n = 35*12 = 420 months
+    // FV ≈ 224,524,270 cents → $2,245,243
 
     Livewire::actingAs($user)
         ->test('pages::dashboard')
         ->assertSee('Est. Investments at Retirement')
-        ->assertSee('$2,376,362')
+        ->assertSee('$2,245,243')
         ->assertSee('Current investments')
         ->assertSee('$50,000')
         ->assertSee('Monthly contributions')
@@ -518,7 +519,7 @@ test('dashboard shows retirement projection with known values', function () {
         ->assertSee('Years until retirement')
         ->assertSeeInOrder(['Years until retirement', '35'])
         ->assertSee('Safe monthly withdrawal')
-        ->assertSee('$7,921'); // $2,376,362 * 4% / 12 = $7,921
+        ->assertSee('$7,484'); // $2,245,243 * 4% / 12 = $7,484
 });
 
 test('dashboard shows retirement card without projection when birthday not set', function () {
