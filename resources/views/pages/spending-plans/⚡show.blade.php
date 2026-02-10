@@ -77,7 +77,7 @@ new class extends Component {
                         <span>{{ __('Gross:') }} ${{ number_format($spendingPlan->gross_monthly_income / 100) }}</span>
                     @endif
                     @if ($spendingPlan->pre_tax_investments)
-                        <span>{{ __('Pre-tax investments:') }} ${{ number_format($spendingPlan->pre_tax_investments / 100) }}</span>
+                        <span>{{ __('Investments deducted from paycheck:') }} ${{ number_format($spendingPlan->pre_tax_investments / 100) }}</span>
                     @endif
                 </div>
             @endif

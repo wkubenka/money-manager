@@ -221,7 +221,7 @@ new class extends Component {
                 </flux:input>
                 <flux:input
                     wire:model="pre_tax_investments"
-                    :label="__('Pre-Tax Investments')"
+                    :label="__('Investments Deducted From Paycheck')"
                     :description="__('401(k), HSA, and other pre-tax contributions.')"
                     type="number"
                     step="0.01"
