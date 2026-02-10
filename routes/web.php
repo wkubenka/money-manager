@@ -19,6 +19,8 @@ if (app()->environment('local')) {
     })->middleware('guest')->name('dev.login');
 }
 
+Route::view('/privacy', 'privacy')->name('privacy');
+
 Route::get('/offline', function () {
     return view('offline');
 });

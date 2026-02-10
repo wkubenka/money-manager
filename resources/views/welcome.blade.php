@@ -16,6 +16,8 @@
                 <flux:button :href="route('login')" variant="primary">{{ __('Log in') }}</flux:button>
                 <flux:button :href="route('register')" variant="filled">{{ __('Register') }}</flux:button>
             </div>
+
+            <flux:link :href="route('privacy')" class="text-sm">{{ __('Privacy Policy') }}</flux:link>
         </div>
         @fluxScripts
     </body>
