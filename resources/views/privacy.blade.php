@@ -16,6 +16,7 @@
                 <section>
                     <flux:heading size="lg" class="mb-2">{{ __('What We Collect') }}</flux:heading>
                     <p>{{ config('app.name') }} {{ __('collects only the information you provide directly: your name, email address, and the financial data you enter into the application (spending plans, account balances, etc.).') }}</p>
+                    <p class="mt-2">{{ __('We may also collect common server metrics automatically, such as your IP address, browser type, and access timestamps. This information is used for security, performance monitoring, and debugging purposes.') }}</p>
                 </section>
 
                 <section>
