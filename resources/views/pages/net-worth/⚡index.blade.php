@@ -51,6 +51,8 @@ new class extends Component {
 
     public function addAccount(string $category): void
     {
+        $this->newAccountBalances[$category] = $this->sanitizeBalance($this->newAccountBalances[$category] ?? '');
+
         $this->validate([
             "newAccountNames.{$category}" => ['required', 'string', 'max:255'],
             "newAccountBalances.{$category}" => ['required', 'numeric', 'min:0.01'],
@@ -89,6 +91,8 @@ new class extends Component {
 
     public function updateAccount(): void
     {
+        $this->editingAccountBalance = $this->sanitizeBalance($this->editingAccountBalance);
+
         $validated = $this->validate([
             'editingAccountName' => ['required', 'string', 'max:255'],
             'editingAccountBalance' => ['required', 'numeric', 'min:0.01'],
@@ -114,6 +118,11 @@ new class extends Component {
         $this->editingAccountId = null;
         $this->editingAccountName = '';
         $this->editingAccountBalance = '';
+    }
+
+    private function sanitizeBalance(string $value): string
+    {
+        return str_replace([',', '$', ' '], '', $value);
     }
 
     public function removeAccount(int $accountId): void
@@ -178,7 +187,7 @@ new class extends Component {
                                             <flux:input wire:model="editingAccountName" size="sm" wire:keydown.enter="updateAccount" />
                                         @endif
                                         <div class="flex items-center gap-2">
-                                            <flux:input wire:model="editingAccountBalance" type="number" step="0.01" min="0.01" size="sm" class="w-28" wire:keydown.enter="updateAccount">
+                                            <flux:input wire:model="editingAccountBalance" type="text" inputmode="decimal" size="sm" class="w-28" wire:keydown.enter="updateAccount">
                                                 <x-slot:prefix>$</x-slot:prefix>
                                             </flux:input>
                                             <flux:button size="xs" variant="primary" wire:click="updateAccount">{{ __('Save') }}</flux:button>
@@ -217,9 +226,8 @@ new class extends Component {
                     <div class="w-32">
                         <flux:input
                             wire:model="newAccountBalances.{{ $catKey }}"
-                            type="number"
-                            step="0.01"
-                            min="0.01"
+                            type="text"
+                            inputmode="decimal"
                             size="sm"
                             :placeholder="__('0.00')"
                             wire:keydown.enter="addAccount('{{ $catKey }}')"
