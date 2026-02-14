@@ -47,6 +47,12 @@ new class extends Component {
     public ?int $importAccountId = null;
     public string $importFeedback = '';
 
+    // Bulk categorize prompt
+    public bool $showBulkCategorizeModal = false;
+    public string $bulkCategorizeMerchant = '';
+    public string $bulkCategorizeCategory = '';
+    public int $bulkCategorizeCount = 0;
+
     public function mount(): void
     {
         //
@@ -262,7 +268,43 @@ new class extends Component {
         }
 
         $expense->update(['category' => $category]);
+
+        $uncategorizedCount = Auth::user()->expenses()
+            ->where('merchant', $expense->merchant)
+            ->whereNull('category')
+            ->count();
+
+        if ($uncategorizedCount > 0) {
+            $this->bulkCategorizeMerchant = $expense->merchant;
+            $this->bulkCategorizeCategory = $category;
+            $this->bulkCategorizeCount = $uncategorizedCount;
+            $this->showBulkCategorizeModal = true;
+        }
+
         $this->resetExpensesCaches();
+    }
+
+    public function bulkCategorize(): void
+    {
+        if (! SpendingCategory::tryFrom($this->bulkCategorizeCategory)) {
+            return;
+        }
+
+        Auth::user()->expenses()
+            ->where('merchant', $this->bulkCategorizeMerchant)
+            ->whereNull('category')
+            ->update(['category' => $this->bulkCategorizeCategory]);
+
+        $this->cancelBulkCategorize();
+        $this->resetExpensesCaches();
+    }
+
+    public function cancelBulkCategorize(): void
+    {
+        $this->showBulkCategorizeModal = false;
+        $this->bulkCategorizeMerchant = '';
+        $this->bulkCategorizeCategory = '';
+        $this->bulkCategorizeCount = 0;
     }
 
     public function removeExpense(int $expenseId): void
@@ -764,13 +806,10 @@ new class extends Component {
                         <span class="text-xs text-zinc-500 dark:text-zinc-400">{{ $expense->date->format('M j, Y') }}</span>
                     </div>
                     <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100 shrink-0">${{ number_format($expense->amount / 100, 2) }}</span>
-                    <div class="min-w-0 shrink-0">
-                        <flux:select size="xs" x-on:change="$wire.categorizeExpense({{ $expense->id }}, $event.target.value)">
-                            <option value="">{{ __('Category...') }}</option>
-                            @foreach (SpendingCategory::cases() as $cat)
-                                <option value="{{ $cat->value }}">{{ $cat->label() }}</option>
-                            @endforeach
-                        </flux:select>
+                    <div class="flex gap-1 shrink-0">
+                        @foreach (SpendingCategory::cases() as $cat)
+                            <flux:button size="xs" variant="primary" color="{{ $cat->badgeColor() }}" wire:click="categorizeExpense({{ $expense->id }}, '{{ $cat->value }}')" aria-label="{{ __('Categorize as :category', ['category' => $cat->label()]) }}">{{ $cat->label() }}</flux:button>
+                        @endforeach
                     </div>
                     <flux:button size="xs" variant="ghost" icon="trash" wire:click="removeExpense({{ $expense->id }})" wire:confirm="{{ __('Remove this expense?') }}" aria-label="{{ __('Remove expense') }}" />
                 @else
@@ -925,4 +964,29 @@ new class extends Component {
         </div>
     </flux:modal>
     @endif
+
+    {{-- Bulk Categorize Confirmation --}}
+    <flux:modal wire:model.self="showBulkCategorizeModal" class="min-w-[22rem]">
+        <div class="space-y-6">
+            <div>
+                <flux:heading size="lg">{{ __('Categorize similar expenses?') }}</flux:heading>
+                <flux:text class="mt-2">
+                    {{ trans_choice(
+                        ':count other expense from :merchant is also uncategorized. Would you like to categorize it as :category too?|:count other expenses from :merchant are also uncategorized. Would you like to categorize them all as :category?',
+                        $bulkCategorizeCount,
+                        [
+                            'count' => $bulkCategorizeCount,
+                            'merchant' => $bulkCategorizeMerchant,
+                            'category' => $bulkCategorizeCategory ? \App\Enums\SpendingCategory::tryFrom($bulkCategorizeCategory)?->label() : '',
+                        ]
+                    ) }}
+                </flux:text>
+            </div>
+            <div class="flex gap-2">
+                <flux:spacer />
+                <flux:button variant="ghost" wire:click="cancelBulkCategorize">{{ __('No thanks') }}</flux:button>
+                <flux:button variant="primary" wire:click="bulkCategorize">{{ __('Categorize all') }}</flux:button>
+            </div>
+        </div>
+    </flux:modal>
 </section>

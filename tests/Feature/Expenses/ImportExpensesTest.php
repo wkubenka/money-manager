@@ -520,3 +520,166 @@ test('categorizeExpense checks authorization', function () {
         ->call('categorizeExpense', $expense->id, SpendingCategory::GuiltFree->value)
         ->assertForbidden();
 });
+
+test('categorizing shows bulk prompt when other uncategorized expenses exist for same merchant', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    $expense = Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'merchant' => 'Starbucks',
+        'category' => null,
+    ]);
+
+    Expense::factory()->count(3)->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'merchant' => 'Starbucks',
+        'category' => null,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->call('categorizeExpense', $expense->id, SpendingCategory::GuiltFree->value)
+        ->assertSet('showBulkCategorizeModal', true)
+        ->assertSet('bulkCategorizeMerchant', 'Starbucks')
+        ->assertSet('bulkCategorizeCategory', SpendingCategory::GuiltFree->value)
+        ->assertSet('bulkCategorizeCount', 3);
+});
+
+test('categorizing does not show bulk prompt when no other uncategorized expenses exist', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    $expense = Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'merchant' => 'Starbucks',
+        'category' => null,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->call('categorizeExpense', $expense->id, SpendingCategory::GuiltFree->value)
+        ->assertSet('showBulkCategorizeModal', false);
+});
+
+test('bulk categorize updates all uncategorized expenses for the merchant', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    $expense = Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'merchant' => 'Starbucks',
+        'category' => null,
+    ]);
+
+    $others = Expense::factory()->count(3)->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'merchant' => 'Starbucks',
+        'category' => null,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->call('categorizeExpense', $expense->id, SpendingCategory::GuiltFree->value)
+        ->call('bulkCategorize');
+
+    foreach ($others as $other) {
+        expect($other->fresh()->category)->toBe(SpendingCategory::GuiltFree);
+    }
+});
+
+test('bulk categorize does not overwrite already categorized expenses', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    $uncategorized = Expense::factory()->count(2)->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'merchant' => 'Starbucks',
+        'category' => null,
+    ]);
+
+    $alreadyCategorized = Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'merchant' => 'Starbucks',
+        'category' => SpendingCategory::FixedCosts,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->call('categorizeExpense', $uncategorized[0]->id, SpendingCategory::GuiltFree->value)
+        ->call('bulkCategorize');
+
+    expect($alreadyCategorized->fresh()->category)->toBe(SpendingCategory::FixedCosts);
+});
+
+test('cancelling bulk categorize leaves other expenses uncategorized', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    $expense = Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'merchant' => 'Starbucks',
+        'category' => null,
+    ]);
+
+    $other = Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'merchant' => 'Starbucks',
+        'category' => null,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->call('categorizeExpense', $expense->id, SpendingCategory::GuiltFree->value)
+        ->assertSet('showBulkCategorizeModal', true)
+        ->call('cancelBulkCategorize')
+        ->assertSet('showBulkCategorizeModal', false)
+        ->assertSet('bulkCategorizeMerchant', '')
+        ->assertSet('bulkCategorizeCount', 0);
+
+    expect($other->fresh()->category)->toBeNull();
+});
+
+test('bulk categorize only affects current user expenses', function () {
+    $user = User::factory()->create();
+    $otherUser = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    $otherAccount = ExpenseAccount::factory()->create(['user_id' => $otherUser->id]);
+
+    $expense = Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'merchant' => 'Starbucks',
+        'category' => null,
+    ]);
+
+    Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'merchant' => 'Starbucks',
+        'category' => null,
+    ]);
+
+    $otherUserExpense = Expense::factory()->create([
+        'user_id' => $otherUser->id,
+        'expense_account_id' => $otherAccount->id,
+        'merchant' => 'Starbucks',
+        'category' => null,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->call('categorizeExpense', $expense->id, SpendingCategory::GuiltFree->value)
+        ->call('bulkCategorize');
+
+    expect($otherUserExpense->fresh()->category)->toBeNull();
+});
