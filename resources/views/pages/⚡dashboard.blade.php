@@ -264,7 +264,7 @@ new class extends Component {
             <div class="flex items-center justify-between mb-4">
                 <div>
                     <flux:subheading>{{ __('Net Worth') }}</flux:subheading>
-                    <div class="mt-1 text-3xl font-bold {{ $this->netWorthSummary['net_worth'] < 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-900 dark:text-zinc-100' }}">
+                    <div class="mt-1 text-3xl font-bold {{ $this->netWorthSummary['net_worth'] < 0 ? 'text-red-600 dark:text-red-300' : 'text-zinc-900 dark:text-zinc-100' }}">
                         {{ $this->netWorthSummary['net_worth'] < 0 ? '-' : '' }}${{ number_format(abs($this->netWorthSummary['net_worth']) / 100) }}
                     </div>
                 </div>
@@ -397,7 +397,7 @@ new class extends Component {
                                     @if ($category !== SpendingCategory::GuiltFree)
                                         <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ number_format($total / 100) }}</span>
                                     @else
-                                        <span class="text-sm font-medium {{ $total < 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-900 dark:text-zinc-100' }}">
+                                        <span class="text-sm font-medium {{ $total < 0 ? 'text-red-600 dark:text-red-300' : 'text-zinc-900 dark:text-zinc-100' }}">
                                             {{ $total < 0 ? '-' : '' }}${{ number_format(abs($total) / 100) }}
                                         </span>
                                     @endif
@@ -413,15 +413,15 @@ new class extends Component {
                                 $spentPercent = $total > 0 ? min(($actualSpent / $total) * 100, 100) : 0;
                             @endphp
                             <div class="mt-1 h-2 rounded-full bg-zinc-100 dark:bg-zinc-700 overflow-hidden">
-                                <div class="h-full rounded-full {{ $total > 0 && $actualSpent > $total ? 'bg-red-400' : $category->color() }}" style="width: {{ $total > 0 ? $spentPercent : min(max($percent, 0), 100) }}%"></div>
+                                <div class="h-full rounded-full {{ $total > 0 && $actualSpent > $total ? 'bg-red-500' : $category->color() }}" style="width: {{ $total > 0 ? $spentPercent : min(max($percent, 0), 100) }}%"></div>
                             </div>
                             @if ($total > 0)
                                 <div class="mt-1.5 flex items-center justify-between text-xs">
                                     <span class="text-zinc-500 dark:text-zinc-400">
                                         {{ __('Spent') }}: ${{ number_format($actualSpent / 100) }}
                                     </span>
-                                    <span class="{{ $remaining < 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400' }}">
-                                        {{ $remaining < 0 ? '-' : '' }}${{ number_format(abs($remaining) / 100) }}
+                                    <span class="{{ $remaining < 0 ? 'text-red-600 dark:text-red-300' : 'text-emerald-600 dark:text-emerald-400' }}">
+                                        ${{ number_format(abs($remaining) / 100) }}
                                         {{ $remaining >= 0 ? __('left') : __('over') }}
                                     </span>
                                 </div>
