@@ -32,7 +32,6 @@ test('user can add an expense', function () {
         ->set('newAmount', '42.50')
         ->set('newCategory', SpendingCategory::FixedCosts->value)
         ->set('newDate', '2026-02-10')
-        ->set('newNotes', 'Groceries')
         ->call('addExpense')
         ->assertHasNoErrors();
 
@@ -42,7 +41,6 @@ test('user can add an expense', function () {
     expect($expense->amount)->toBe(4250);
     expect($expense->category)->toBe(SpendingCategory::FixedCosts);
     expect($expense->date->format('Y-m-d'))->toBe('2026-02-10');
-    expect($expense->notes)->toBe('Groceries');
     expect($expense->expense_account_id)->toBe($account->id);
 });
 
@@ -251,12 +249,10 @@ test('inputs are cleared after adding expense except account and date', function
         ->set('newAmount', '50.00')
         ->set('newCategory', SpendingCategory::FixedCosts->value)
         ->set('newDate', '2026-02-10')
-        ->set('newNotes', 'A note')
         ->call('addExpense')
         ->assertSet('newMerchant', '')
         ->assertSet('newAmount', '')
         ->assertSet('newCategory', '')
-        ->assertSet('newNotes', '')
         ->assertSet('newAccountId', (string) $account->id)
         ->assertSet('newDate', '2026-02-10');
 });
@@ -303,23 +299,6 @@ test('merchant auto-categorization does not override manually set category', fun
         ->set('newCategory', SpendingCategory::GuiltFree->value)
         ->set('newMerchant', 'Netflix')
         ->assertSet('newCategory', SpendingCategory::GuiltFree->value);
-});
-
-test('notes are optional', function () {
-    $user = User::factory()->create();
-    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
-
-    Livewire::actingAs($user)
-        ->test('pages::expenses.index')
-        ->set('newAccountId', $account->id)
-        ->set('newMerchant', 'Test')
-        ->set('newAmount', '10.00')
-        ->set('newCategory', SpendingCategory::GuiltFree->value)
-        ->set('newDate', '2026-02-10')
-        ->call('addExpense')
-        ->assertHasNoErrors();
-
-    expect(Expense::first()->notes)->toBeNull();
 });
 
 test('load more increases visible expenses', function () {

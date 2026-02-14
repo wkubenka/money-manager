@@ -18,7 +18,7 @@ enum SpendingCategory: string
             self::FixedCosts => 'Fixed Costs',
             self::Investments => 'Investments',
             self::Savings => 'Savings',
-            self::GuiltFree => 'Guilt-Free Spending',
+            self::GuiltFree => 'Guilt-Free',
         };
     }
 
@@ -47,6 +47,19 @@ enum SpendingCategory: string
             self::Investments => 'bg-emerald-500',
             self::Savings => 'bg-cyan-500',
             self::GuiltFree => 'bg-purple-500',
+        };
+    }
+
+    /**
+     * Get the Flux-compatible color name for badges.
+     */
+    public function badgeColor(): string
+    {
+        return match ($this) {
+            self::FixedCosts => 'blue',
+            self::Investments => 'emerald',
+            self::Savings => 'cyan',
+            self::GuiltFree => 'purple',
         };
     }
 

@@ -25,8 +25,6 @@ new class extends Component {
     public string $newCategory = '';
     public string $newDate = '';
     public string $newAccountId = '';
-    public string $newNotes = '';
-
     // First account setup
     public string $firstAccountName = '';
 
@@ -41,8 +39,6 @@ new class extends Component {
     public string $editingCategory = '';
     public string $editingDate = '';
     public string $editingAccountId = '';
-    public string $editingNotes = '';
-
     // CSV import
     public $csvFile;
     public array $parsedRows = [];
@@ -163,14 +159,12 @@ new class extends Component {
             'newAmount' => ['required', 'numeric', 'min:0.01'],
             'newCategory' => ['required', Rule::enum(SpendingCategory::class)],
             'newDate' => ['required', 'date'],
-            'newNotes' => ['nullable', 'string', 'max:1000'],
         ], [], [
             'newAccountId' => 'account',
             'newMerchant' => 'merchant',
             'newAmount' => 'amount',
             'newCategory' => 'category',
             'newDate' => 'date',
-            'newNotes' => 'notes',
         ]);
 
         $account = ExpenseAccount::findOrFail($this->newAccountId);
@@ -182,13 +176,11 @@ new class extends Component {
             'amount' => (int) round($this->newAmount * 100),
             'category' => $this->newCategory,
             'date' => $this->newDate,
-            'notes' => $this->newNotes ?: null,
         ]);
 
         $this->newMerchant = '';
         $this->newAmount = '';
         $this->newCategory = '';
-        $this->newNotes = '';
         $this->resetExpensesCaches();
     }
 
@@ -203,7 +195,6 @@ new class extends Component {
         $this->editingCategory = $expense->category->value;
         $this->editingDate = $expense->date->format('Y-m-d');
         $this->editingAccountId = (string) $expense->expense_account_id;
-        $this->editingNotes = $expense->notes ?? '';
     }
 
     public function updateExpense(): void
@@ -216,7 +207,6 @@ new class extends Component {
             'editingCategory' => ['required', Rule::enum(SpendingCategory::class)],
             'editingDate' => ['required', 'date'],
             'editingAccountId' => ['required', 'integer'],
-            'editingNotes' => ['nullable', 'string', 'max:1000'],
         ]);
 
         $expense = Expense::findOrFail($this->editingExpenseId);
@@ -231,7 +221,6 @@ new class extends Component {
             'category' => $validated['editingCategory'],
             'date' => $validated['editingDate'],
             'expense_account_id' => $validated['editingAccountId'],
-            'notes' => $validated['editingNotes'] ?: null,
         ]);
 
         $this->cancelEdit();
@@ -246,7 +235,6 @@ new class extends Component {
         $this->editingCategory = '';
         $this->editingDate = '';
         $this->editingAccountId = '';
-        $this->editingNotes = '';
     }
 
     public function removeExpense(int $expenseId): void
@@ -558,7 +546,7 @@ new class extends Component {
                 @foreach (SpendingCategory::cases() as $cat)
                     @php $catTotal = $this->categoryTotals[$cat->value] ?? 0; @endphp
                     @if ($catTotal > 0)
-                        <flux:badge size="sm" class="{{ str_replace('bg-', 'bg-', $cat->color()) }} text-white">
+                        <flux:badge size="sm" color="{{ $cat->badgeColor() }}" variant="solid">
                             {{ $cat->label() }}: ${{ number_format($catTotal / 100) }}
                         </flux:badge>
                     @endif
@@ -612,9 +600,9 @@ new class extends Component {
     @endif
 
     {{-- Add expense form --}}
-    <form wire:submit="addExpense" class="mb-6 flex items-end gap-2" x-init="if (! $wire.newDate) { const d = new Date(); $wire.newDate = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }">
+    <form wire:submit="addExpense" class="mb-6 grid grid-cols-2 sm:grid-cols-3 lg:flex lg:items-end gap-2" x-init="if (! $wire.newDate) { const d = new Date(); $wire.newDate = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }">
         @if ($selectedAccountId === 'all')
-            <div class="min-w-0 flex-1">
+            <div class="min-w-0 lg:flex-1">
                 <flux:select wire:model="newAccountId" size="sm">
                     <option value="">{{ __('Account') }}</option>
                     @foreach ($this->accounts as $account)
@@ -624,19 +612,15 @@ new class extends Component {
             </div>
         @endif
 
-        <div class="min-w-0 flex-1">
+        <div class="min-w-0 lg:flex-1">
             <flux:input wire:model="newDate" type="date" size="sm" />
         </div>
 
-        <div class="min-w-0 flex-[2]">
+        <div class="min-w-0 lg:flex-[2]">
             <flux:input wire:model.blur="newMerchant" :placeholder="__('Merchant')" size="sm" />
         </div>
 
-        <div class="min-w-0 flex-1">
-            <flux:input wire:model="newNotes" :placeholder="__('Notes')" size="sm" />
-        </div>
-
-        <div class="min-w-0 flex-1">
+        <div class="min-w-0 lg:flex-1">
             <flux:select wire:model="newCategory" size="sm">
                 <option value="">{{ __('Category') }}</option>
                 @foreach (SpendingCategory::cases() as $cat)
@@ -645,7 +629,7 @@ new class extends Component {
             </flux:select>
         </div>
 
-        <div class="min-w-0 flex-1">
+        <div class="min-w-0 lg:flex-1">
             <flux:input wire:model="newAmount" type="text" inputmode="decimal" :placeholder="__('0.00')" size="sm">
                 <x-slot:prefix>$</x-slot:prefix>
             </flux:input>
@@ -679,7 +663,6 @@ new class extends Component {
                                     <option value="{{ $account->id }}">{{ $account->name }}</option>
                                 @endforeach
                             </flux:select>
-                            <flux:input wire:model="editingNotes" size="sm" :label="__('Notes')" :placeholder="__('Optional')" />
                         </div>
                         <div class="flex items-center gap-2">
                             <flux:button size="xs" variant="primary" wire:click="updateExpense">{{ __('Save') }}</flux:button>
@@ -688,16 +671,22 @@ new class extends Component {
                     </div>
                 @else
                     {{-- Display mode --}}
-                    <span class="w-24 shrink-0 text-xs text-zinc-500 dark:text-zinc-400">{{ $expense->date->format('M j, Y') }}</span>
-                    <span class="flex-1 text-sm text-zinc-700 dark:text-zinc-300 truncate">{{ $expense->merchant }}</span>
-                    @if ($selectedAccountId === 'all')
-                        <span class="hidden sm:inline text-xs text-zinc-400 dark:text-zinc-500 truncate max-w-32">{{ $expense->expenseAccount->name }}</span>
-                    @endif
-                    <flux:badge size="sm" class="{{ $expense->category->color() }} text-white text-xs">
-                        {{ $expense->category->label() }}
-                    </flux:badge>
-                    <span class="w-24 text-right text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ number_format($expense->amount / 100, 2) }}</span>
-                    <div class="flex items-center gap-0.5">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm text-zinc-700 dark:text-zinc-300 truncate">{{ $expense->merchant }}</span>
+                            @if ($selectedAccountId === 'all')
+                                <span class="hidden sm:inline text-xs text-zinc-400 dark:text-zinc-500 truncate max-w-32">{{ $expense->expenseAccount->name }}</span>
+                            @endif
+                        </div>
+                        <div class="flex items-center gap-2 mt-0.5">
+                            <span class="text-xs text-zinc-500 dark:text-zinc-400">{{ $expense->date->format('M j, Y') }}</span>
+                            <flux:badge size="sm" color="{{ $expense->category->badgeColor() }}" variant="solid">
+                                {{ $expense->category->label() }}
+                            </flux:badge>
+                        </div>
+                    </div>
+                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100 shrink-0">${{ number_format($expense->amount / 100, 2) }}</span>
+                    <div class="flex items-center gap-0.5 shrink-0">
                         <flux:button size="xs" variant="ghost" icon="pencil" wire:click="editExpense({{ $expense->id }})" aria-label="{{ __('Edit expense') }}" />
                         <flux:button size="xs" variant="ghost" icon="trash" wire:click="removeExpense({{ $expense->id }})" wire:confirm="{{ __('Remove this expense?') }}" aria-label="{{ __('Remove expense') }}" />
                     </div>
@@ -787,7 +776,7 @@ new class extends Component {
                                     <td class="p-2 text-right">${{ number_format($row['amount'] / 100, 2) }}</td>
                                     <td class="p-2">
                                         @php $catEnum = SpendingCategory::from($row['category']); @endphp
-                                        <flux:badge size="sm" class="{{ $catEnum->color() }} text-white text-xs">
+                                        <flux:badge size="sm" color="{{ $catEnum->badgeColor() }}" variant="solid">
                                             {{ $catEnum->label() }}
                                         </flux:badge>
                                     </td>

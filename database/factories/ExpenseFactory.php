@@ -24,7 +24,6 @@ class ExpenseFactory extends Factory
             'amount' => fake()->numberBetween(100, 50000),
             'category' => fake()->randomElement(SpendingCategory::cases()),
             'date' => fake()->dateTimeBetween('-30 days', 'now'),
-            'notes' => fake()->optional(0.3)->sentence(),
         ];
     }
 

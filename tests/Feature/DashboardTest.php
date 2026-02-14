@@ -117,7 +117,7 @@ test('dashboard shows negative guilt-free spending in red', function () {
 
     Livewire::actingAs($user)
         ->test('pages::dashboard')
-        ->assertSee('Guilt-Free Spending')
+        ->assertSee('Guilt-Free')
         ->assertSeeHtml('text-red-600');
 });
 
