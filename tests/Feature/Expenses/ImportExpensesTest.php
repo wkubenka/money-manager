@@ -341,3 +341,71 @@ test('csv import handles dollar signs and commas in amounts', function () {
     expect($component->get('parsedRows'))->toHaveCount(1);
     expect($component->get('parsedRows')[0]['amount'])->toBe(150099);
 });
+
+test('csv import detects posting date header', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    $csv = createCsvFile(
+        ['Posting Date', 'Description', 'Amount'],
+        [['2/10/2026', 'Electric Bill', '-105.52']]
+    );
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->set('selectedAccountId', (string) $account->id)
+        ->call('openImportModal')
+        ->set('csvFile', $csv);
+
+    expect($component->get('parsedRows'))->toHaveCount(1);
+    expect($component->get('parsedRows')[0]['merchant'])->toBe('Electric Bill');
+    expect($component->get('parsedRows')[0]['date'])->toBe('2026-02-10');
+    expect($component->get('parsedRows')[0]['amount'])->toBe(10552);
+});
+
+test('csv import filters out credits in signed-amount format', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    $csv = createCsvFile(
+        ['Posted Date', 'Payee', 'Amount'],
+        [
+            ['02/12/2026', 'TACO BELL', '-20.66'],
+            ['02/02/2026', 'CASH REWARDS STATEMENT CREDIT', '29.59'],
+            ['02/07/2026', 'CHOCOLATE SHOP', '-24.00'],
+        ]
+    );
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->set('selectedAccountId', (string) $account->id)
+        ->call('openImportModal')
+        ->set('csvFile', $csv);
+
+    expect($component->get('parsedRows'))->toHaveCount(2);
+    expect($component->get('parsedRows')[0]['merchant'])->toBe('TACO BELL');
+    expect($component->get('parsedRows')[0]['amount'])->toBe(2066);
+    expect($component->get('parsedRows')[1]['merchant'])->toBe('CHOCOLATE SHOP');
+    expect($component->get('parsedRows')[1]['amount'])->toBe(2400);
+});
+
+test('csv import keeps all positive amounts when no negatives exist', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    $csv = createCsvFile(
+        ['Date', 'Description', 'Amount'],
+        [
+            ['2026-02-01', 'Starbucks', '5.50'],
+            ['2026-02-02', 'Amazon', '42.99'],
+        ]
+    );
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->set('selectedAccountId', (string) $account->id)
+        ->call('openImportModal')
+        ->set('csvFile', $csv);
+
+    expect($component->get('parsedRows'))->toHaveCount(2);
+});

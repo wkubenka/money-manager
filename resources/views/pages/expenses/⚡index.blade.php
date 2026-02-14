@@ -371,7 +371,7 @@ new class extends Component {
 
         $headers = array_map(fn ($h) => strtolower(trim($h)), $headers);
 
-        $dateCol = $this->detectColumn($headers, ['date', 'transaction date', 'posted date', 'post date']);
+        $dateCol = $this->detectColumn($headers, ['date', 'transaction date', 'posted date', 'posting date', 'post date']);
         $merchantCol = $this->detectColumn($headers, ['description', 'merchant', 'name', 'memo', 'payee', 'transaction']);
         $amountCol = $this->detectColumn($headers, ['amount', 'debit', 'total', 'charge']);
 
@@ -386,25 +386,46 @@ new class extends Component {
             ->map(fn ($e) => $e->date->format('Y-m-d') . '|' . $e->amount)
             ->toArray();
 
-        $rows = [];
+        // First pass: collect all rows with raw signed amounts
+        $rawRows = [];
+        $hasNegativeAmounts = false;
+
         while (($row = fgetcsv($handle)) !== false) {
             if (count($row) <= max($dateCol, $merchantCol, $amountCol)) {
                 continue;
             }
 
-            $rawAmount = str_replace([',', '$', ' '], '', $row[$amountCol]);
-            $amount = abs((float) $rawAmount);
+            $rawAmount = (float) str_replace([',', '$', ' '], '', $row[$amountCol]);
+
+            if ($rawAmount < 0) {
+                $hasNegativeAmounts = true;
+            }
+
+            $rawRows[] = [
+                'rawAmount' => $rawAmount,
+                'merchant' => trim($row[$merchantCol]),
+                'dateStr' => trim($row[$dateCol]),
+            ];
+        }
+
+        // Second pass: filter and build parsed rows
+        $rows = [];
+        foreach ($rawRows as $raw) {
+            // In signed-amount CSVs, positive values are credits/income — skip them
+            if ($hasNegativeAmounts && $raw['rawAmount'] > 0) {
+                continue;
+            }
+
+            $amount = abs($raw['rawAmount']);
 
             if ($amount <= 0) {
                 continue;
             }
 
             $amountCents = (int) round($amount * 100);
-            $merchant = trim($row[$merchantCol]);
-            $dateStr = trim($row[$dateCol]);
 
             try {
-                $date = Carbon::parse($dateStr)->format('Y-m-d');
+                $date = Carbon::parse($raw['dateStr'])->format('Y-m-d');
             } catch (\Exception $e) {
                 continue;
             }
@@ -414,11 +435,11 @@ new class extends Component {
                 continue;
             }
 
-            $category = $this->lookupMerchantCategory($merchant);
+            $category = $this->lookupMerchantCategory($raw['merchant']);
 
             $rows[] = [
                 'date' => $date,
-                'merchant' => $merchant,
+                'merchant' => $raw['merchant'],
                 'amount' => $amountCents,
                 'category' => $category,
             ];
