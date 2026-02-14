@@ -147,15 +147,14 @@ new class extends Component {
         $start = now()->startOfMonth();
         $end = now()->endOfMonth();
 
-        $totals = Auth::user()->expenses()
+        return Auth::user()->expenses()
             ->whereNotNull('category')
             ->whereBetween('date', [$start, $end])
-            ->get()
-            ->groupBy(fn ($e) => $e->category->value)
-            ->map(fn ($group) => (int) $group->sum('amount'))
+            ->selectRaw('category, sum(amount) as total')
+            ->groupBy('category')
+            ->pluck('total', 'category')
+            ->map(fn ($total) => (int) $total)
             ->toArray();
-
-        return $totals;
     }
 
     #[Computed]
