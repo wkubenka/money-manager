@@ -77,11 +77,7 @@ new class extends Component {
             ->latest('date')
             ->latest('id');
 
-        if ($this->selectedAccountId === 'uncategorized') {
-            $query->whereNull('category');
-        } elseif ($this->selectedAccountId !== 'all') {
-            $query->where('expense_account_id', $this->selectedAccountId);
-        }
+        $this->applyTabFilter($query);
 
         return $query->take($this->perPage)->get();
     }
@@ -91,11 +87,7 @@ new class extends Component {
     {
         $query = Auth::user()->expenses();
 
-        if ($this->selectedAccountId === 'uncategorized') {
-            $query->whereNull('category');
-        } elseif ($this->selectedAccountId !== 'all') {
-            $query->where('expense_account_id', $this->selectedAccountId);
-        }
+        $this->applyTabFilter($query);
 
         return $query->count() > $this->perPage;
     }
@@ -106,11 +98,7 @@ new class extends Component {
         $query = Auth::user()->expenses()
             ->whereBetween('date', [now()->startOfMonth(), now()->endOfMonth()]);
 
-        if ($this->selectedAccountId === 'uncategorized') {
-            $query->whereNull('category');
-        } elseif ($this->selectedAccountId !== 'all') {
-            $query->where('expense_account_id', $this->selectedAccountId);
-        }
+        $this->applyTabFilter($query);
 
         return (int) $query->sum('amount');
     }
@@ -121,11 +109,7 @@ new class extends Component {
         $query = Auth::user()->expenses()
             ->whereBetween('date', [now()->startOfMonth(), now()->endOfMonth()]);
 
-        if ($this->selectedAccountId === 'uncategorized') {
-            $query->whereNull('category');
-        } elseif ($this->selectedAccountId !== 'all') {
-            $query->where('expense_account_id', $this->selectedAccountId);
-        }
+        $this->applyTabFilter($query);
 
         $totals = [];
         foreach (SpendingCategory::cases() as $category) {
@@ -133,6 +117,17 @@ new class extends Component {
         }
 
         return $totals;
+    }
+
+    private function applyTabFilter($query): void
+    {
+        if ($this->selectedAccountId === 'uncategorized') {
+            $query->whereNull('category');
+        } elseif (str_starts_with($this->selectedAccountId, 'category:')) {
+            $query->where('category', substr($this->selectedAccountId, 9));
+        } elseif ($this->selectedAccountId !== 'all') {
+            $query->where('expense_account_id', $this->selectedAccountId);
+        }
     }
 
     public function updatedSelectedAccountId(): void
@@ -652,7 +647,7 @@ new class extends Component {
                 @foreach (SpendingCategory::cases() as $cat)
                     @php $catTotal = $this->categoryTotals[$cat->value] ?? 0; @endphp
                     @if ($catTotal > 0)
-                        <flux:badge size="sm" color="{{ $cat->badgeColor() }}" variant="solid">
+                        <flux:badge as="button" size="sm" color="{{ $cat->badgeColor() }}" variant="solid" wire:click="$set('selectedAccountId', 'category:{{ $cat->value }}')" class="cursor-pointer">
                             {{ $cat->label() }}: ${{ number_format($catTotal / 100) }}
                         </flux:badge>
                     @endif
@@ -672,6 +667,14 @@ new class extends Component {
                 wire:click="$set('selectedAccountId', 'uncategorized')"
                 class="px-3 py-2 text-sm font-medium border-b-2 transition-colors {{ $selectedAccountId === 'uncategorized' ? 'border-amber-600 text-amber-700 dark:border-amber-400 dark:text-amber-300' : 'border-transparent text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300' }}"
             >{{ __('Uncategorized') }} ({{ $this->uncategorizedCount }})</button>
+        @endif
+        @if (str_starts_with($selectedAccountId, 'category:'))
+            @php $activeCategory = \App\Enums\SpendingCategory::tryFrom(substr($selectedAccountId, 9)); @endphp
+            @if ($activeCategory)
+                <button
+                    class="px-3 py-2 text-sm font-medium border-b-2 border-zinc-800 text-zinc-900 dark:border-zinc-200 dark:text-zinc-100 transition-colors"
+                >{{ $activeCategory->label() }}</button>
+            @endif
         @endif
         @foreach ($this->accounts as $account)
             <button

@@ -355,3 +355,28 @@ test('deleting an expense account cascades to its expenses', function () {
 
     expect(Expense::where('expense_account_id', $accountId)->count())->toBe(0);
 });
+
+test('category tab filters expenses to that category', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'category' => SpendingCategory::GuiltFree,
+        'merchant' => 'Coffee Shop',
+    ]);
+
+    Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'category' => SpendingCategory::FixedCosts,
+        'merchant' => 'Electric Company',
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->set('selectedAccountId', 'category:guilt_free')
+        ->assertSee('Coffee Shop')
+        ->assertDontSee('Electric Company');
+});
