@@ -2,6 +2,8 @@
 
 use App\Enums\AccountCategory;
 use App\Enums\SpendingCategory;
+use App\Models\Expense;
+use App\Models\ExpenseAccount;
 use App\Models\NetWorthAccount;
 use App\Models\RichLifeVision;
 use App\Models\SpendingPlan;
@@ -140,7 +142,7 @@ test('dashboard shows rounded percentages', function () {
         'monthly_income' => 300000, // $3,000
         'fixed_costs_misc_percent' => 15,
     ]);
-    // $1,000 items + $150 misc (15%) = $1,150 / $3,000 = 38.333...% → rounds to 38.3%
+    // $1,000 items + $150 misc (15%) = $1,150 / $3,000 = 38.333...% → rounds to 38%
     SpendingPlanItem::factory()->create([
         'spending_plan_id' => $plan->id,
         'category' => SpendingCategory::FixedCosts,
@@ -149,7 +151,7 @@ test('dashboard shows rounded percentages', function () {
 
     Livewire::actingAs($user)
         ->test('pages::dashboard')
-        ->assertSee('38.3%');
+        ->assertSee('38%');
 });
 
 test('deleting a user cascades to spending plans and items', function () {
@@ -583,4 +585,92 @@ test('retirement projection includes pre-tax investments', function () {
     Livewire::actingAs($user)
         ->test('pages::dashboard')
         ->assertSee('$630,000');
+});
+
+// Planned vs Actual Spending tests
+
+test('dashboard shows actual spending vs planned for current month', function () {
+    $user = User::factory()->create();
+    $plan = SpendingPlan::factory()->current()->create([
+        'user_id' => $user->id,
+        'monthly_income' => 500000, // $5,000
+        'fixed_costs_misc_percent' => 0,
+    ]);
+    SpendingPlanItem::factory()->create([
+        'spending_plan_id' => $plan->id,
+        'category' => SpendingCategory::FixedCosts,
+        'amount' => 250000, // $2,500
+    ]);
+
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'category' => SpendingCategory::FixedCosts,
+        'amount' => 100000, // $1,000
+        'date' => now(),
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->assertSee('Spent')
+        ->assertSeeInOrder(['Spent: $1,000', '$1,500', 'left']);
+});
+
+test('dashboard shows over spending in current month', function () {
+    $user = User::factory()->create();
+    $plan = SpendingPlan::factory()->current()->create([
+        'user_id' => $user->id,
+        'monthly_income' => 500000,
+        'fixed_costs_misc_percent' => 0,
+    ]);
+    SpendingPlanItem::factory()->create([
+        'spending_plan_id' => $plan->id,
+        'category' => SpendingCategory::FixedCosts,
+        'amount' => 100000, // $1,000
+    ]);
+
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'category' => SpendingCategory::FixedCosts,
+        'amount' => 150000, // $1,500
+        'date' => now(),
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->assertSeeInOrder(['$500', 'over']);
+});
+
+test('dashboard excludes expenses from other months', function () {
+    $user = User::factory()->create();
+    $plan = SpendingPlan::factory()->current()->create([
+        'user_id' => $user->id,
+        'monthly_income' => 500000,
+        'fixed_costs_misc_percent' => 0,
+    ]);
+    SpendingPlanItem::factory()->create([
+        'spending_plan_id' => $plan->id,
+        'category' => SpendingCategory::FixedCosts,
+        'amount' => 250000,
+    ]);
+
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    // Last month expense — should not be counted
+    Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'category' => SpendingCategory::FixedCosts,
+        'amount' => 200000,
+        'date' => now()->subMonth(),
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->assertSee('Spent: $0')
+        ->assertSee('$2,500')
+        ->assertSee('left');
 });

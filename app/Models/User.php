@@ -76,6 +76,16 @@ class User extends Authenticatable
         return $this->hasMany(RichLifeVision::class);
     }
 
+    public function expenseAccounts(): HasMany
+    {
+        return $this->hasMany(ExpenseAccount::class);
+    }
+
+    public function expenses(): HasMany
+    {
+        return $this->hasMany(Expense::class);
+    }
+
     public function emergencyFund(): ?NetWorthAccount
     {
         return $this->netWorthAccounts()->where('is_emergency_fund', true)->first();

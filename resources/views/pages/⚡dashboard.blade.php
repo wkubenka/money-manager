@@ -141,6 +141,22 @@ new class extends Component {
         return Auth::user()->emergencyFund();
     }
 
+    #[Computed]
+    public function monthlyExpenseTotals(): array
+    {
+        $start = now()->startOfMonth();
+        $end = now()->endOfMonth();
+
+        $totals = Auth::user()->expenses()
+            ->whereBetween('date', [$start, $end])
+            ->get()
+            ->groupBy(fn ($e) => $e->category->value)
+            ->map(fn ($group) => (int) $group->sum('amount'))
+            ->toArray();
+
+        return $totals;
+    }
+
     public function saveRetirementSettings(): void
     {
         $this->validate([
@@ -371,9 +387,25 @@ new class extends Component {
                                 </div>
                             </div>
 
+                            @php
+                                $actualSpent = $this->monthlyExpenseTotals[$category->value] ?? 0;
+                                $remaining = $total - $actualSpent;
+                                $spentPercent = $total > 0 ? min(($actualSpent / $total) * 100, 100) : 0;
+                            @endphp
                             <div class="mt-1 h-2 rounded-full bg-zinc-100 dark:bg-zinc-700 overflow-hidden">
-                                <div class="h-full rounded-full {{ $category->color() }}" style="width: {{ min(max($percent, 0), 100) }}%"></div>
+                                <div class="h-full rounded-full {{ $total > 0 && $actualSpent > $total ? 'bg-red-400' : $category->color() }}" style="width: {{ $total > 0 ? $spentPercent : min(max($percent, 0), 100) }}%"></div>
                             </div>
+                            @if ($total > 0)
+                                <div class="mt-1.5 flex items-center justify-between text-xs">
+                                    <span class="text-zinc-500 dark:text-zinc-400">
+                                        {{ __('Spent') }}: ${{ number_format($actualSpent / 100) }}
+                                    </span>
+                                    <span class="{{ $remaining < 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400' }}">
+                                        {{ $remaining < 0 ? '-' : '' }}${{ number_format(abs($remaining) / 100) }}
+                                        {{ $remaining >= 0 ? __('left') : __('over') }}
+                                    </span>
+                                </div>
+                            @endif
 
                             @if ($items->isNotEmpty() || ($category === SpendingCategory::FixedCosts && $plan->fixed_costs_misc_percent > 0))
                                 <div class="mt-2 space-y-0.5">
