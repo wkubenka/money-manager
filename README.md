@@ -25,6 +25,13 @@ Create spending plans that allocate your take-home income into four buckets, eac
 
 Plans support gross income and pre-tax investment tracking. One plan can be marked as **current** and is displayed on the dashboard.
 
+### Expense Tracking
+Track daily expenses across multiple accounts (e.g. checking, credit cards):
+- Add, edit, and delete individual expenses
+- **CSV Import** — upload bank/credit card exports; auto-detects date, merchant, and amount columns, filters duplicates, and auto-categorizes known merchants
+- **Smart Categorization** — when you enter a merchant you've categorized before, the category is auto-filled; when categorizing from the uncategorized tab, you're prompted to bulk-categorize all matching merchant expenses
+- **Uncategorized Tab** — dedicated view for triaging imported expenses that need categories
+
 ### Dashboard
 A unified view showing:
 - Net worth summary with category breakdown

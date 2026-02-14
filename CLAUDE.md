@@ -1,3 +1,58 @@
+# Money Manager
+
+A personal finance app based on Ramit Sethi's "I Will Teach You To Be Rich" methodology.
+
+## Terminology
+
+- **Never use "budget"** — always use **"plan"** (e.g., "Current Plan", not "Current Budget").
+
+## Architecture & Patterns
+
+### Livewire Pages
+- Pages use inline `new class extends Component` in Blade files with `⚡` prefix
+- Routing: `Route::livewire('path', 'pages::component.name')` in separate route files, required from `web.php`
+- Layout: Livewire auto-applies `layouts.app` layout. Page templates use a single root element (`<section>` or `<div>`) — do NOT wrap in `<x-layouts::app>`
+- Sidebar nav: `resources/views/layouts/app/sidebar.blade.php`
+
+### Money Storage
+- All monetary values stored as **cents** (integers). Convert dollars→cents on save (`* 100`), cents→dollars on display (`/ 100`)
+
+### Spending Categories
+- Shared enum `App\Enums\SpendingCategory` used by both Spending Plans and Expenses
+- 4 buckets: Fixed Costs, Investments, Savings, Guilt-Free
+- Enum provides: `label()`, `color()`, `badgeColor()`, `idealRange()`, `isWithinIdeal()`
+
+## Features
+
+### Conscious Spending Plans (`routes/spending-plans.php`, `spending-plans.*`)
+- Models: `SpendingPlan` (belongsTo User), `SpendingPlanItem` (belongsTo SpendingPlan)
+- Pages: dashboard (list+delete), create, show (read-only), edit (inline item CRUD)
+
+### Net Worth Tracker (`routes/net-worth.php`, `net-worth.*`)
+- 4 categories: Assets, Investments, Savings, Debt (enum `App\Enums\AccountCategory`)
+- Formula: Assets + Investments + Savings − Debt (`isDeducted()` on enum)
+- Model: `NetWorthAccount` (belongsTo User), balance in cents
+- Pages: index (inline CRUD)
+
+### Expenses (`routes/expenses.php`, `expenses.*`)
+- Models: `Expense` (belongsTo User, belongsTo ExpenseAccount), `ExpenseAccount` (belongsTo User)
+- Single page (`⚡index.blade.php`) with tabs per account + "Uncategorized" tab
+- Features: add/edit/delete expenses, CSV import with auto-categorization, bulk merchant categorization
+- Auto-categorization: when entering a known merchant, category is inferred from the most recent expense with that merchant
+- Bulk categorization: when categorizing an expense, if other uncategorized expenses share the same merchant, a modal prompts to categorize them all
+
+### Tests
+- Tests organized by feature: `tests/Feature/Expenses/`, `tests/Feature/SpendingPlans/`, `tests/Feature/NetWorth/`
+- Expense tests split into `ManageExpensesTest.php`, `ManageExpenseAccountsTest.php`, `ImportExpensesTest.php`
+
+## Gotchas
+
+- Do NOT use `#[Title]` or `#[Layout]` attributes on inline anonymous classes — Livewire compiles `new class` to `return new class`, making attributes before it a parse error
+- Do NOT wrap page templates in `<x-layouts::app>` — Livewire auto-applies the layout; wrapping causes `MultipleRootElementsDetectedException`
+- When testing Livewire item creation, relationship collections may be cached — call `$model->refresh()` before asserting on relationship data
+- Icon-only `<flux:button icon="..." />` without text MUST have `aria-label` for accessibility
+- `<flux:main>` renders as `<div>`, not `<main>` — add `role="main"` if a landmark is needed
+
 <laravel-boost-guidelines>
 === foundation rules ===
 
