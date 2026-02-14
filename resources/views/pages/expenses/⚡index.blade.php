@@ -773,28 +773,34 @@ new class extends Component {
             <div class="flex items-center gap-2 py-2 group border-b border-zinc-100 dark:border-zinc-800" wire:key="expense-{{ $expense->id }}">
                 @if ($editingExpenseId === $expense->id)
                     {{-- Inline edit mode --}}
-                    <div class="flex-1 space-y-3">
-                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                            <flux:input wire:model="editingMerchant" size="sm" :label="__('Merchant')" wire:keydown.enter="updateExpense" />
-                            <flux:input wire:model="editingAmount" type="text" inputmode="decimal" size="sm" :label="__('Amount')" wire:keydown.enter="updateExpense">
-                                <x-slot:prefix>$</x-slot:prefix>
-                            </flux:input>
-                            <flux:select wire:model="editingCategory" size="sm" :label="__('Category')">
-                                @foreach (SpendingCategory::cases() as $cat)
-                                    <option value="{{ $cat->value }}">{{ $cat->label() }}</option>
-                                @endforeach
-                            </flux:select>
-                            <flux:input wire:model="editingDate" type="date" size="sm" :label="__('Date')" />
-                            <flux:select wire:model="editingAccountId" size="sm" :label="__('Account')">
+                    <div class="flex-1 grid grid-cols-2 sm:grid-cols-3 lg:flex lg:items-end gap-2">
+                        <div class="min-w-0 lg:flex-1">
+                            <flux:select wire:model="editingAccountId" size="sm">
                                 @foreach ($this->accounts as $account)
                                     <option value="{{ $account->id }}">{{ $account->name }}</option>
                                 @endforeach
                             </flux:select>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <flux:button size="xs" variant="primary" wire:click="updateExpense">{{ __('Save') }}</flux:button>
-                            <flux:button size="xs" variant="ghost" wire:click="cancelEdit">{{ __('Cancel') }}</flux:button>
+                        <div class="min-w-0 lg:flex-1">
+                            <flux:input wire:model="editingDate" type="date" size="sm" wire:keydown.enter="updateExpense" />
                         </div>
+                        <div class="min-w-0 lg:flex-[2]">
+                            <flux:input wire:model="editingMerchant" size="sm" :placeholder="__('Merchant')" wire:keydown.enter="updateExpense" />
+                        </div>
+                        <div class="min-w-0 lg:flex-1">
+                            <flux:select wire:model="editingCategory" size="sm">
+                                @foreach (SpendingCategory::cases() as $cat)
+                                    <option value="{{ $cat->value }}">{{ $cat->label() }}</option>
+                                @endforeach
+                            </flux:select>
+                        </div>
+                        <div class="min-w-0 lg:flex-1">
+                            <flux:input wire:model="editingAmount" type="text" inputmode="decimal" size="sm" :placeholder="__('0.00')" wire:keydown.enter="updateExpense">
+                                <x-slot:prefix>$</x-slot:prefix>
+                            </flux:input>
+                        </div>
+                        <flux:button size="sm" variant="primary" wire:click="updateExpense" class="shrink-0">{{ __('Save') }}</flux:button>
+                        <flux:button size="sm" variant="ghost" wire:click="cancelEdit" class="shrink-0">{{ __('Cancel') }}</flux:button>
                     </div>
                 @elseif ($selectedAccountId === 'uncategorized')
                     {{-- Categorization mode --}}
