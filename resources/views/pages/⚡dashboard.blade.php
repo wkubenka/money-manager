@@ -148,6 +148,7 @@ new class extends Component {
         $end = now()->endOfMonth();
 
         $totals = Auth::user()->expenses()
+            ->whereNotNull('category')
             ->whereBetween('date', [$start, $end])
             ->get()
             ->groupBy(fn ($e) => $e->category->value)
@@ -155,6 +156,12 @@ new class extends Component {
             ->toArray();
 
         return $totals;
+    }
+
+    #[Computed]
+    public function uncategorizedExpenseCount(): int
+    {
+        return Auth::user()->expenses()->whereNull('category')->count();
     }
 
     public function saveRetirementSettings(): void
@@ -175,7 +182,21 @@ new class extends Component {
     }
 }; ?>
 
-<div class="grid w-full gap-6 lg:grid-cols-2">
+<div class="w-full space-y-6">
+    @if ($this->uncategorizedExpenseCount > 0)
+        <div class="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 dark:border-amber-800 dark:bg-amber-950">
+            <flux:text class="text-sm text-amber-700 dark:text-amber-300">
+                {{ trans_choice(':count expense needs categorizing|:count expenses need categorizing', $this->uncategorizedExpenseCount, ['count' => $this->uncategorizedExpenseCount]) }}
+            </flux:text>
+            <a
+                href="{{ route('expenses.index') }}"
+                wire:navigate
+                class="text-sm font-medium text-amber-700 underline hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100"
+            >{{ __('Review') }}</a>
+        </div>
+    @endif
+
+    <div class="grid gap-6 lg:grid-cols-2">
     {{-- Left column: block on desktop, flattened on mobile via contents --}}
     <div class="contents lg:block lg:space-y-6">
         {{-- Rich Life Vision --}}
@@ -523,6 +544,7 @@ new class extends Component {
                 @endif
             </div>
         </div>
+    </div>
     </div>
 </div>
 

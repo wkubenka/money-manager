@@ -45,6 +45,7 @@ new class extends Component {
     public array $selectedRows = [];
     public bool $showImportModal = false;
     public ?int $importAccountId = null;
+    public string $importFeedback = '';
 
     public function mount(): void
     {
@@ -58,13 +59,21 @@ new class extends Component {
     }
 
     #[Computed]
+    public function uncategorizedCount(): int
+    {
+        return Auth::user()->expenses()->whereNull('category')->count();
+    }
+
+    #[Computed]
     public function expenses()
     {
         $query = Auth::user()->expenses()->with('expenseAccount')
             ->latest('date')
             ->latest('id');
 
-        if ($this->selectedAccountId !== 'all') {
+        if ($this->selectedAccountId === 'uncategorized') {
+            $query->whereNull('category');
+        } elseif ($this->selectedAccountId !== 'all') {
             $query->where('expense_account_id', $this->selectedAccountId);
         }
 
@@ -76,7 +85,9 @@ new class extends Component {
     {
         $query = Auth::user()->expenses();
 
-        if ($this->selectedAccountId !== 'all') {
+        if ($this->selectedAccountId === 'uncategorized') {
+            $query->whereNull('category');
+        } elseif ($this->selectedAccountId !== 'all') {
             $query->where('expense_account_id', $this->selectedAccountId);
         }
 
@@ -89,7 +100,9 @@ new class extends Component {
         $query = Auth::user()->expenses()
             ->whereBetween('date', [now()->startOfMonth(), now()->endOfMonth()]);
 
-        if ($this->selectedAccountId !== 'all') {
+        if ($this->selectedAccountId === 'uncategorized') {
+            $query->whereNull('category');
+        } elseif ($this->selectedAccountId !== 'all') {
             $query->where('expense_account_id', $this->selectedAccountId);
         }
 
@@ -102,7 +115,9 @@ new class extends Component {
         $query = Auth::user()->expenses()
             ->whereBetween('date', [now()->startOfMonth(), now()->endOfMonth()]);
 
-        if ($this->selectedAccountId !== 'all') {
+        if ($this->selectedAccountId === 'uncategorized') {
+            $query->whereNull('category');
+        } elseif ($this->selectedAccountId !== 'all') {
             $query->where('expense_account_id', $this->selectedAccountId);
         }
 
@@ -192,7 +207,7 @@ new class extends Component {
         $this->editingExpenseId = $expenseId;
         $this->editingMerchant = $expense->merchant;
         $this->editingAmount = number_format($expense->amount / 100, 2, '.', '');
-        $this->editingCategory = $expense->category->value;
+        $this->editingCategory = $expense->category?->value ?? '';
         $this->editingDate = $expense->date->format('Y-m-d');
         $this->editingAccountId = (string) $expense->expense_account_id;
     }
@@ -235,6 +250,19 @@ new class extends Component {
         $this->editingCategory = '';
         $this->editingDate = '';
         $this->editingAccountId = '';
+    }
+
+    public function categorizeExpense(int $expenseId, string $category): void
+    {
+        $expense = Expense::findOrFail($expenseId);
+        abort_unless($expense->user_id === Auth::id(), 403);
+
+        if (! SpendingCategory::tryFrom($category)) {
+            return;
+        }
+
+        $expense->update(['category' => $category]);
+        $this->resetExpensesCaches();
     }
 
     public function removeExpense(int $expenseId): void
@@ -338,6 +366,7 @@ new class extends Component {
         $this->csvFile = null;
         $this->parsedRows = [];
         $this->selectedRows = [];
+        $this->importFeedback = '';
         $this->showImportModal = true;
     }
 
@@ -352,6 +381,8 @@ new class extends Component {
 
     public function parseCSV(): void
     {
+        $this->importFeedback = '';
+
         if (! $this->csvFile || ! $this->importAccountId) {
             return;
         }
@@ -360,12 +391,16 @@ new class extends Component {
         $handle = fopen($path, 'r');
 
         if (! $handle) {
+            $this->importFeedback = __('Could not read the file.');
+
             return;
         }
 
         $headers = fgetcsv($handle);
         if (! $headers) {
             fclose($handle);
+            $this->importFeedback = __('The file appears to be empty.');
+
             return;
         }
 
@@ -377,6 +412,8 @@ new class extends Component {
 
         if ($dateCol === null || $merchantCol === null || $amountCol === null) {
             fclose($handle);
+            $this->importFeedback = __('Could not detect Date, Description, or Amount columns in this file.');
+
             return;
         }
 
@@ -449,6 +486,10 @@ new class extends Component {
 
         $this->parsedRows = $rows;
         $this->selectedRows = array_keys($rows);
+
+        if (empty($rows) && ! empty($rawRows)) {
+            $this->importFeedback = __('All transactions in this file have already been imported.');
+        }
     }
 
     public function importExpenses(): void
@@ -489,6 +530,7 @@ new class extends Component {
         $this->csvFile = null;
         $this->parsedRows = [];
         $this->selectedRows = [];
+        $this->importFeedback = '';
     }
 
     // Helpers
@@ -500,7 +542,7 @@ new class extends Component {
 
     private function resetExpensesCaches(): void
     {
-        unset($this->expenses, $this->hasMore, $this->monthlyTotal, $this->categoryTotals);
+        unset($this->expenses, $this->hasMore, $this->monthlyTotal, $this->categoryTotals, $this->uncategorizedCount);
     }
 
     private function detectColumn(array $headers, array $candidates): ?int
@@ -515,14 +557,15 @@ new class extends Component {
         return null;
     }
 
-    private function lookupMerchantCategory(string $merchant): string
+    private function lookupMerchantCategory(string $merchant): ?string
     {
         $expense = Auth::user()->expenses()
             ->where('merchant', $merchant)
+            ->whereNotNull('category')
             ->latest('date')
             ->first();
 
-        return $expense ? $expense->category->value : SpendingCategory::GuiltFree->value;
+        return $expense?->category->value;
     }
 }; ?>
 
@@ -582,6 +625,12 @@ new class extends Component {
             wire:click="$set('selectedAccountId', 'all')"
             class="px-3 py-2 text-sm font-medium border-b-2 transition-colors {{ $selectedAccountId === 'all' ? 'border-zinc-800 text-zinc-900 dark:border-zinc-200 dark:text-zinc-100' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300' }}"
         >{{ __('All') }}</button>
+        @if ($this->uncategorizedCount > 0)
+            <button
+                wire:click="$set('selectedAccountId', 'uncategorized')"
+                class="px-3 py-2 text-sm font-medium border-b-2 transition-colors {{ $selectedAccountId === 'uncategorized' ? 'border-amber-600 text-amber-700 dark:border-amber-400 dark:text-amber-300' : 'border-transparent text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300' }}"
+            >{{ __('Uncategorized') }} ({{ $this->uncategorizedCount }})</button>
+        @endif
         @foreach ($this->accounts as $account)
             <button
                 wire:click="$set('selectedAccountId', '{{ $account->id }}')"
@@ -596,8 +645,21 @@ new class extends Component {
         >+ {{ __('New') }}</button>
     </div>
 
+    {{-- Uncategorized warning --}}
+    @if ($this->uncategorizedCount > 0 && $selectedAccountId !== 'uncategorized')
+        <div class="mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 dark:border-amber-800 dark:bg-amber-950">
+            <flux:text class="text-sm text-amber-700 dark:text-amber-300">
+                {{ trans_choice(':count expense needs categorizing|:count expenses need categorizing', $this->uncategorizedCount, ['count' => $this->uncategorizedCount]) }}
+            </flux:text>
+            <button
+                wire:click="$set('selectedAccountId', 'uncategorized')"
+                class="text-sm font-medium text-amber-700 underline hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100"
+            >{{ __('Review') }}</button>
+        </div>
+    @endif
+
     {{-- Account rename/delete bar --}}
-    @if ($selectedAccountId !== 'all')
+    @if ($selectedAccountId !== 'all' && $selectedAccountId !== 'uncategorized')
         <div class="mb-4 flex items-center gap-2">
             @if ($isRenamingAccount)
                 <flux:input
@@ -621,6 +683,7 @@ new class extends Component {
     @endif
 
     {{-- Add expense form --}}
+    @if ($selectedAccountId !== 'uncategorized')
     <form wire:submit="addExpense" class="mb-6 grid grid-cols-2 sm:grid-cols-3 lg:flex lg:items-end gap-2" x-init="if (! $wire.newDate) { const d = new Date(); $wire.newDate = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }">
         @if ($selectedAccountId === 'all')
             <div class="min-w-0 lg:flex-1">
@@ -660,6 +723,7 @@ new class extends Component {
             {{ __('Add') }}
         </flux:button>
     </form>
+    @endif
 
     {{-- Expense list --}}
     <div class="space-y-1">
@@ -690,6 +754,25 @@ new class extends Component {
                             <flux:button size="xs" variant="ghost" wire:click="cancelEdit">{{ __('Cancel') }}</flux:button>
                         </div>
                     </div>
+                @elseif ($selectedAccountId === 'uncategorized')
+                    {{-- Categorization mode --}}
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm text-zinc-700 dark:text-zinc-300 truncate">{{ $expense->merchant }}</span>
+                            <span class="hidden sm:inline text-xs text-zinc-400 dark:text-zinc-500 truncate max-w-32">{{ $expense->expenseAccount->name }}</span>
+                        </div>
+                        <span class="text-xs text-zinc-500 dark:text-zinc-400">{{ $expense->date->format('M j, Y') }}</span>
+                    </div>
+                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100 shrink-0">${{ number_format($expense->amount / 100, 2) }}</span>
+                    <div class="min-w-0 shrink-0">
+                        <flux:select size="xs" x-on:change="$wire.categorizeExpense({{ $expense->id }}, $event.target.value)">
+                            <option value="">{{ __('Category...') }}</option>
+                            @foreach (SpendingCategory::cases() as $cat)
+                                <option value="{{ $cat->value }}">{{ $cat->label() }}</option>
+                            @endforeach
+                        </flux:select>
+                    </div>
+                    <flux:button size="xs" variant="ghost" icon="trash" wire:click="removeExpense({{ $expense->id }})" wire:confirm="{{ __('Remove this expense?') }}" aria-label="{{ __('Remove expense') }}" />
                 @else
                     {{-- Display mode --}}
                     <div class="flex-1 min-w-0">
@@ -701,9 +784,15 @@ new class extends Component {
                         </div>
                         <div class="flex items-center gap-2 mt-0.5">
                             <span class="text-xs text-zinc-500 dark:text-zinc-400">{{ $expense->date->format('M j, Y') }}</span>
-                            <flux:badge size="sm" color="{{ $expense->category->badgeColor() }}" variant="solid">
-                                {{ $expense->category->label() }}
-                            </flux:badge>
+                            @if ($expense->category)
+                                <flux:badge size="sm" color="{{ $expense->category->badgeColor() }}" variant="solid">
+                                    {{ $expense->category->label() }}
+                                </flux:badge>
+                            @else
+                                <flux:badge size="sm" color="zinc">
+                                    {{ __('Uncategorized') }}
+                                </flux:badge>
+                            @endif
                         </div>
                     </div>
                     <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100 shrink-0">${{ number_format($expense->amount / 100, 2) }}</span>
@@ -758,6 +847,13 @@ new class extends Component {
                     <div wire:loading wire:target="csvFile" class="text-sm text-zinc-500">
                         {{ __('Uploading and parsing...') }}
                     </div>
+
+                    @if ($importFeedback)
+                        <div class="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 dark:border-amber-800 dark:bg-amber-950">
+                            <flux:icon.exclamation-triangle class="size-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                            <flux:text class="text-sm text-amber-700 dark:text-amber-300">{{ $importFeedback }}</flux:text>
+                        </div>
+                    @endif
                 </div>
             @else
                 {{-- Phase 2: Preview & select --}}
@@ -796,10 +892,16 @@ new class extends Component {
                                     <td class="p-2 truncate max-w-48">{{ $row['merchant'] }}</td>
                                     <td class="p-2 text-right">${{ number_format($row['amount'] / 100, 2) }}</td>
                                     <td class="p-2">
-                                        @php $catEnum = SpendingCategory::from($row['category']); @endphp
-                                        <flux:badge size="sm" color="{{ $catEnum->badgeColor() }}" variant="solid">
-                                            {{ $catEnum->label() }}
-                                        </flux:badge>
+                                        @if ($row['category'])
+                                            @php $catEnum = SpendingCategory::from($row['category']); @endphp
+                                            <flux:badge size="sm" color="{{ $catEnum->badgeColor() }}" variant="solid">
+                                                {{ $catEnum->label() }}
+                                            </flux:badge>
+                                        @else
+                                            <flux:badge size="sm" color="zinc">
+                                                {{ __('Uncategorized') }}
+                                            </flux:badge>
+                                        @endif
                                     </td>
                                 </tr>
                             @endforeach

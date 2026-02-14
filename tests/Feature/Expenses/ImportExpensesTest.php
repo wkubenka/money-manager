@@ -173,7 +173,7 @@ test('csv import auto-categorizes known merchants', function () {
     expect($component->get('parsedRows')[0]['category'])->toBe(SpendingCategory::FixedCosts->value);
 });
 
-test('csv import defaults unknown merchants to guilt free', function () {
+test('csv import defaults unknown merchants to uncategorized', function () {
     $user = User::factory()->create();
     $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
 
@@ -188,7 +188,7 @@ test('csv import defaults unknown merchants to guilt free', function () {
         ->call('openImportModal')
         ->set('csvFile', $csv);
 
-    expect($component->get('parsedRows')[0]['category'])->toBe(SpendingCategory::GuiltFree->value);
+    expect($component->get('parsedRows')[0]['category'])->toBeNull();
 });
 
 test('all parsed rows are selected by default', function () {
@@ -408,4 +408,115 @@ test('csv import keeps all positive amounts when no negatives exist', function (
         ->set('csvFile', $csv);
 
     expect($component->get('parsedRows'))->toHaveCount(2);
+});
+
+test('uncategorized tab appears when uncategorized expenses exist', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'category' => null,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->assertSee('Uncategorized')
+        ->assertSee('1 expense needs categorizing');
+});
+
+test('uncategorized tab hidden when no uncategorized expenses', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'category' => SpendingCategory::FixedCosts,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->assertDontSee('expense needs categorizing')
+        ->assertDontSee('expenses need categorizing');
+});
+
+test('uncategorized tab filters to only uncategorized expenses', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'category' => SpendingCategory::FixedCosts,
+        'merchant' => 'Categorized One',
+    ]);
+
+    Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'category' => null,
+        'merchant' => 'Uncategorized One',
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->set('selectedAccountId', 'uncategorized');
+
+    $expenses = $component->get('expenses');
+    expect($expenses)->toHaveCount(1);
+    expect($expenses[0]->merchant)->toBe('Uncategorized One');
+});
+
+test('uncategorized expenses can be categorized via inline select', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    $expense = Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'category' => null,
+        'merchant' => 'New Store',
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->call('categorizeExpense', $expense->id, SpendingCategory::GuiltFree->value);
+
+    expect($expense->fresh()->category)->toBe(SpendingCategory::GuiltFree);
+});
+
+test('categorizeExpense rejects invalid category', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    $expense = Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'category' => null,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->call('categorizeExpense', $expense->id, 'InvalidCategory');
+
+    expect($expense->fresh()->category)->toBeNull();
+});
+
+test('categorizeExpense checks authorization', function () {
+    $user = User::factory()->create();
+    $otherUser = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $otherUser->id]);
+
+    $expense = Expense::factory()->create([
+        'user_id' => $otherUser->id,
+        'expense_account_id' => $account->id,
+        'category' => null,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->call('categorizeExpense', $expense->id, SpendingCategory::GuiltFree->value)
+        ->assertForbidden();
 });
