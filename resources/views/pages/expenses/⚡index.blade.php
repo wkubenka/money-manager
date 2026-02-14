@@ -40,7 +40,7 @@ new class extends Component {
     public string $editingDate = '';
     public string $editingAccountId = '';
     // CSV import
-    public $csvFile;
+    public mixed $csvFile = null;
     public array $parsedRows = [];
     public array $selectedRows = [];
     public bool $showImportModal = false;
