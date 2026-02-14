@@ -53,11 +53,6 @@ new class extends Component {
     public string $bulkCategorizeCategory = '';
     public int $bulkCategorizeCount = 0;
 
-    public function mount(): void
-    {
-        //
-    }
-
     #[Computed]
     public function accounts()
     {
@@ -163,7 +158,7 @@ new class extends Component {
     public function addExpense(): void
     {
         // Auto-set account from selected tab
-        if ($this->selectedAccountId !== 'all') {
+        if (is_numeric($this->selectedAccountId)) {
             $this->newAccountId = $this->selectedAccountId;
         }
 
@@ -397,7 +392,7 @@ new class extends Component {
 
     public function openImportModal(): void
     {
-        $this->importAccountId = $this->selectedAccountId !== 'all'
+        $this->importAccountId = is_numeric($this->selectedAccountId)
             ? (int) $this->selectedAccountId
             : null;
         $this->csvFile = null;
@@ -704,7 +699,7 @@ new class extends Component {
     @endif
 
     {{-- Account rename/delete bar --}}
-    @if ($selectedAccountId !== 'all' && $selectedAccountId !== 'uncategorized')
+    @if (is_numeric($selectedAccountId))
         <div class="mb-4 flex items-center gap-2">
             @if ($isRenamingAccount)
                 <flux:input
@@ -730,7 +725,7 @@ new class extends Component {
     {{-- Add expense form --}}
     @if ($selectedAccountId !== 'uncategorized')
     <form wire:submit="addExpense" class="mb-6 grid grid-cols-2 sm:grid-cols-3 lg:flex lg:items-end gap-2" x-init="if (! $wire.newDate) { const d = new Date(); $wire.newDate = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }">
-        @if ($selectedAccountId === 'all')
+        @if (! is_numeric($selectedAccountId))
             <div class="min-w-0 lg:flex-1">
                 <flux:select wire:model="newAccountId" size="sm">
                     <option value="">{{ __('Account') }}</option>
@@ -826,7 +821,7 @@ new class extends Component {
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2">
                             <span class="text-sm text-zinc-700 dark:text-zinc-300 truncate">{{ $expense->merchant }}</span>
-                            @if ($selectedAccountId === 'all')
+                            @if (! is_numeric($selectedAccountId))
                                 <span class="hidden sm:inline text-xs text-zinc-400 dark:text-zinc-500 truncate max-w-32">{{ $expense->expenseAccount->name }}</span>
                             @endif
                         </div>
