@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\CopySpendingPlan;
 use App\Enums\SpendingCategory;
 use App\Models\SpendingPlan;
 use Illuminate\Support\Facades\Auth;
@@ -16,27 +17,7 @@ new class extends Component {
     public function copyPlan(int $planId): void
     {
         $plan = SpendingPlan::findOrFail($planId);
-        abort_unless($plan->user_id === Auth::id(), 403);
-        abort_if(Auth::user()->spendingPlans()->count() >= SpendingPlan::MAX_PER_USER, 422);
-
-        $copy = SpendingPlan::create([
-            'user_id' => Auth::id(),
-            'name' => "Copy of {$plan->name}",
-            'monthly_income' => $plan->monthly_income,
-            'gross_monthly_income' => $plan->gross_monthly_income,
-            'pre_tax_investments' => $plan->pre_tax_investments,
-            'fixed_costs_misc_percent' => $plan->fixed_costs_misc_percent,
-            'is_current' => false,
-        ]);
-
-        foreach ($plan->items as $item) {
-            $copy->items()->create([
-                'category' => $item->category,
-                'name' => $item->name,
-                'amount' => $item->amount,
-                'sort_order' => $item->sort_order,
-            ]);
-        }
+        $copy = app(CopySpendingPlan::class)($plan, Auth::user());
 
         $this->redirect(route('spending-plans.edit', $copy), navigate: true);
     }
@@ -54,7 +35,7 @@ new class extends Component {
 }; ?>
 
 <section class="w-full">
-    @include('partials.spending-plans-heading')
+    <x-page-heading title="Conscious Spending Plan" subtitle="Plan how your money works for you" />
 
     @php $atLimit = $this->plans->count() >= SpendingPlan::MAX_PER_USER; @endphp
 
@@ -88,7 +69,7 @@ new class extends Component {
                                     <flux:badge size="sm" color="emerald">{{ __('Current') }}</flux:badge>
                                 @endif
                             </div>
-                            <flux:subheading>${{ number_format($plan->monthly_income / 100) }}/mo</flux:subheading>
+                            <flux:subheading>${{ format_cents($plan->monthly_income) }}/mo</flux:subheading>
                         </div>
                         <div class="flex items-center gap-1">
                             @if (!$plan->is_current)

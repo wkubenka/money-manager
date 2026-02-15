@@ -77,7 +77,7 @@ new class extends Component {
 }; ?>
 
 <section class="w-full">
-    @include('partials.settings-heading')
+    <x-page-heading title="Settings" subtitle="Manage your profile and account settings" />
 
     <flux:heading class="sr-only">{{ __('Profile Settings') }}</flux:heading>
 

@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\CopySpendingPlan;
 use App\Enums\SpendingCategory;
 use App\Models\SpendingPlan;
 use Illuminate\Support\Facades\Auth;
@@ -31,35 +32,14 @@ new class extends Component {
 
     public function copyPlan(): void
     {
-        $plan = $this->spendingPlan;
-        abort_unless($plan->user_id === Auth::id(), 403);
-        abort_if(Auth::user()->spendingPlans()->count() >= SpendingPlan::MAX_PER_USER, 422);
-
-        $copy = SpendingPlan::create([
-            'user_id' => Auth::id(),
-            'name' => "Copy of {$plan->name}",
-            'monthly_income' => $plan->monthly_income,
-            'gross_monthly_income' => $plan->gross_monthly_income,
-            'pre_tax_investments' => $plan->pre_tax_investments,
-            'fixed_costs_misc_percent' => $plan->fixed_costs_misc_percent,
-            'is_current' => false,
-        ]);
-
-        foreach ($plan->items as $item) {
-            $copy->items()->create([
-                'category' => $item->category,
-                'name' => $item->name,
-                'amount' => $item->amount,
-                'sort_order' => $item->sort_order,
-            ]);
-        }
+        $copy = app(CopySpendingPlan::class)($this->spendingPlan, Auth::user());
 
         $this->redirect(route('spending-plans.edit', $copy), navigate: true);
     }
 }; ?>
 
 <section class="w-full">
-    @include('partials.spending-plans-heading')
+    <x-page-heading title="Conscious Spending Plan" subtitle="Plan how your money works for you" />
 
     <div class="mb-6">
         <flux:link :href="route('spending-plans.dashboard')" wire:navigate class="text-sm">
@@ -70,14 +50,14 @@ new class extends Component {
     <div class="mb-8">
         <div>
             <flux:heading size="lg">{{ $spendingPlan->name }}</flux:heading>
-            <flux:subheading>{{ __('Monthly take-home:') }} ${{ number_format($spendingPlan->monthly_income / 100) }}</flux:subheading>
+            <flux:subheading>{{ __('Monthly take-home:') }} ${{ format_cents($spendingPlan->monthly_income) }}</flux:subheading>
             @if ($spendingPlan->gross_monthly_income || $spendingPlan->pre_tax_investments)
                 <div class="mt-1 flex flex-wrap gap-4 text-sm text-zinc-500 dark:text-zinc-400">
                     @if ($spendingPlan->gross_monthly_income)
-                        <span>{{ __('Gross:') }} ${{ number_format($spendingPlan->gross_monthly_income / 100) }}</span>
+                        <span>{{ __('Gross:') }} ${{ format_cents($spendingPlan->gross_monthly_income) }}</span>
                     @endif
                     @if ($spendingPlan->pre_tax_investments)
-                        <span>{{ __('Investments deducted from paycheck:') }} ${{ number_format($spendingPlan->pre_tax_investments / 100) }}</span>
+                        <span>{{ __('Investments deducted from paycheck:') }} ${{ format_cents($spendingPlan->pre_tax_investments) }}</span>
                     @endif
                 </div>
             @endif
@@ -137,7 +117,7 @@ new class extends Component {
                         @foreach ($items as $item)
                             <div class="flex items-center justify-between py-1.5 text-sm">
                                 <span class="text-zinc-700 dark:text-zinc-300">{{ $item->name }}</span>
-                                <span class="font-medium text-zinc-900 dark:text-zinc-100">${{ number_format($item->amount / 100) }}</span>
+                                <span class="font-medium text-zinc-900 dark:text-zinc-100">${{ format_cents($item->amount) }}</span>
                             </div>
                         @endforeach
                     </div>
@@ -147,12 +127,12 @@ new class extends Component {
                     @if ($category === SpendingCategory::FixedCosts && $spendingPlan->fixed_costs_misc_percent > 0)
                         <div class="flex items-center justify-between py-1.5 text-sm italic">
                             <span>{{ __('Miscellaneous') }} ({{ $spendingPlan->fixed_costs_misc_percent }}%)</span>
-                            <span>${{ number_format($spendingPlan->fixedCostsMiscellaneous() / 100) }}</span>
+                            <span>${{ format_cents($spendingPlan->fixedCostsMiscellaneous()) }}</span>
                         </div>
                     @endif
                     <div class="flex items-center justify-between text-sm font-medium">
                         <span>{{ __('Subtotal') }}</span>
-                        <span>${{ number_format($total / 100) }}</span>
+                        <span>${{ format_cents($total) }}</span>
                     </div>
                 </div>
             </div>
@@ -189,7 +169,7 @@ new class extends Component {
             <div class="flex items-center justify-between text-sm">
                 <span class="text-zinc-500 dark:text-zinc-400">{{ __('Remaining after other categories') }}</span>
                 <span class="font-bold {{ $guiltFreeTotal < 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-900 dark:text-zinc-100' }}">
-                    {{ $guiltFreeTotal < 0 ? '-' : '' }}${{ number_format(abs($guiltFreeTotal) / 100) }}
+                    {{ $guiltFreeTotal < 0 ? '-' : '' }}${{ format_cents(abs($guiltFreeTotal)) }}
                 </span>
             </div>
         </div>

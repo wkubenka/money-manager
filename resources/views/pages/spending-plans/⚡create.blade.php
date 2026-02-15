@@ -55,7 +55,7 @@ new class extends Component {
 }; ?>
 
 <section class="w-full">
-    @include('partials.spending-plans-heading')
+    <x-page-heading title="Conscious Spending Plan" subtitle="Plan how your money works for you" />
 
     <x-pages::spending-plans.layout :heading="__('Create a New Plan')" :subheading="__('Give your plan a name and set your monthly take-home income.')">
         <form wire:submit="createPlan" class="my-6 w-full max-w-lg space-y-6">

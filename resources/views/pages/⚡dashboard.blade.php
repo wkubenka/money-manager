@@ -265,7 +265,7 @@ new class extends Component {
                 <div>
                     <flux:subheading>{{ __('Net Worth') }}</flux:subheading>
                     <div class="mt-1 text-3xl font-bold {{ $this->netWorthSummary['net_worth'] < 0 ? 'text-red-600 dark:text-red-300' : 'text-zinc-900 dark:text-zinc-100' }}">
-                        {{ $this->netWorthSummary['net_worth'] < 0 ? '-' : '' }}${{ number_format(abs($this->netWorthSummary['net_worth']) / 100) }}
+                        {{ $this->netWorthSummary['net_worth'] < 0 ? '-' : '' }}${{ format_cents(abs($this->netWorthSummary['net_worth'])) }}
                     </div>
                 </div>
                 <flux:button variant="subtle" size="sm" icon="cog-6-tooth" :href="route('net-worth.index')" wire:navigate aria-label="{{ __('Manage accounts') }}" />
@@ -279,7 +279,7 @@ new class extends Component {
                             <div class="size-3 rounded-full {{ $category->color() }}"></div>
                             <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ $category->label() }}</span>
                         </div>
-                        <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ number_format($total / 100) }}</span>
+                        <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ format_cents($total) }}</span>
                     </div>
                 @endforeach
             </div>
@@ -310,7 +310,7 @@ new class extends Component {
                     <div>
                         <flux:subheading>{{ __('Emergency Fund') }}</flux:subheading>
                         <div class="mt-1 text-3xl font-bold text-zinc-900 dark:text-zinc-100">
-                            ${{ number_format($ef->balance / 100) }}
+                            ${{ format_cents($ef->balance) }}
                         </div>
                     </div>
                     <flux:button variant="subtle" size="sm" icon="pencil-square" :href="route('net-worth.index')" wire:navigate aria-label="{{ __('Edit emergency fund') }}" />
@@ -361,11 +361,11 @@ new class extends Component {
                     <div>
                         <flux:subheading>{{ __('Current Spending Plan') }}</flux:subheading>
                         <div class="mt-1 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
-                            ${{ number_format($plan->monthly_income / 100) }}/mo
+                            ${{ format_cents($plan->monthly_income) }}/mo
                         </div>
                         @if ($plan->gross_monthly_income)
                             <div class="text-sm text-zinc-500 dark:text-zinc-400">
-                                ${{ number_format($plan->gross_monthly_income * 12 / 100) }}/yr {{ __('gross') }}
+                                ${{ format_cents($plan->gross_monthly_income * 12) }}/yr {{ __('gross') }}
                             </div>
                         @endif
                     </div>
@@ -395,10 +395,10 @@ new class extends Component {
                                 </div>
                                 <div class="flex items-center gap-2">
                                     @if ($category !== SpendingCategory::GuiltFree)
-                                        <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ number_format($total / 100) }}</span>
+                                        <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ format_cents($total) }}</span>
                                     @else
                                         <span class="text-sm font-medium {{ $total < 0 ? 'text-red-600 dark:text-red-300' : 'text-zinc-900 dark:text-zinc-100' }}">
-                                            {{ $total < 0 ? '-' : '' }}${{ number_format(abs($total) / 100) }}
+                                            {{ $total < 0 ? '-' : '' }}${{ format_cents(abs($total)) }}
                                         </span>
                                     @endif
                                     <flux:badge size="sm" color="{{ $percent < 0 ? 'red' : ($withinIdeal ? 'green' : 'amber') }}" class="w-10 justify-center">
@@ -418,10 +418,10 @@ new class extends Component {
                             @if ($total > 0)
                                 <div class="mt-1.5 flex items-center justify-between text-xs">
                                     <span class="text-zinc-500 dark:text-zinc-400">
-                                        {{ __('Spent') }}: ${{ number_format($actualSpent / 100) }}
+                                        {{ __('Spent') }}: ${{ format_cents($actualSpent) }}
                                     </span>
                                     <span class="{{ $remaining < 0 ? 'text-red-600 dark:text-red-300' : 'text-emerald-600 dark:text-emerald-400' }}">
-                                        ${{ number_format(abs($remaining) / 100) }}
+                                        ${{ format_cents(abs($remaining)) }}
                                         {{ $remaining >= 0 ? __('left') : __('over') }}
                                     </span>
                                 </div>
@@ -432,13 +432,13 @@ new class extends Component {
                                     @foreach ($items as $item)
                                         <div class="flex items-center justify-between text-sm">
                                             <span class="text-zinc-500 dark:text-zinc-400">{{ $item->name }}</span>
-                                            <span class="text-zinc-600 dark:text-zinc-300">${{ number_format($item->amount / 100) }}</span>
+                                            <span class="text-zinc-600 dark:text-zinc-300">${{ format_cents($item->amount) }}</span>
                                         </div>
                                     @endforeach
                                     @if ($category === SpendingCategory::FixedCosts && $plan->fixed_costs_misc_percent > 0)
                                         <div class="flex items-center justify-between text-sm italic text-zinc-500 dark:text-zinc-400">
                                             <span>{{ __('Miscellaneous') }} ({{ $plan->fixed_costs_misc_percent }}%)</span>
-                                            <span class="text-zinc-600 dark:text-zinc-300">${{ number_format($plan->fixedCostsMiscellaneous() / 100) }}</span>
+                                            <span class="text-zinc-600 dark:text-zinc-300">${{ format_cents($plan->fixedCostsMiscellaneous()) }}</span>
                                         </div>
                                     @endif
                                 </div>
@@ -491,7 +491,7 @@ new class extends Component {
                     <flux:subheading>{{ __('Est. Investments at Retirement') }}</flux:subheading>
                     @if ($canProject)
                         <div class="mt-1 text-3xl font-bold text-zinc-900 dark:text-zinc-100">
-                            ${{ number_format($projectedCents / 100) }}
+                            ${{ format_cents($projectedCents) }}
                         </div>
                     @endif
                 </div>
@@ -522,11 +522,11 @@ new class extends Component {
                     <div class="space-y-2 pt-2">
                         <div class="flex items-center justify-between">
                             <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Current investments') }}</span>
-                            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ number_format($investmentBalance / 100) }}</span>
+                            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ format_cents($investmentBalance) }}</span>
                         </div>
                         <div class="flex items-center justify-between">
                             <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Monthly contributions') }}</span>
-                            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ number_format($monthlyContribution / 100) }}</span>
+                            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ format_cents($monthlyContribution) }}</span>
                         </div>
                         <div class="flex items-center justify-between">
                             <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Years until retirement') }}</span>
@@ -536,7 +536,7 @@ new class extends Component {
                             @php $monthlyWithdrawal = (int) round($projectedCents * ($withdrawalRate / 100) / 12); @endphp
                             <div class="flex items-center justify-between">
                                 <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Safe monthly withdrawal') }}</span>
-                                <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ number_format($monthlyWithdrawal / 100) }}</span>
+                                <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ format_cents($monthlyWithdrawal) }}</span>
                             </div>
                         @endif
                     </div>

@@ -181,7 +181,7 @@ new class extends Component {
 }; ?>
 
 <section class="w-full">
-    @include('partials.spending-plans-heading')
+    <x-page-heading title="Conscious Spending Plan" subtitle="Plan how your money works for you" />
 
     <div class="mb-6">
         <flux:link :href="route('spending-plans.show', $spendingPlan)" wire:navigate class="text-sm">
@@ -310,7 +310,7 @@ new class extends Component {
                                         <flux:icon.bars-3 variant="micro" />
                                     </div>
                                     <span class="flex-1 text-sm text-zinc-700 dark:text-zinc-300">{{ $item->name }}</span>
-                                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ number_format($item->amount / 100) }}</span>
+                                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ format_cents($item->amount) }}</span>
                                     <div class="flex items-center gap-0.5">
                                         <flux:button size="xs" variant="ghost" icon="pencil" wire:click="editItem({{ $item->id }})" aria-label="{{ __('Edit item') }}" />
                                         <flux:button size="xs" variant="ghost" icon="trash" wire:click="removeItem({{ $item->id }})" wire:confirm="{{ __('Remove this item?') }}" aria-label="{{ __('Remove item') }}" />
@@ -361,12 +361,12 @@ new class extends Component {
                     @if ($category === SpendingCategory::FixedCosts && $this->plan->fixed_costs_misc_percent > 0)
                         <div class="flex items-center justify-between py-1.5 text-sm italic">
                             <span>{{ __('Miscellaneous') }} ({{ $this->plan->fixed_costs_misc_percent }}%)</span>
-                            <span>${{ number_format($this->plan->fixedCostsMiscellaneous() / 100) }}</span>
+                            <span>${{ format_cents($this->plan->fixedCostsMiscellaneous()) }}</span>
                         </div>
                     @endif
                     <div class="flex items-center justify-between text-sm font-medium">
                         <span>{{ __('Subtotal') }}</span>
-                        <span>${{ number_format($total / 100) }}</span>
+                        <span>${{ format_cents($total) }}</span>
                     </div>
                 </div>
             </div>
@@ -399,7 +399,7 @@ new class extends Component {
             <div class="flex items-center justify-between text-sm">
                 <span class="text-zinc-500 dark:text-zinc-400">{{ __('Automatically calculated from remaining income') }}</span>
                 <span class="text-lg font-bold {{ $guiltFreeTotal < 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-900 dark:text-zinc-100' }}">
-                    {{ $guiltFreeTotal < 0 ? '-' : '' }}${{ number_format(abs($guiltFreeTotal) / 100) }}
+                    {{ $guiltFreeTotal < 0 ? '-' : '' }}${{ format_cents(abs($guiltFreeTotal)) }}
                 </span>
             </div>
         </div>

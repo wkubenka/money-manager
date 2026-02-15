@@ -164,7 +164,7 @@ new class extends Component {
             $this->newAccountId = $this->selectedAccountId;
         }
 
-        $this->newAmount = $this->sanitizeAmount($this->newAmount);
+        $this->newAmount = sanitize_money_input($this->newAmount);
 
         $this->validate([
             'newAccountId' => ['required', 'integer'],
@@ -212,7 +212,7 @@ new class extends Component {
 
     public function updateExpense(): void
     {
-        $this->editingAmount = $this->sanitizeAmount($this->editingAmount);
+        $this->editingAmount = sanitize_money_input($this->editingAmount);
 
         $validated = $this->validate([
             'editingMerchant' => ['required', 'string', 'max:255'],
@@ -472,10 +472,6 @@ new class extends Component {
 
     // Helpers
 
-    private function sanitizeAmount(string $value): string
-    {
-        return str_replace([',', '$', ' '], '', $value);
-    }
 
     private function resetExpensesCaches(): void
     {
@@ -485,11 +481,7 @@ new class extends Component {
 }; ?>
 
 <section class="w-full">
-    <div class="relative mb-6 w-full">
-        <flux:heading size="xl" level="1">{{ __('Expenses') }}</flux:heading>
-        <flux:subheading size="lg" class="mb-6">{{ __('Track where your money went') }}</flux:subheading>
-        <flux:separator variant="subtle" />
-    </div>
+    <x-page-heading title="Expenses" subtitle="Track where your money went" />
 
     @if ($this->accounts->isEmpty())
         {{-- First account setup --}}
@@ -518,7 +510,7 @@ new class extends Component {
     <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-5 mb-6">
         <div class="flex items-center justify-between">
             <flux:subheading>{{ __('This Month') }}</flux:subheading>
-            <span class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">${{ number_format($this->monthlyTotal / 100, 2) }}</span>
+            <span class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">${{ format_cents($this->monthlyTotal, 2) }}</span>
         </div>
         @if ($this->monthlyTotal > 0)
             <div class="flex flex-wrap gap-2 mt-3">
@@ -526,7 +518,7 @@ new class extends Component {
                     @php $catTotal = $this->categoryTotals[$cat->value] ?? 0; @endphp
                     @if ($catTotal > 0)
                         <flux:badge as="button" size="sm" color="{{ $cat->badgeColor() }}" variant="solid" wire:click="$set('selectedAccountId', 'category:{{ $cat->value }}')" class="cursor-pointer">
-                            {{ $cat->label() }}: ${{ number_format($catTotal / 100) }}
+                            {{ $cat->label() }}: ${{ format_cents($catTotal) }}
                         </flux:badge>
                     @endif
                 @endforeach
@@ -692,7 +684,7 @@ new class extends Component {
                         </div>
                         <span class="text-xs text-zinc-500 dark:text-zinc-400">{{ $expense->date->format('M j, Y') }}</span>
                     </div>
-                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100 shrink-0">${{ number_format($expense->amount / 100, 2) }}</span>
+                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100 shrink-0">${{ format_cents($expense->amount, 2) }}</span>
                     <div class="flex gap-1 shrink-0">
                         @foreach (SpendingCategory::cases() as $cat)
                             <flux:button size="xs" variant="primary" color="{{ $cat->badgeColor() }}" wire:click="categorizeExpense({{ $expense->id }}, '{{ $cat->value }}')" aria-label="{{ __('Categorize as :category', ['category' => $cat->label()]) }}">{{ $cat->label() }}</flux:button>
@@ -721,7 +713,7 @@ new class extends Component {
                             @endif
                         </div>
                     </div>
-                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100 shrink-0">${{ number_format($expense->amount / 100, 2) }}</span>
+                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100 shrink-0">${{ format_cents($expense->amount, 2) }}</span>
                     <div class="flex items-center gap-0.5 shrink-0">
                         <flux:button size="xs" variant="ghost" icon="pencil" wire:click="editExpense({{ $expense->id }})" aria-label="{{ __('Edit expense') }}" />
                         <flux:button size="xs" variant="ghost" icon="trash" wire:click="removeExpense({{ $expense->id }})" wire:confirm="{{ __('Remove this expense?') }}" aria-label="{{ __('Remove expense') }}" />
@@ -834,7 +826,7 @@ new class extends Component {
                                                 <span>{{ $match['csv_merchant'] }}</span>
                                                 <span class="text-xs text-zinc-400 ml-1">{{ $match['csv_date'] }}</span>
                                             </td>
-                                            <td class="p-2 text-right">${{ number_format($match['amount'] / 100, 2) }}</td>
+                                            <td class="p-2 text-right">${{ format_cents($match['amount'], 2) }}</td>
                                         </tr>
                                     @endforeach
                                 </tbody>
@@ -879,7 +871,7 @@ new class extends Component {
                                             </td>
                                             <td class="p-2">{{ $row['date'] }}</td>
                                             <td class="p-2 truncate max-w-48">{{ $row['merchant'] }}</td>
-                                            <td class="p-2 text-right">${{ number_format($row['amount'] / 100, 2) }}</td>
+                                            <td class="p-2 text-right">${{ format_cents($row['amount'], 2) }}</td>
                                             <td class="p-2">
                                                 @if ($row['category'])
                                                     @php $catEnum = SpendingCategory::from($row['category']); @endphp

@@ -51,7 +51,7 @@ new class extends Component {
 
     public function addAccount(string $category): void
     {
-        $this->newAccountBalances[$category] = $this->sanitizeBalance($this->newAccountBalances[$category] ?? '');
+        $this->newAccountBalances[$category] = sanitize_money_input($this->newAccountBalances[$category] ?? '');
 
         $this->validate([
             "newAccountNames.{$category}" => ['required', 'string', 'max:255'],
@@ -91,7 +91,7 @@ new class extends Component {
 
     public function updateAccount(): void
     {
-        $this->editingAccountBalance = $this->sanitizeBalance($this->editingAccountBalance);
+        $this->editingAccountBalance = sanitize_money_input($this->editingAccountBalance);
 
         $validated = $this->validate([
             'editingAccountName' => ['required', 'string', 'max:255'],
@@ -120,10 +120,6 @@ new class extends Component {
         $this->editingAccountBalance = '';
     }
 
-    private function sanitizeBalance(string $value): string
-    {
-        return str_replace([',', '$', ' '], '', $value);
-    }
 
     public function removeAccount(int $accountId): void
     {
@@ -137,7 +133,7 @@ new class extends Component {
 }; ?>
 
 <section class="w-full">
-    @include('partials.net-worth-heading')
+    <x-page-heading title="Net Worth" subtitle="Track what you own and what you owe" />
 
     {{-- Net worth summary --}}
     <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-5 mb-8">
@@ -145,7 +141,7 @@ new class extends Component {
             <div>
                 <flux:subheading>{{ __('Net Worth') }}</flux:subheading>
                 <div class="mt-1 text-3xl font-bold {{ $this->netWorth < 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-900 dark:text-zinc-100' }}">
-                    {{ $this->netWorth < 0 ? '-' : '' }}${{ number_format(abs($this->netWorth) / 100) }}
+                    {{ $this->netWorth < 0 ? '-' : '' }}${{ format_cents(abs($this->netWorth)) }}
                 </div>
             </div>
             <flux:link :href="route('dashboard')" wire:navigate class="text-sm">
@@ -169,7 +165,7 @@ new class extends Component {
                         <flux:heading>{{ $category->label() }}</flux:heading>
                     </div>
                     <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                        ${{ number_format($total / 100) }}
+                        ${{ format_cents($total) }}
                     </span>
                 </div>
 
@@ -197,7 +193,7 @@ new class extends Component {
                                 @else
                                     {{-- Display mode --}}
                                     <span class="flex-1 text-sm text-zinc-700 dark:text-zinc-300">{{ $account->name }}</span>
-                                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ number_format($account->balance / 100) }}</span>
+                                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ format_cents($account->balance) }}</span>
                                     <div class="flex items-center gap-0.5">
                                         <flux:button size="xs" variant="ghost" icon="pencil" wire:click="editAccount({{ $account->id }})" aria-label="{{ __('Edit account') }}" />
                                         @if ($account->is_emergency_fund)
