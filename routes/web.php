@@ -33,3 +33,4 @@ require __DIR__.'/settings.php';
 require __DIR__.'/spending-plans.php';
 require __DIR__.'/net-worth.php';
 require __DIR__.'/expenses.php';
+require __DIR__.'/admin.php';

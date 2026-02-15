@@ -26,6 +26,14 @@
 
             <flux:spacer />
 
+            @if (in_array(auth()->user()->email, config('admin.emails')))
+                <flux:sidebar.nav>
+                    <flux:sidebar.item icon="shield-check" :href="route('admin.dashboard')" :current="request()->routeIs('admin.*')" wire:navigate>
+                        {{ __('Admin') }}
+                    </flux:sidebar.item>
+                </flux:sidebar.nav>
+            @endif
+
             <x-desktop-user-menu class="hidden lg:block" :name="auth()->user()->name" />
         </flux:sidebar>
 
