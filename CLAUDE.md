@@ -16,6 +16,17 @@ A personal finance app based on Ramit Sethi's "I Will Teach You To Be Rich" meth
 
 ### Money Storage
 - All monetary values stored as **cents** (integers). Convert dollars→cents on save (`* 100`), cents→dollars on display (`/ 100`)
+- Display helper: `format_cents(int $cents, int $decimals = 0)` — use instead of inline `number_format($value / 100)`
+- Input sanitization: `sanitize_money_input(string $value)` — strips `$`, `,`, spaces from user input before validation
+- Both helpers are in `app/helpers.php`, autoloaded via `composer.json`
+
+### Services & Actions
+- Extract complex business logic into `app/Services/` (multi-step operations) or `app/Actions/` (single invokable operations)
+- `CsvExpenseImporter` — CSV parsing, deduplication, and import logic for expenses
+- `CopySpendingPlan` — copies a spending plan and its items
+
+### Shared Components
+- `<x-page-heading title="..." subtitle="..." />` — standard page heading used across all sections
 
 ### Spending Categories
 - Shared enum `App\Enums\SpendingCategory` used by both Spending Plans and Expenses
@@ -36,6 +47,7 @@ A personal finance app based on Ramit Sethi's "I Will Teach You To Be Rich" meth
 
 ### Expenses (`routes/expenses.php`, `expenses.*`)
 - Models: `Expense` (belongsTo User, belongsTo ExpenseAccount), `ExpenseAccount` (belongsTo User)
+- Service: `App\Services\CsvExpenseImporter` — CSV parsing, column detection, deduplication, and import
 - Single page (`⚡index.blade.php`) with tabs per account + "Uncategorized" tab
 - Features: add/edit/delete expenses, CSV import with auto-categorization, bulk merchant categorization
 - Auto-categorization: when entering a known merchant, category is inferred from the most recent expense with that merchant

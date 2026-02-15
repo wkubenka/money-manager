@@ -37,6 +37,14 @@ A unified view showing:
 - Net worth summary with category breakdown
 - Current spending plan with category progress bars and item details
 
+## Architecture
+
+- **Pages** are inline Livewire components (`new class extends Component`) in Blade files
+- **Services** (`app/Services/`) handle complex multi-step operations (e.g. CSV import parsing)
+- **Actions** (`app/Actions/`) are single invokable classes for reusable business logic (e.g. copying a spending plan)
+- **Helpers** (`app/helpers.php`) provide global utility functions like `format_cents()` for displaying monetary values
+- All monetary values are stored as **cents** (integers) in the database
+
 ## Tech Stack
 
 - **Backend:** Laravel 12, PHP 8.2+
