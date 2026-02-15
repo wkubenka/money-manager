@@ -3,7 +3,7 @@
 use App\Enums\SpendingCategory;
 use App\Models\Expense;
 use App\Models\ExpenseAccount;
-use Carbon\Carbon;
+use App\Services\CsvExpenseImporter;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
@@ -424,180 +424,14 @@ new class extends Component {
             return;
         }
 
-        $path = $this->csvFile->getRealPath();
-        $handle = fopen($path, 'r');
+        $importer = app(CsvExpenseImporter::class);
+        $result = $importer->parse($this->csvFile->getRealPath(), $this->importAccountId, Auth::id());
 
-        if (! $handle) {
-            $this->importFeedback = __('Could not read the file.');
-
-            return;
-        }
-
-        $headers = fgetcsv($handle);
-        if (! $headers) {
-            fclose($handle);
-            $this->importFeedback = __('The file appears to be empty.');
-
-            return;
-        }
-
-        $headers = array_map(fn ($h) => strtolower(trim($h)), $headers);
-
-        $dateCol = $this->detectColumn($headers, ['date', 'transaction date', 'posted date', 'posting date', 'post date']);
-        $merchantCol = $this->detectColumn($headers, ['description', 'merchant', 'name', 'memo', 'payee', 'transaction']);
-        $amountCol = $this->detectColumn($headers, ['amount', 'debit', 'total', 'charge']);
-        $refCol = $this->detectColumn($headers, ['reference number', 'transaction id', 'reference', 'ref']);
-        $statusCol = $this->detectColumn($headers, ['status']);
-
-        if ($dateCol === null || $merchantCol === null || $amountCol === null) {
-            fclose($handle);
-            $this->importFeedback = __('Could not detect Date, Description, or Amount columns in this file.');
-
-            return;
-        }
-
-        $requiredColCount = max($dateCol, $merchantCol, $amountCol);
-
-        // Load existing reference numbers for this account (for re-import detection)
-        $existingRefNumbers = Auth::user()->expenses()
-            ->where('expense_account_id', $this->importAccountId)
-            ->whereNotNull('reference_number')
-            ->pluck('reference_number')
-            ->toArray();
-
-        // Load unimported expenses as a consumable amount pool (for manual entry matching)
-        $unimportedExpenses = Auth::user()->expenses()
-            ->where('expense_account_id', $this->importAccountId)
-            ->where('is_imported', false)
-            ->get(['id', 'amount', 'merchant', 'date']);
-
-        $unimportedPool = [];
-        foreach ($unimportedExpenses as $expense) {
-            $unimportedPool[] = [
-                'id' => $expense->id,
-                'amount' => $expense->amount,
-                'merchant' => $expense->merchant,
-                'date' => $expense->date->format('Y-m-d'),
-            ];
-        }
-
-        // First pass: collect all rows with raw signed amounts
-        $rawRows = [];
-        $hasNegativeAmounts = false;
-
-        while (($row = fgetcsv($handle)) !== false) {
-            if (count($row) <= $requiredColCount) {
-                continue;
-            }
-
-            // Filter out non-cleared transactions when status column exists
-            if ($statusCol !== null && isset($row[$statusCol])) {
-                if (strtolower(trim($row[$statusCol])) !== 'cleared') {
-                    continue;
-                }
-            }
-
-            $rawAmount = (float) str_replace([',', '$', ' '], '', $row[$amountCol]);
-
-            if ($rawAmount < 0) {
-                $hasNegativeAmounts = true;
-            }
-
-            $rawRows[] = [
-                'rawAmount' => $rawAmount,
-                'merchant' => trim($row[$merchantCol]),
-                'dateStr' => trim($row[$dateCol]),
-                'bankRef' => ($refCol !== null && isset($row[$refCol])) ? trim($row[$refCol]) : null,
-                'csvRow' => $row,
-            ];
-        }
-
-        fclose($handle);
-
-        // Track occurrence counts for hash-based reference numbers
-        $lineOccurrences = [];
-
-        // Second pass: filter and build parsed rows
-        $rows = [];
-        foreach ($rawRows as $raw) {
-            // In signed-amount CSVs, positive values are credits/income — skip them
-            if ($hasNegativeAmounts && $raw['rawAmount'] > 0) {
-                continue;
-            }
-
-            $amount = abs($raw['rawAmount']);
-
-            if ($amount <= 0) {
-                continue;
-            }
-
-            $amountCents = (int) round($amount * 100);
-
-            try {
-                $date = Carbon::parse($raw['dateStr'])->format('Y-m-d');
-            } catch (\Exception $e) {
-                continue;
-            }
-
-            // Build reference number: bank-provided or hash-generated with occurrence index
-            $bankRef = $raw['bankRef'];
-            if ($bankRef) {
-                $referenceNumber = $bankRef;
-            } else {
-                $lineKey = implode('|', $raw['csvRow']);
-                $lineOccurrences[$lineKey] = ($lineOccurrences[$lineKey] ?? 0) + 1;
-                $referenceNumber = hash('xxh128', $lineKey . '|' . $lineOccurrences[$lineKey]);
-            }
-
-            // Step 1: Check reference number match (prevents re-importing)
-            if (in_array($referenceNumber, $existingRefNumbers)) {
-                continue;
-            }
-
-            // Step 2: Check amount match against unimported expenses (catches manual entries)
-            $matchedIndex = null;
-            foreach ($unimportedPool as $index => $unimported) {
-                if ($unimported['amount'] === $amountCents) {
-                    $matchedIndex = $index;
-
-                    break;
-                }
-            }
-
-            if ($matchedIndex !== null) {
-                $matched = $unimportedPool[$matchedIndex];
-                $this->matchedExpenses[] = [
-                    'expense_id' => $matched['id'],
-                    'expense_merchant' => $matched['merchant'],
-                    'expense_date' => $matched['date'],
-                    'csv_merchant' => $raw['merchant'],
-                    'csv_date' => $date,
-                    'amount' => $amountCents,
-                    'reference_number' => $referenceNumber,
-                ];
-                unset($unimportedPool[$matchedIndex]);
-
-                continue;
-            }
-
-            $category = $this->lookupMerchantCategory($raw['merchant']);
-
-            $rows[] = [
-                'date' => $date,
-                'merchant' => $raw['merchant'],
-                'amount' => $amountCents,
-                'category' => $category,
-                'reference_number' => $referenceNumber,
-            ];
-        }
-
-        $this->parsedRows = $rows;
-        $this->selectedRows = array_keys($rows);
+        $this->parsedRows = $result['parsedRows'];
+        $this->matchedExpenses = $result['matchedExpenses'];
+        $this->selectedRows = array_keys($this->parsedRows);
         $this->selectedMatches = array_keys($this->matchedExpenses);
-
-        if (empty($rows) && ! empty($rawRows)) {
-            $this->importFeedback = __('All transactions in this file have already been imported.');
-        }
+        $this->importFeedback = $result['feedback'];
     }
 
     public function importExpenses(): void
@@ -606,42 +440,15 @@ new class extends Component {
             return;
         }
 
-        $account = ExpenseAccount::findOrFail($this->importAccountId);
-        abort_unless($account->user_id === Auth::id(), 403);
-
-        foreach ($this->selectedRows as $index) {
-            if (! isset($this->parsedRows[$index])) {
-                continue;
-            }
-
-            $row = $this->parsedRows[$index];
-
-            Auth::user()->expenses()->create([
-                'expense_account_id' => $this->importAccountId,
-                'merchant' => $row['merchant'],
-                'amount' => $row['amount'],
-                'category' => $row['category'],
-                'date' => $row['date'],
-                'is_imported' => true,
-                'reference_number' => $row['reference_number'],
-            ]);
-        }
-
-        // Update approved matched manual entries so future re-imports detect them
-        foreach ($this->selectedMatches as $index) {
-            if (! isset($this->matchedExpenses[$index])) {
-                continue;
-            }
-
-            $match = $this->matchedExpenses[$index];
-
-            Expense::where('id', $match['expense_id'])
-                ->where('user_id', Auth::id())
-                ->update([
-                    'is_imported' => true,
-                    'reference_number' => $match['reference_number'],
-                ]);
-        }
+        $importer = app(CsvExpenseImporter::class);
+        $importer->import(
+            $this->selectedRows,
+            $this->parsedRows,
+            $this->selectedMatches,
+            $this->matchedExpenses,
+            $this->importAccountId,
+            Auth::id(),
+        );
 
         $this->showImportModal = false;
         $this->csvFile = null;
@@ -675,28 +482,6 @@ new class extends Component {
         unset($this->expenses, $this->hasMore, $this->monthlyTotal, $this->categoryTotals, $this->uncategorizedCount);
     }
 
-    private function detectColumn(array $headers, array $candidates): ?int
-    {
-        foreach ($candidates as $candidate) {
-            $index = array_search($candidate, $headers);
-            if ($index !== false) {
-                return $index;
-            }
-        }
-
-        return null;
-    }
-
-    private function lookupMerchantCategory(string $merchant): ?string
-    {
-        $expense = Auth::user()->expenses()
-            ->where('merchant', $merchant)
-            ->whereNotNull('category')
-            ->latest('date')
-            ->first();
-
-        return $expense?->category->value;
-    }
 }; ?>
 
 <section class="w-full">
