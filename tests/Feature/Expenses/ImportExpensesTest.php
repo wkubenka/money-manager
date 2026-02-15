@@ -1094,3 +1094,33 @@ test('bulk categorize only affects current user expenses', function () {
 
     expect($otherUserExpense->fresh()->category)->toBeNull();
 });
+
+test('uncategorized tab category buttons do not have wire:confirm after switching from display mode', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    $expense = Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'category' => null,
+        'merchant' => 'Test Store',
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->assertSet('selectedAccountId', 'all')
+        ->set('selectedAccountId', 'uncategorized');
+
+    $html = $component->html();
+
+    foreach (SpendingCategory::cases() as $cat) {
+        expect($html)->toContain("categorizeExpense({$expense->id}, '{$cat->value}')");
+    }
+
+    // wire:confirm should only appear on the delete button, not on category buttons
+    preg_match_all('/wire:confirm/', $html, $matches);
+    expect($matches[0])->toHaveCount(1);
+
+    // The single wire:confirm should be on the removeExpense action
+    expect($html)->toContain("removeExpense({$expense->id})");
+});

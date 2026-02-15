@@ -643,7 +643,7 @@ new class extends Component {
     {{-- Expense list --}}
     <div class="space-y-1">
         @forelse ($this->expenses as $expense)
-            <div class="flex items-center gap-2 py-2 group border-b border-zinc-100 dark:border-zinc-800" wire:key="expense-{{ $expense->id }}">
+            <div class="flex items-center gap-2 py-2 group border-b border-zinc-100 dark:border-zinc-800" wire:key="expense-{{ $expense->id }}-{{ $selectedAccountId === 'uncategorized' ? 'uncat' : 'display' }}">
                 @if ($editingExpenseId === $expense->id)
                     {{-- Inline edit mode --}}
                     <div class="flex-1 grid grid-cols-2 sm:grid-cols-3 lg:flex lg:items-end gap-2">
