@@ -77,6 +77,25 @@ Starts the Laravel dev server, queue worker, log viewer, and Vite dev server con
 php artisan test
 ```
 
+## Deployment
+
+Hosted on AWS Elastic Beanstalk (PHP 8.5, Amazon Linux 2023, single instance). SQLite is persisted on an EFS mount.
+
+### Deploy
+
+```bash
+npm run build
+eb deploy
+```
+
+### Update Environment Variables
+
+```bash
+eb setenv APP_DEBUG=false SOME_VAR=value
+```
+
+This triggers a config update that automatically rebuilds Laravel's config/route/view caches.
+
 ## Code Style
 
 ```bash

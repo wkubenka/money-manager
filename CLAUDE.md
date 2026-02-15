@@ -57,6 +57,32 @@ A personal finance app based on Ramit Sethi's "I Will Teach You To Be Rich" meth
 - Tests organized by feature: `tests/Feature/Expenses/`, `tests/Feature/SpendingPlans/`, `tests/Feature/NetWorth/`
 - Expense tests split into `ManageExpensesTest.php`, `ManageExpenseAccountsTest.php`, `ImportExpensesTest.php`
 
+## Deployment (Elastic Beanstalk)
+
+- **Platform**: PHP 8.5 on Amazon Linux 2023 (single instance, us-west-1)
+- **Database**: SQLite persisted on EFS mounted at `/mnt/efs`
+- **Profile**: `personal` (configured in `.elasticbeanstalk/config.yml`)
+- **Assets**: Built locally, included via `.ebignore` (which omits the `/public/build` exclusion from `.gitignore`)
+
+### Deploy
+
+```bash
+npm run build
+eb deploy
+```
+
+### Key Files
+
+- `.ebextensions/01-efs-mount.config` — installs `amazon-efs-utils`, mounts EFS
+- `.ebextensions/02-document-root.config` — sets nginx document root to `/public`
+- `.platform/hooks/postdeploy/01_laravel.sh` — EFS/SQLite setup, migrations, caches, permissions
+- `.platform/confighooks/postdeploy/01_cache.sh` — rebuilds caches after `eb setenv` changes
+- `.platform/nginx/conf.d/elasticbeanstalk/laravel.conf` — `try_files` rewrite for Laravel routing
+
+### Environment Variables
+
+Set via `eb setenv`: `APP_ENV`, `APP_KEY`, `APP_DEBUG`, `APP_URL`, `DB_CONNECTION`, `EFS_ID`, `ADMIN_EMAILS`
+
 ## Gotchas
 
 - Do NOT use `#[Title]` or `#[Layout]` attributes on inline anonymous classes — Livewire compiles `new class` to `return new class`, making attributes before it a parse error
