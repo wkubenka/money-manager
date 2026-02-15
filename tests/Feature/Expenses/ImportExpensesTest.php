@@ -116,23 +116,24 @@ test('csv import converts negative amounts to positive', function () {
     expect($component->get('parsedRows')[0]['amount'])->toBe(550);
 });
 
-test('csv import filters out duplicate transactions', function () {
+test('csv import filters out manual entries with matching amount', function () {
     $user = User::factory()->create();
     $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
 
-    // Create an existing expense that matches one of the CSV rows
+    // Manual entry with same amount but different date (bank posting date differs)
     Expense::factory()->create([
         'user_id' => $user->id,
         'expense_account_id' => $account->id,
-        'date' => '2026-02-01',
+        'date' => '2026-01-30',
         'amount' => 550,
-        'merchant' => 'Starbucks',
+        'merchant' => 'Coffee Shop',
+        'is_imported' => false,
     ]);
 
     $csv = createCsvFile(
         ['Date', 'Description', 'Amount'],
         [
-            ['2026-02-01', 'Starbucks', '5.50'],  // duplicate: same date + amount
+            ['2026-02-01', 'Starbucks', '5.50'],  // matches manual entry by amount
             ['2026-02-02', 'Amazon', '42.99'],     // new
         ]
     );
@@ -408,6 +409,416 @@ test('csv import keeps all positive amounts when no negatives exist', function (
         ->set('csvFile', $csv);
 
     expect($component->get('parsedRows'))->toHaveCount(2);
+});
+
+// --- Import tracking tests ---
+
+test('imported expenses are saved with is_imported and reference_number', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    $csv = createCsvFile(
+        ['Date', 'Description', 'Amount'],
+        [['2026-02-01', 'Starbucks', '5.50']]
+    );
+
+    Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->set('selectedAccountId', (string) $account->id)
+        ->call('openImportModal')
+        ->set('csvFile', $csv)
+        ->call('importExpenses');
+
+    $expense = Expense::where('user_id', $user->id)->first();
+    expect($expense->is_imported)->toBeTrue();
+    expect($expense->reference_number)->not->toBeNull();
+});
+
+test('manually created expenses default to not imported', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->set('selectedAccountId', (string) $account->id)
+        ->set('newMerchant', 'Coffee Shop')
+        ->set('newAmount', '5.50')
+        ->set('newDate', '2026-02-01')
+        ->set('newAccountId', (string) $account->id)
+        ->set('newCategory', SpendingCategory::GuiltFree->value)
+        ->call('addExpense');
+
+    $expense = Expense::where('user_id', $user->id)->first();
+    expect($expense->is_imported)->toBeFalse();
+    expect($expense->reference_number)->toBeNull();
+});
+
+// --- Reference number dedup tests ---
+
+test('re-importing the same csv filters all rows via reference number', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    $csvContent = [
+        ['2026-02-01', 'Starbucks', '5.50'],
+        ['2026-02-02', 'Amazon', '42.99'],
+    ];
+
+    $csv1 = createCsvFile(['Date', 'Description', 'Amount'], $csvContent);
+
+    // First import
+    Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->set('selectedAccountId', (string) $account->id)
+        ->call('openImportModal')
+        ->set('csvFile', $csv1)
+        ->call('importExpenses');
+
+    expect(Expense::where('user_id', $user->id)->count())->toBe(2);
+
+    // Re-import same CSV
+    $csv2 = createCsvFile(['Date', 'Description', 'Amount'], $csvContent);
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->set('selectedAccountId', (string) $account->id)
+        ->call('openImportModal')
+        ->set('csvFile', $csv2);
+
+    expect($component->get('parsedRows'))->toHaveCount(0);
+    expect($component->get('importFeedback'))->toBe('All transactions in this file have already been imported.');
+});
+
+test('bank-provided reference number is detected and stored', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    $csv = createCsvFile(
+        ['Date', 'Description', 'Amount', 'Reference Number'],
+        [['2026-02-01', 'Starbucks', '5.50', 'REF-12345']]
+    );
+
+    Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->set('selectedAccountId', (string) $account->id)
+        ->call('openImportModal')
+        ->set('csvFile', $csv)
+        ->call('importExpenses');
+
+    $expense = Expense::where('user_id', $user->id)->first();
+    expect($expense->reference_number)->toBe('REF-12345');
+});
+
+test('two identical csv lines get distinct hash-based reference numbers', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    $csv = createCsvFile(
+        ['Date', 'Description', 'Amount'],
+        [
+            ['2026-02-01', 'Starbucks', '5.50'],
+            ['2026-02-01', 'Starbucks', '5.50'],
+        ]
+    );
+
+    Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->set('selectedAccountId', (string) $account->id)
+        ->call('openImportModal')
+        ->set('csvFile', $csv)
+        ->call('importExpenses');
+
+    $expenses = Expense::where('user_id', $user->id)->get();
+    expect($expenses)->toHaveCount(2);
+    expect($expenses[0]->reference_number)->not->toBe($expenses[1]->reference_number);
+});
+
+// --- Amount matching tests ---
+
+test('matched expenses include both manual and csv details', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'date' => '2026-01-29',
+        'amount' => 550,
+        'merchant' => 'Coffee',
+        'is_imported' => false,
+    ]);
+
+    $csv = createCsvFile(
+        ['Date', 'Description', 'Amount'],
+        [['2026-02-01', 'Starbucks', '5.50']]
+    );
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->set('selectedAccountId', (string) $account->id)
+        ->call('openImportModal')
+        ->set('csvFile', $csv);
+
+    $matches = $component->get('matchedExpenses');
+    expect($matches)->toHaveCount(1);
+    expect($matches[0]['expense_merchant'])->toBe('Coffee');
+    expect($matches[0]['expense_date'])->toBe('2026-01-29');
+    expect($matches[0]['csv_merchant'])->toBe('Starbucks');
+    expect($matches[0]['csv_date'])->toBe('2026-02-01');
+    expect($matches[0]['amount'])->toBe(550);
+});
+
+test('selected matches default to all indices', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'amount' => 550,
+        'is_imported' => false,
+    ]);
+
+    Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'amount' => 4299,
+        'is_imported' => false,
+    ]);
+
+    $csv = createCsvFile(
+        ['Date', 'Description', 'Amount'],
+        [
+            ['2026-02-01', 'Starbucks', '5.50'],
+            ['2026-02-02', 'Amazon', '42.99'],
+        ]
+    );
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->set('selectedAccountId', (string) $account->id)
+        ->call('openImportModal')
+        ->set('csvFile', $csv);
+
+    expect($component->get('selectedMatches'))->toBe([0, 1]);
+});
+
+test('approved match updates manual entry on import', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    $manual = Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'date' => '2026-01-29',
+        'amount' => 550,
+        'merchant' => 'Coffee',
+        'is_imported' => false,
+    ]);
+
+    $csv = createCsvFile(
+        ['Date', 'Description', 'Amount'],
+        [['2026-02-01', 'Starbucks', '5.50']]
+    );
+
+    Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->set('selectedAccountId', (string) $account->id)
+        ->call('openImportModal')
+        ->set('csvFile', $csv)
+        ->call('importExpenses');
+
+    $manual->refresh();
+    expect($manual->is_imported)->toBeTrue();
+    expect($manual->reference_number)->not->toBeNull();
+    expect(Expense::where('user_id', $user->id)->count())->toBe(1);
+});
+
+test('deselecting a match prevents manual entry from being updated', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    $manual = Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'amount' => 550,
+        'is_imported' => false,
+    ]);
+
+    $csv = createCsvFile(
+        ['Date', 'Description', 'Amount'],
+        [
+            ['2026-02-01', 'Starbucks', '5.50'],
+            ['2026-02-02', 'Amazon', '42.99'],
+        ]
+    );
+
+    Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->set('selectedAccountId', (string) $account->id)
+        ->call('openImportModal')
+        ->set('csvFile', $csv)
+        ->set('selectedMatches', []) // Deselect the match
+        ->call('importExpenses');
+
+    $manual->refresh();
+    expect($manual->is_imported)->toBeFalse();
+    expect($manual->reference_number)->toBeNull();
+
+    // The new CSV row (Amazon) should still be imported
+    expect(Expense::where('user_id', $user->id)->count())->toBe(2);
+});
+
+test('two manual entries with same amount match csv rows one-to-one', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    $manual1 = Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'amount' => 550,
+        'is_imported' => false,
+    ]);
+
+    $manual2 = Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'amount' => 550,
+        'is_imported' => false,
+    ]);
+
+    $csv = createCsvFile(
+        ['Date', 'Description', 'Amount'],
+        [
+            ['2026-02-01', 'Starbucks A', '5.50'],
+            ['2026-02-02', 'Starbucks B', '5.50'],
+        ]
+    );
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->set('selectedAccountId', (string) $account->id)
+        ->call('openImportModal')
+        ->set('csvFile', $csv);
+
+    // Both CSV rows should be consumed by the two manual entries
+    expect($component->get('parsedRows'))->toHaveCount(0);
+    expect($component->get('matchedExpenses'))->toHaveCount(2);
+});
+
+test('one manual entry consumes only one csv row when multiple match', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'amount' => 550,
+        'is_imported' => false,
+    ]);
+
+    $csv = createCsvFile(
+        ['Date', 'Description', 'Amount'],
+        [
+            ['2026-02-01', 'Starbucks A', '5.50'],
+            ['2026-02-02', 'Starbucks B', '5.50'],
+        ]
+    );
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->set('selectedAccountId', (string) $account->id)
+        ->call('openImportModal')
+        ->set('csvFile', $csv);
+
+    // One consumed by manual entry, one shows in preview
+    expect($component->get('parsedRows'))->toHaveCount(1);
+    expect($component->get('matchedExpenses'))->toHaveCount(1);
+});
+
+test('matched manual entries are not updated if import is cancelled', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    $manual = Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'amount' => 550,
+        'is_imported' => false,
+    ]);
+
+    $csv = createCsvFile(
+        ['Date', 'Description', 'Amount'],
+        [['2026-02-01', 'Starbucks', '5.50']]
+    );
+
+    Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->set('selectedAccountId', (string) $account->id)
+        ->call('openImportModal')
+        ->set('csvFile', $csv)
+        ->call('cancelImport');
+
+    $manual->refresh();
+    expect($manual->is_imported)->toBeFalse();
+    expect($manual->reference_number)->toBeNull();
+});
+
+// --- Status column filtering tests ---
+
+test('pending transactions are filtered out when status column is present', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    $csv = createCsvFile(
+        ['Status', 'Date', 'Description', 'Amount'],
+        [
+            ['Cleared', '2026-02-01', 'Starbucks', '5.50'],
+            ['Pending', '2026-02-02', 'Amazon', '42.99'],
+            ['Cleared', '2026-02-03', 'Target', '15.00'],
+        ]
+    );
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->set('selectedAccountId', (string) $account->id)
+        ->call('openImportModal')
+        ->set('csvFile', $csv);
+
+    expect($component->get('parsedRows'))->toHaveCount(2);
+    expect($component->get('parsedRows')[0]['merchant'])->toBe('Starbucks');
+    expect($component->get('parsedRows')[1]['merchant'])->toBe('Target');
+});
+
+// --- Scoping tests ---
+
+test('imported expense in one account does not affect dedup for another', function () {
+    $user = User::factory()->create();
+    $account1 = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    $account2 = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    // Manual entry in account 1
+    Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account1->id,
+        'amount' => 550,
+        'is_imported' => false,
+    ]);
+
+    // Import into account 2 — should not match account 1's expense
+    $csv = createCsvFile(
+        ['Date', 'Description', 'Amount'],
+        [['2026-02-01', 'Starbucks', '5.50']]
+    );
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->set('selectedAccountId', (string) $account2->id)
+        ->call('openImportModal')
+        ->set('csvFile', $csv);
+
+    expect($component->get('parsedRows'))->toHaveCount(1);
+    expect($component->get('matchedExpenses'))->toHaveCount(0);
 });
 
 test('uncategorized tab appears when uncategorized expenses exist', function () {

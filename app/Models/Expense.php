@@ -19,6 +19,8 @@ class Expense extends Model
         'amount',
         'category',
         'date',
+        'is_imported',
+        'reference_number',
     ];
 
     protected function casts(): array
@@ -27,6 +29,7 @@ class Expense extends Model
             'category' => SpendingCategory::class,
             'amount' => 'integer',
             'date' => 'date',
+            'is_imported' => 'boolean',
         ];
     }
 

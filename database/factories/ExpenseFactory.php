@@ -24,7 +24,16 @@ class ExpenseFactory extends Factory
             'amount' => fake()->numberBetween(100, 50000),
             'category' => fake()->randomElement(SpendingCategory::cases()),
             'date' => fake()->dateTimeBetween('-30 days', 'now'),
+            'is_imported' => false,
         ];
+    }
+
+    public function imported(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_imported' => true,
+            'reference_number' => fake()->unique()->sha1(),
+        ]);
     }
 
     public function category(SpendingCategory $category): static

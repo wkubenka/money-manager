@@ -46,6 +46,8 @@ new class extends Component {
     public bool $showImportModal = false;
     public ?int $importAccountId = null;
     public string $importFeedback = '';
+    public array $matchedExpenses = [];
+    public array $selectedMatches = [];
 
     // Bulk categorize prompt
     public bool $showBulkCategorizeModal = false;
@@ -398,6 +400,8 @@ new class extends Component {
         $this->csvFile = null;
         $this->parsedRows = [];
         $this->selectedRows = [];
+        $this->matchedExpenses = [];
+        $this->selectedMatches = [];
         $this->importFeedback = '';
         $this->showImportModal = true;
     }
@@ -414,6 +418,7 @@ new class extends Component {
     public function parseCSV(): void
     {
         $this->importFeedback = '';
+        $this->matchedExpenses = [];
 
         if (! $this->csvFile || ! $this->importAccountId) {
             return;
@@ -441,6 +446,8 @@ new class extends Component {
         $dateCol = $this->detectColumn($headers, ['date', 'transaction date', 'posted date', 'posting date', 'post date']);
         $merchantCol = $this->detectColumn($headers, ['description', 'merchant', 'name', 'memo', 'payee', 'transaction']);
         $amountCol = $this->detectColumn($headers, ['amount', 'debit', 'total', 'charge']);
+        $refCol = $this->detectColumn($headers, ['reference number', 'transaction id', 'reference', 'ref']);
+        $statusCol = $this->detectColumn($headers, ['status']);
 
         if ($dateCol === null || $merchantCol === null || $amountCol === null) {
             fclose($handle);
@@ -449,19 +456,45 @@ new class extends Component {
             return;
         }
 
-        $existingExpenses = Auth::user()->expenses()
+        $requiredColCount = max($dateCol, $merchantCol, $amountCol);
+
+        // Load existing reference numbers for this account (for re-import detection)
+        $existingRefNumbers = Auth::user()->expenses()
             ->where('expense_account_id', $this->importAccountId)
-            ->get(['date', 'amount'])
-            ->map(fn ($e) => $e->date->format('Y-m-d') . '|' . $e->amount)
+            ->whereNotNull('reference_number')
+            ->pluck('reference_number')
             ->toArray();
+
+        // Load unimported expenses as a consumable amount pool (for manual entry matching)
+        $unimportedExpenses = Auth::user()->expenses()
+            ->where('expense_account_id', $this->importAccountId)
+            ->where('is_imported', false)
+            ->get(['id', 'amount', 'merchant', 'date']);
+
+        $unimportedPool = [];
+        foreach ($unimportedExpenses as $expense) {
+            $unimportedPool[] = [
+                'id' => $expense->id,
+                'amount' => $expense->amount,
+                'merchant' => $expense->merchant,
+                'date' => $expense->date->format('Y-m-d'),
+            ];
+        }
 
         // First pass: collect all rows with raw signed amounts
         $rawRows = [];
         $hasNegativeAmounts = false;
 
         while (($row = fgetcsv($handle)) !== false) {
-            if (count($row) <= max($dateCol, $merchantCol, $amountCol)) {
+            if (count($row) <= $requiredColCount) {
                 continue;
+            }
+
+            // Filter out non-cleared transactions when status column exists
+            if ($statusCol !== null && isset($row[$statusCol])) {
+                if (strtolower(trim($row[$statusCol])) !== 'cleared') {
+                    continue;
+                }
             }
 
             $rawAmount = (float) str_replace([',', '$', ' '], '', $row[$amountCol]);
@@ -474,8 +507,15 @@ new class extends Component {
                 'rawAmount' => $rawAmount,
                 'merchant' => trim($row[$merchantCol]),
                 'dateStr' => trim($row[$dateCol]),
+                'bankRef' => ($refCol !== null && isset($row[$refCol])) ? trim($row[$refCol]) : null,
+                'csvRow' => $row,
             ];
         }
+
+        fclose($handle);
+
+        // Track occurrence counts for hash-based reference numbers
+        $lineOccurrences = [];
 
         // Second pass: filter and build parsed rows
         $rows = [];
@@ -499,8 +539,44 @@ new class extends Component {
                 continue;
             }
 
-            $key = $date . '|' . $amountCents;
-            if (in_array($key, $existingExpenses)) {
+            // Build reference number: bank-provided or hash-generated with occurrence index
+            $bankRef = $raw['bankRef'];
+            if ($bankRef) {
+                $referenceNumber = $bankRef;
+            } else {
+                $lineKey = implode('|', $raw['csvRow']);
+                $lineOccurrences[$lineKey] = ($lineOccurrences[$lineKey] ?? 0) + 1;
+                $referenceNumber = hash('xxh128', $lineKey . '|' . $lineOccurrences[$lineKey]);
+            }
+
+            // Step 1: Check reference number match (prevents re-importing)
+            if (in_array($referenceNumber, $existingRefNumbers)) {
+                continue;
+            }
+
+            // Step 2: Check amount match against unimported expenses (catches manual entries)
+            $matchedIndex = null;
+            foreach ($unimportedPool as $index => $unimported) {
+                if ($unimported['amount'] === $amountCents) {
+                    $matchedIndex = $index;
+
+                    break;
+                }
+            }
+
+            if ($matchedIndex !== null) {
+                $matched = $unimportedPool[$matchedIndex];
+                $this->matchedExpenses[] = [
+                    'expense_id' => $matched['id'],
+                    'expense_merchant' => $matched['merchant'],
+                    'expense_date' => $matched['date'],
+                    'csv_merchant' => $raw['merchant'],
+                    'csv_date' => $date,
+                    'amount' => $amountCents,
+                    'reference_number' => $referenceNumber,
+                ];
+                unset($unimportedPool[$matchedIndex]);
+
                 continue;
             }
 
@@ -511,13 +587,13 @@ new class extends Component {
                 'merchant' => $raw['merchant'],
                 'amount' => $amountCents,
                 'category' => $category,
+                'reference_number' => $referenceNumber,
             ];
         }
 
-        fclose($handle);
-
         $this->parsedRows = $rows;
         $this->selectedRows = array_keys($rows);
+        $this->selectedMatches = array_keys($this->matchedExpenses);
 
         if (empty($rows) && ! empty($rawRows)) {
             $this->importFeedback = __('All transactions in this file have already been imported.');
@@ -526,7 +602,7 @@ new class extends Component {
 
     public function importExpenses(): void
     {
-        if (! $this->importAccountId || empty($this->selectedRows)) {
+        if (! $this->importAccountId || (empty($this->selectedRows) && empty($this->selectedMatches))) {
             return;
         }
 
@@ -546,13 +622,33 @@ new class extends Component {
                 'amount' => $row['amount'],
                 'category' => $row['category'],
                 'date' => $row['date'],
+                'is_imported' => true,
+                'reference_number' => $row['reference_number'],
             ]);
+        }
+
+        // Update approved matched manual entries so future re-imports detect them
+        foreach ($this->selectedMatches as $index) {
+            if (! isset($this->matchedExpenses[$index])) {
+                continue;
+            }
+
+            $match = $this->matchedExpenses[$index];
+
+            Expense::where('id', $match['expense_id'])
+                ->where('user_id', Auth::id())
+                ->update([
+                    'is_imported' => true,
+                    'reference_number' => $match['reference_number'],
+                ]);
         }
 
         $this->showImportModal = false;
         $this->csvFile = null;
         $this->parsedRows = [];
         $this->selectedRows = [];
+        $this->matchedExpenses = [];
+        $this->selectedMatches = [];
         $this->resetExpensesCaches();
     }
 
@@ -562,6 +658,8 @@ new class extends Component {
         $this->csvFile = null;
         $this->parsedRows = [];
         $this->selectedRows = [];
+        $this->matchedExpenses = [];
+        $this->selectedMatches = [];
         $this->importFeedback = '';
     }
 
@@ -864,7 +962,7 @@ new class extends Component {
         <div class="space-y-6">
             <flux:heading size="lg">{{ __('Import Expenses from CSV') }}</flux:heading>
 
-            @if (empty($parsedRows))
+            @if (empty($parsedRows) && empty($matchedExpenses))
                 {{-- Phase 1: Upload --}}
                 <div class="space-y-4">
                     @if (! $importAccountId)
@@ -897,72 +995,131 @@ new class extends Component {
                             <flux:text class="text-sm text-amber-700 dark:text-amber-300">{{ $importFeedback }}</flux:text>
                         </div>
                     @endif
+
+                    <div class="flex justify-end">
+                        <flux:button variant="ghost" wire:click="cancelImport">{{ __('Cancel') }}</flux:button>
+                    </div>
                 </div>
             @else
                 {{-- Phase 2: Preview & select --}}
+                @php $totalSelected = count($selectedRows) + count($selectedMatches); @endphp
+
                 <flux:text class="text-sm">
-                    {{ __(':count transactions found (duplicates already filtered out).', ['count' => count($parsedRows)]) }}
+                    @if (count($matchedExpenses) > 0 && count($parsedRows) > 0)
+                        {{ __(':matchCount matched, :newCount new transactions found.', ['matchCount' => count($matchedExpenses), 'newCount' => count($parsedRows)]) }}
+                    @elseif (count($matchedExpenses) > 0)
+                        {{ __(':matchCount matched transactions found.', ['matchCount' => count($matchedExpenses)]) }}
+                    @else
+                        {{ __(':count new transactions found.', ['count' => count($parsedRows)]) }}
+                    @endif
                 </flux:text>
 
-                <div class="max-h-96 overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-lg">
-                    <table class="w-full text-sm">
-                        <thead class="bg-zinc-50 dark:bg-zinc-800 sticky top-0">
-                            <tr>
-                                <th class="p-2 text-left w-8">
-                                    <input type="checkbox"
-                                        {{ count($selectedRows) === count($parsedRows) ? 'checked' : '' }}
-                                        wire:click="$set('selectedRows', {{ count($selectedRows) === count($parsedRows) ? '[]' : json_encode(array_keys($parsedRows)) }})"
-                                        class="rounded border-zinc-300 dark:border-zinc-600"
-                                    />
-                                </th>
-                                <th class="p-2 text-left">{{ __('Date') }}</th>
-                                <th class="p-2 text-left">{{ __('Merchant') }}</th>
-                                <th class="p-2 text-right">{{ __('Amount') }}</th>
-                                <th class="p-2 text-left">{{ __('Category') }}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($parsedRows as $index => $row)
-                                <tr class="border-t border-zinc-100 dark:border-zinc-800 {{ in_array($index, $selectedRows) ? '' : 'opacity-50' }}">
-                                    <td class="p-2">
-                                        <input type="checkbox"
-                                            value="{{ $index }}"
-                                            wire:model.live="selectedRows"
-                                            class="rounded border-zinc-300 dark:border-zinc-600"
-                                        />
-                                    </td>
-                                    <td class="p-2">{{ $row['date'] }}</td>
-                                    <td class="p-2 truncate max-w-48">{{ $row['merchant'] }}</td>
-                                    <td class="p-2 text-right">${{ number_format($row['amount'] / 100, 2) }}</td>
-                                    <td class="p-2">
-                                        @if ($row['category'])
-                                            @php $catEnum = SpendingCategory::from($row['category']); @endphp
-                                            <flux:badge size="sm" color="{{ $catEnum->badgeColor() }}" variant="solid">
-                                                {{ $catEnum->label() }}
-                                            </flux:badge>
-                                        @else
-                                            <flux:badge size="sm" color="zinc">
-                                                {{ __('Uncategorized') }}
-                                            </flux:badge>
-                                        @endif
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
+                {{-- Matched transactions section --}}
+                @if (count($matchedExpenses) > 0)
+                    <div class="space-y-2">
+                        <flux:heading size="sm">{{ __('Matched to your entries') }}</flux:heading>
+
+                        <div class="max-h-48 overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-lg">
+                            <table class="w-full text-sm">
+                                <thead class="bg-zinc-50 dark:bg-zinc-800 sticky top-0">
+                                    <tr>
+                                        <th class="p-2 w-8"></th>
+                                        <th class="p-2 text-left">{{ __('Your entry') }}</th>
+                                        <th class="p-2 w-6"></th>
+                                        <th class="p-2 text-left">{{ __('CSV transaction') }}</th>
+                                        <th class="p-2 text-right">{{ __('Amount') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($matchedExpenses as $index => $match)
+                                        <tr class="border-t border-zinc-100 dark:border-zinc-800 {{ in_array($index, $selectedMatches) ? '' : 'opacity-50' }}">
+                                            <td class="p-2">
+                                                <input type="checkbox"
+                                                    value="{{ $index }}"
+                                                    wire:model.live="selectedMatches"
+                                                    class="rounded border-zinc-300 dark:border-zinc-600"
+                                                />
+                                            </td>
+                                            <td class="p-2 truncate max-w-32">
+                                                <span>{{ $match['expense_merchant'] }}</span>
+                                                <span class="text-xs text-zinc-400 ml-1">{{ $match['expense_date'] }}</span>
+                                            </td>
+                                            <td class="p-2 text-center"><flux:icon.arrow-right class="size-3 text-zinc-400" /></td>
+                                            <td class="p-2 truncate max-w-32">
+                                                <span>{{ $match['csv_merchant'] }}</span>
+                                                <span class="text-xs text-zinc-400 ml-1">{{ $match['csv_date'] }}</span>
+                                            </td>
+                                            <td class="p-2 text-right">${{ number_format($match['amount'] / 100, 2) }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                @endif
+
+                {{-- New transactions table --}}
+                @if (count($parsedRows) > 0)
+                    <div class="space-y-2">
+                        @if (count($matchedExpenses) > 0)
+                            <flux:heading size="sm">{{ __('New transactions') }}</flux:heading>
+                        @endif
+
+                        <div class="max-h-96 overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-lg">
+                            <table class="w-full text-sm">
+                                <thead class="bg-zinc-50 dark:bg-zinc-800 sticky top-0">
+                                    <tr>
+                                        <th class="p-2 text-left w-8">
+                                            <input type="checkbox"
+                                                {{ count($selectedRows) === count($parsedRows) ? 'checked' : '' }}
+                                                wire:click="$set('selectedRows', {{ count($selectedRows) === count($parsedRows) ? '[]' : json_encode(array_keys($parsedRows)) }})"
+                                                class="rounded border-zinc-300 dark:border-zinc-600"
+                                            />
+                                        </th>
+                                        <th class="p-2 text-left">{{ __('Date') }}</th>
+                                        <th class="p-2 text-left">{{ __('Merchant') }}</th>
+                                        <th class="p-2 text-right">{{ __('Amount') }}</th>
+                                        <th class="p-2 text-left">{{ __('Category') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($parsedRows as $index => $row)
+                                        <tr class="border-t border-zinc-100 dark:border-zinc-800 {{ in_array($index, $selectedRows) ? '' : 'opacity-50' }}">
+                                            <td class="p-2">
+                                                <input type="checkbox"
+                                                    value="{{ $index }}"
+                                                    wire:model.live="selectedRows"
+                                                    class="rounded border-zinc-300 dark:border-zinc-600"
+                                                />
+                                            </td>
+                                            <td class="p-2">{{ $row['date'] }}</td>
+                                            <td class="p-2 truncate max-w-48">{{ $row['merchant'] }}</td>
+                                            <td class="p-2 text-right">${{ number_format($row['amount'] / 100, 2) }}</td>
+                                            <td class="p-2">
+                                                @if ($row['category'])
+                                                    @php $catEnum = SpendingCategory::from($row['category']); @endphp
+                                                    <flux:badge size="sm" color="{{ $catEnum->badgeColor() }}" variant="solid">
+                                                        {{ $catEnum->label() }}
+                                                    </flux:badge>
+                                                @else
+                                                    <flux:badge size="sm" color="zinc">
+                                                        {{ __('Uncategorized') }}
+                                                    </flux:badge>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                @endif
 
                 <div class="flex justify-end gap-2">
                     <flux:button variant="ghost" wire:click="cancelImport">{{ __('Cancel') }}</flux:button>
-                    <flux:button variant="primary" wire:click="importExpenses" :disabled="empty($selectedRows)">
-                        {{ __('Import :count expenses', ['count' => count($selectedRows)]) }}
+                    <flux:button variant="primary" wire:click="importExpenses" :disabled="$totalSelected === 0">
+                        {{ __('Import :count expenses', ['count' => $totalSelected]) }}
                     </flux:button>
-                </div>
-            @endif
-
-            @if (empty($parsedRows))
-                <div class="flex justify-end">
-                    <flux:button variant="ghost" wire:click="cancelImport">{{ __('Cancel') }}</flux:button>
                 </div>
             @endif
         </div>
