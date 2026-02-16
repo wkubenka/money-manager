@@ -339,6 +339,7 @@ new class extends Component {
         $this->renamingAccountName = $account->name;
         unset($this->accounts);
         $this->resetExpensesCaches();
+        $this->selectRenameInput();
     }
 
     public function startRenamingAccount(): void
@@ -352,6 +353,12 @@ new class extends Component {
 
         $this->isRenamingAccount = true;
         $this->renamingAccountName = $account->name;
+        $this->selectRenameInput();
+    }
+
+    private function selectRenameInput(): void
+    {
+        $this->js("setTimeout(() => { const input = document.querySelector('input[wire\\\\:model=renamingAccountName]'); if (input) input.select(); }, 50)");
     }
 
     public function renameAccount(): void
