@@ -17,6 +17,10 @@ new class extends Component {
     {
         abort_if(Auth::user()->spendingPlans()->count() >= SpendingPlan::MAX_PER_USER, 422);
 
+        $this->monthly_income = sanitize_money_input($this->monthly_income);
+        $this->gross_monthly_income = sanitize_money_input($this->gross_monthly_income);
+        $this->pre_tax_investments = sanitize_money_input($this->pre_tax_investments);
+
         $validated = $this->validate([
             'name' => ['required', 'string', 'max:255'],
             'monthly_income' => ['required', 'numeric', 'min:0.01'],
@@ -71,10 +75,9 @@ new class extends Component {
             <flux:input
                 wire:model="monthly_income"
                 :label="__('Monthly Take-Home Income')"
-                :placeholder="__('5000.00')"
-                type="number"
-                step="0.01"
-                min="0.01"
+                :placeholder="__('5,000.00')"
+                type="text"
+                inputmode="decimal"
                 required
             >
                 <x-slot:prefix>$</x-slot:prefix>
@@ -84,10 +87,9 @@ new class extends Component {
                 wire:model="gross_monthly_income"
                 :label="__('Gross Monthly Income')"
                 :description="__('Your total income before taxes and deductions.')"
-                :placeholder="__('7000.00')"
-                type="number"
-                step="0.01"
-                min="0"
+                :placeholder="__('7,000.00')"
+                type="text"
+                inputmode="decimal"
             >
                 <x-slot:prefix>$</x-slot:prefix>
             </flux:input>
@@ -97,9 +99,8 @@ new class extends Component {
                 :label="__('Investments Deducted From Paycheck')"
                 :description="__('401(k), HSA, and other pre-tax contributions.')"
                 :placeholder="__('500.00')"
-                type="number"
-                step="0.01"
-                min="0"
+                type="text"
+                inputmode="decimal"
             >
                 <x-slot:prefix>$</x-slot:prefix>
             </flux:input>

@@ -31,9 +31,9 @@ new class extends Component {
         abort_unless($spendingPlan->user_id === Auth::id(), 403);
         $this->spendingPlan = $spendingPlan;
         $this->name = $spendingPlan->name;
-        $this->monthly_income = number_format($spendingPlan->monthly_income / 100, 2, '.', '');
-        $this->gross_monthly_income = $spendingPlan->gross_monthly_income ? number_format($spendingPlan->gross_monthly_income / 100, 2, '.', '') : '';
-        $this->pre_tax_investments = $spendingPlan->pre_tax_investments ? number_format($spendingPlan->pre_tax_investments / 100, 2, '.', '') : '';
+        $this->monthly_income = (string) ($spendingPlan->monthly_income / 100);
+        $this->gross_monthly_income = $spendingPlan->gross_monthly_income ? (string) ($spendingPlan->gross_monthly_income / 100) : '';
+        $this->pre_tax_investments = $spendingPlan->pre_tax_investments ? (string) ($spendingPlan->pre_tax_investments / 100) : '';
         $this->fixed_costs_misc_percent = (string) $spendingPlan->fixed_costs_misc_percent;
     }
 
@@ -60,6 +60,10 @@ new class extends Component {
 
     public function updatePlan(): void
     {
+        $this->monthly_income = sanitize_money_input($this->monthly_income);
+        $this->gross_monthly_income = sanitize_money_input($this->gross_monthly_income);
+        $this->pre_tax_investments = sanitize_money_input($this->pre_tax_investments);
+
         $validated = $this->validate([
             'name' => ['required', 'string', 'max:255'],
             'monthly_income' => ['required', 'numeric', 'min:0.01'],
@@ -82,6 +86,8 @@ new class extends Component {
 
     public function addItem(string $category): void
     {
+        $this->newItemAmounts[$category] = sanitize_money_input($this->newItemAmounts[$category] ?? '');
+
         $this->validate([
             "newItemNames.{$category}" => ['required', 'string', 'max:255'],
             "newItemAmounts.{$category}" => ['required', 'numeric', 'min:0.01'],
@@ -120,11 +126,13 @@ new class extends Component {
 
         $this->editingItemId = $itemId;
         $this->editingItemName = $item->name;
-        $this->editingItemAmount = number_format($item->amount / 100, 2, '.', '');
+        $this->editingItemAmount = (string) ($item->amount / 100);
     }
 
     public function updateItem(): void
     {
+        $this->editingItemAmount = sanitize_money_input($this->editingItemAmount);
+
         $validated = $this->validate([
             'editingItemName' => ['required', 'string', 'max:255'],
             'editingItemAmount' => ['required', 'numeric', 'min:0.01'],
@@ -204,9 +212,8 @@ new class extends Component {
                 <flux:input
                     wire:model="monthly_income"
                     :label="__('Monthly Take-Home Income')"
-                    type="number"
-                    step="0.01"
-                    min="0.01"
+                    type="text"
+                    inputmode="decimal"
                     required
                 >
                     <x-slot:prefix>$</x-slot:prefix>
@@ -215,9 +222,8 @@ new class extends Component {
                     wire:model="gross_monthly_income"
                     :label="__('Gross Monthly Income')"
                     :description="__('Your total income before taxes and deductions.')"
-                    type="number"
-                    step="0.01"
-                    min="0"
+                    type="text"
+                    inputmode="decimal"
                 >
                     <x-slot:prefix>$</x-slot:prefix>
                 </flux:input>
@@ -225,9 +231,8 @@ new class extends Component {
                     wire:model="pre_tax_investments"
                     :label="__('Investments Deducted From Paycheck')"
                     :description="__('401(k), HSA, and other pre-tax contributions.')"
-                    type="number"
-                    step="0.01"
-                    min="0"
+                    type="text"
+                    inputmode="decimal"
                 >
                     <x-slot:prefix>$</x-slot:prefix>
                 </flux:input>
@@ -297,7 +302,7 @@ new class extends Component {
                                     <div class="flex-1 space-y-2">
                                         <flux:input wire:model="editingItemName" size="sm" wire:keydown.enter="updateItem" />
                                         <div class="flex items-center gap-2">
-                                            <flux:input wire:model="editingItemAmount" type="number" step="0.01" min="0.01" size="sm" class="w-28" wire:keydown.enter="updateItem">
+                                            <flux:input wire:model="editingItemAmount" type="text" inputmode="decimal" size="sm" class="w-28" wire:keydown.enter="updateItem">
                                                 <x-slot:prefix>$</x-slot:prefix>
                                             </flux:input>
                                             <flux:button size="xs" variant="primary" wire:click="updateItem">{{ __('Save') }}</flux:button>
@@ -336,9 +341,8 @@ new class extends Component {
                         <div class="w-32">
                             <flux:input
                                 wire:model="newItemAmounts.{{ $catKey }}"
-                                type="number"
-                                step="0.01"
-                                min="0.01"
+                                type="text"
+                                inputmode="decimal"
                                 size="sm"
                                 :placeholder="__('0.00')"
                                 wire:keydown.enter="addItem('{{ $catKey }}')"
