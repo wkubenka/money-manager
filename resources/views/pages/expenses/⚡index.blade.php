@@ -714,14 +714,17 @@ new class extends Component {
                                 <flux:badge size="sm" color="{{ $expense->category->badgeColor() }}" variant="solid">
                                     {{ $expense->category->label() }}
                                 </flux:badge>
-                            @else
-                                <flux:badge size="sm" color="zinc">
-                                    {{ __('Uncategorized') }}
-                                </flux:badge>
                             @endif
                         </div>
                     </div>
                     <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100 shrink-0">${{ format_cents($expense->amount, 2) }}</span>
+                    @if (! $expense->category)
+                        <div class="flex gap-1 shrink-0">
+                            @foreach (SpendingCategory::cases() as $cat)
+                                <flux:button size="xs" variant="primary" color="{{ $cat->badgeColor() }}" wire:click="categorizeExpense({{ $expense->id }}, '{{ $cat->value }}')" aria-label="{{ __('Categorize as :category', ['category' => $cat->label()]) }}">{{ $cat->label() }}</flux:button>
+                            @endforeach
+                        </div>
+                    @endif
                     <div class="flex items-center gap-0.5 shrink-0">
                         <flux:button size="xs" variant="ghost" icon="pencil" wire:click="editExpense({{ $expense->id }})" aria-label="{{ __('Edit expense') }}" />
                         <flux:button size="xs" variant="ghost" icon="trash" wire:click="removeExpense({{ $expense->id }})" wire:confirm="{{ __('Remove this expense?') }}" aria-label="{{ __('Remove expense') }}" />
