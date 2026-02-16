@@ -108,6 +108,7 @@ test('spending category ideal ranges are correct', function () {
     expect(SpendingCategory::Investments->idealRange())->toBe([10, 10]);
     expect(SpendingCategory::Savings->idealRange())->toBe([5, 10]);
     expect(SpendingCategory::GuiltFree->idealRange())->toBe([20, 35]);
+    expect(SpendingCategory::Ignored->idealRange())->toBeNull();
 });
 
 test('is within ideal returns true when in range', function () {
@@ -126,6 +127,24 @@ test('is within ideal returns false when outside range', function () {
     expect(SpendingCategory::Investments->isWithinIdeal(5.0))->toBeFalse();
     expect(SpendingCategory::Savings->isWithinIdeal(15.0))->toBeFalse();
     expect(SpendingCategory::GuiltFree->isWithinIdeal(40.0))->toBeFalse();
+});
+
+test('ignored category is never within ideal', function () {
+    expect(SpendingCategory::Ignored->isWithinIdeal(0))->toBeFalse();
+    expect(SpendingCategory::Ignored->isWithinIdeal(50))->toBeFalse();
+});
+
+test('spending cases excludes ignored', function () {
+    $cases = SpendingCategory::spendingCases();
+
+    expect($cases)->toHaveCount(4);
+    expect($cases)->not->toContain(SpendingCategory::Ignored);
+});
+
+test('ignored category has correct label and colors', function () {
+    expect(SpendingCategory::Ignored->label())->toBe('Ignored');
+    expect(SpendingCategory::Ignored->badgeColor())->toBe('zinc');
+    expect(SpendingCategory::Ignored->color())->toBe('bg-zinc-400');
 });
 
 test('investments and savings over ideal are acceptable when guilt-free is healthy', function () {

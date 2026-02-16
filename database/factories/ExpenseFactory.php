@@ -22,7 +22,7 @@ class ExpenseFactory extends Factory
                 'Spotify', 'Uber', 'Chipotle', 'Walgreens',
             ]),
             'amount' => fake()->numberBetween(100, 50000),
-            'category' => fake()->randomElement(SpendingCategory::cases()),
+            'category' => fake()->randomElement(SpendingCategory::spendingCases()),
             'date' => fake()->dateTimeBetween('-30 days', 'now'),
             'is_imported' => false,
         ];

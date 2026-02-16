@@ -14,7 +14,7 @@ class SpendingPlanItemFactory extends Factory
     {
         return [
             'spending_plan_id' => SpendingPlan::factory(),
-            'category' => fake()->randomElement(SpendingCategory::cases()),
+            'category' => fake()->randomElement(SpendingCategory::spendingCases()),
             'name' => fake()->randomElement(['Rent', 'Groceries', 'Insurance', '401k', 'Vacation Fund', 'Dining Out']),
             'amount' => fake()->numberBetween(5000, 200000),
             'sort_order' => 0,

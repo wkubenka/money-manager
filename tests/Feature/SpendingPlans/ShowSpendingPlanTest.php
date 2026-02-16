@@ -33,7 +33,7 @@ test('plan detail shows all categories', function () {
     $response = $this->actingAs($user)
         ->get(route('spending-plans.show', $plan));
 
-    foreach (SpendingCategory::cases() as $category) {
+    foreach (SpendingCategory::spendingCases() as $category) {
         $response->assertSee($category->label());
     }
 });

@@ -93,6 +93,7 @@ new class extends Component {
     public function monthlyTotal(): int
     {
         $query = Auth::user()->expenses()
+            ->where('category', '!=', SpendingCategory::Ignored)
             ->whereBetween('date', [now()->startOfMonth(), now()->endOfMonth()]);
 
         $this->applyTabFilter($query);
@@ -109,7 +110,7 @@ new class extends Component {
         $this->applyTabFilter($query);
 
         $totals = [];
-        foreach (SpendingCategory::cases() as $category) {
+        foreach (SpendingCategory::spendingCases() as $category) {
             $totals[$category->value] = (int) (clone $query)->where('category', $category->value)->sum('amount');
         }
 

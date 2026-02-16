@@ -356,6 +356,67 @@ test('deleting an expense account cascades to its expenses', function () {
     expect(Expense::where('expense_account_id', $accountId)->count())->toBe(0);
 });
 
+test('ignored expenses are excluded from monthly total', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'amount' => 5000,
+        'category' => SpendingCategory::FixedCosts,
+        'date' => now(),
+    ]);
+
+    Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'amount' => 3000,
+        'category' => SpendingCategory::Ignored,
+        'date' => now(),
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::expenses.index');
+
+    expect($component->get('monthlyTotal'))->toBe(5000);
+});
+
+test('ignored expenses are not counted as uncategorized', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'category' => SpendingCategory::Ignored,
+        'date' => now(),
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::expenses.index');
+
+    expect($component->get('uncategorizedCount'))->toBe(0);
+});
+
+test('user can add an expense with ignored category', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->set('newAccountId', $account->id)
+        ->set('newMerchant', 'Transfer')
+        ->set('newAmount', '100.00')
+        ->set('newCategory', SpendingCategory::Ignored->value)
+        ->set('newDate', '2026-02-10')
+        ->call('addExpense')
+        ->assertHasNoErrors();
+
+    $expense = Expense::where('user_id', $user->id)->first();
+    expect($expense->category)->toBe(SpendingCategory::Ignored);
+});
+
 test('category tab filters expenses to that category', function () {
     $user = User::factory()->create();
     $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
