@@ -151,6 +151,5 @@
             </div>
         </section>
 
-        @fluxScripts
     </body>
 </html>
