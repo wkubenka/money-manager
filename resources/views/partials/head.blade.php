@@ -4,7 +4,6 @@
 <title>{{ $title ?? config('app.name') }}</title>
 <meta name="description" content="A personal finance app to manage your conscious spending plan, track net worth, and categorize expenses.">
 
-<link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.json">
