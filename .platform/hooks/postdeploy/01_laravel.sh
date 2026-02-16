@@ -4,21 +4,45 @@ set -e
 cd /var/app/current
 
 # --- EFS / SQLite setup ---
-if mountpoint -q /mnt/efs; then
-    # Create SQLite database on EFS if it doesn't exist
+EFS_ID=$(/opt/elasticbeanstalk/bin/get-config environment -k EFS_ID)
+
+if [ -n "$EFS_ID" ]; then
+    # EFS is configured — it MUST be mounted or we fail
+    if ! mountpoint -q /mnt/efs; then
+        echo "ERROR: EFS_ID is set but /mnt/efs is not mounted. Attempting mount..."
+        mkdir -p /mnt/efs
+        mount -t efs -o tls "$EFS_ID":/ /mnt/efs
+    fi
+
     if [ ! -f /mnt/efs/database.sqlite ]; then
         touch /mnt/efs/database.sqlite
     fi
 
-    # Symlink so Laravel finds it at the default path
+    chown webapp:webapp /mnt/efs/database.sqlite
+    chmod 664 /mnt/efs/database.sqlite
     ln -sf /mnt/efs/database.sqlite database/database.sqlite
+
+    # Persist Laravel logs on EFS
+    mkdir -p /mnt/efs/storage/logs
+    chown -R webapp:webapp /mnt/efs/storage
+    chmod -R 775 /mnt/efs/storage
+    rm -rf storage/logs
+    ln -sf /mnt/efs/storage/logs storage/logs
+
+    echo "SQLite database and logs symlinked from EFS."
 else
-    echo "WARNING: EFS not mounted. SQLite data will not persist across deploys."
-    # Ensure a local SQLite file exists as fallback
+    echo "WARNING: EFS_ID not set. Using local SQLite (data will not persist)."
     if [ ! -f database/database.sqlite ]; then
         touch database/database.sqlite
     fi
 fi
+
+# --- Load EB environment variables for artisan commands ---
+# EB env vars may not be in the shell during deployment hooks.
+# Use get-config to export them so config:cache bakes in correct values.
+for key in $(/opt/elasticbeanstalk/bin/get-config --output YAML environment | cut -d: -f1); do
+    export "$key=$(/opt/elasticbeanstalk/bin/get-config environment -k "$key")"
+done
 
 # --- Laravel post-deploy tasks ---
 php artisan migrate --force
@@ -28,5 +52,8 @@ php artisan route:cache
 php artisan view:cache
 
 # --- Fix permissions ---
-chown -R webapp:webapp storage bootstrap/cache
-chmod -R 775 storage bootstrap/cache
+chown -R webapp:webapp storage bootstrap/cache database
+chmod -R 775 storage bootstrap/cache database
+
+# --- Restart PHP-FPM to clear OPcache ---
+systemctl restart php-fpm
