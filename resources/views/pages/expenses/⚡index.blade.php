@@ -651,7 +651,12 @@ new class extends Component {
     {{-- Expense list --}}
     <div class="space-y-1">
         @forelse ($this->expenses as $expense)
-            <div class="flex items-center gap-2 py-2 group border-b border-zinc-100 dark:border-zinc-800" wire:key="expense-{{ $expense->id }}-{{ $selectedAccountId === 'uncategorized' ? 'uncat' : 'display' }}">
+            <div
+                class="flex items-center gap-2 py-2 group border-b border-zinc-100 dark:border-zinc-800 transition-all duration-300"
+                :class="removing && 'opacity-0 max-h-0 !py-0 overflow-hidden !border-transparent'"
+                x-data="{ removing: false }"
+                wire:key="expense-{{ $expense->id }}-{{ $selectedAccountId === 'uncategorized' ? 'uncat' : 'display' }}"
+            >
                 @if ($editingExpenseId === $expense->id)
                     {{-- Inline edit mode --}}
                     <div class="flex-1 grid grid-cols-2 sm:grid-cols-3 lg:flex lg:items-end gap-2">
@@ -695,7 +700,7 @@ new class extends Component {
                     <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100 shrink-0">${{ format_cents($expense->amount, 2) }}</span>
                     <div class="flex gap-1 shrink-0">
                         @foreach (SpendingCategory::cases() as $cat)
-                            <flux:button size="xs" variant="primary" color="{{ $cat->badgeColor() }}" wire:click="categorizeExpense({{ $expense->id }}, '{{ $cat->value }}')" aria-label="{{ __('Categorize as :category', ['category' => $cat->label()]) }}">{{ $cat->label() }}</flux:button>
+                            <flux:button size="xs" variant="primary" color="{{ $cat->badgeColor() }}" x-on:click="removing = true; setTimeout(() => $wire.categorizeExpense({{ $expense->id }}, '{{ $cat->value }}'), 300)" aria-label="{{ __('Categorize as :category', ['category' => $cat->label()]) }}">{{ $cat->label() }}</flux:button>
                         @endforeach
                     </div>
                     <flux:button size="xs" variant="ghost" icon="trash" wire:click="removeExpense({{ $expense->id }})" wire:confirm="{{ __('Remove this expense?') }}" aria-label="{{ __('Remove expense') }}" />
