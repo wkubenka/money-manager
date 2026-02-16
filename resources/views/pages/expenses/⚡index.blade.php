@@ -575,7 +575,7 @@ new class extends Component {
 
     {{-- Account rename/delete bar --}}
     @if (is_numeric($selectedAccountId))
-        <div class="mb-4 flex items-center gap-2">
+        <div class="mb-4 flex items-center gap-2" wire:key="account-bar-{{ $isRenamingAccount ? 'renaming' : 'actions' }}">
             @if ($isRenamingAccount)
                 <flux:input
                     wire:model="renamingAccountName"
