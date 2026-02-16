@@ -449,10 +449,17 @@ new class extends Component {
             </div>
         @else
             <div class="order-2 rounded-xl border border-dashed border-zinc-300 dark:border-zinc-600 p-6 text-center">
-                <flux:subheading class="mb-2">{{ __('No current spending plan') }}</flux:subheading>
-                <flux:button variant="subtle" size="sm" :href="route('spending-plans.dashboard')" wire:navigate>
-                    {{ __('Choose a Plan') }}
-                </flux:button>
+                @if (Auth::user()->spendingPlans()->exists())
+                    <flux:subheading class="mb-2">{{ __('No current spending plan') }}</flux:subheading>
+                    <flux:button variant="subtle" size="sm" :href="route('spending-plans.dashboard')" wire:navigate>
+                        {{ __('Choose a Plan') }}
+                    </flux:button>
+                @else
+                    <flux:subheading class="mb-2">{{ __('Create your spending plan') }}</flux:subheading>
+                    <flux:button variant="primary" size="sm" :href="route('spending-plans.create')" wire:navigate>
+                        {{ __('Get Started') }}
+                    </flux:button>
+                @endif
             </div>
         @endif
 

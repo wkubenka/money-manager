@@ -83,8 +83,21 @@ test('dashboard shows current spending plan', function () {
         ->assertSee('Fixed Costs');
 });
 
-test('dashboard shows prompt when no current plan', function () {
+test('dashboard shows create prompt when no plans exist', function () {
     $user = User::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test('pages::dashboard')
+        ->assertSee('Create your spending plan')
+        ->assertSee('Get Started');
+});
+
+test('dashboard shows choose prompt when plans exist but none is current', function () {
+    $user = User::factory()->create();
+    SpendingPlan::factory()->create([
+        'user_id' => $user->id,
+        'is_current' => false,
+    ]);
 
     Livewire::actingAs($user)
         ->test('pages::dashboard')
