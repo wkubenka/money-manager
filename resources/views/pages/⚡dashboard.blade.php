@@ -377,7 +377,7 @@ new class extends Component {
                     $gfHealthy = SpendingCategory::GuiltFree->isWithinIdeal($gfPercent);
                 @endphp
                 <div class="space-y-5">
-                    @foreach (SpendingCategory::cases() as $category)
+                    @foreach (SpendingCategory::spendingCases() as $category)
                         @php
                             $total = $plan->categoryTotal($category);
                             $percent = $plan->categoryPercent($category);
