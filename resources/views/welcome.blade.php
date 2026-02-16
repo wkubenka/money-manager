@@ -97,7 +97,7 @@
                 </p>
             </div>
 
-            <div class="grid gap-4" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+            <div class="grid gap-4 sm:grid-cols-2">
                 <div class="flex items-start gap-4 rounded-xl border border-zinc-800 bg-zinc-900/40 p-6">
                     <flux:icon.x-circle class="mt-0.5 size-5 shrink-0 text-red-400" />
                     <div>
