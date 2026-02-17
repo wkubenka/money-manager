@@ -110,7 +110,7 @@
                     <flux:icon.x-circle class="mt-0.5 size-5 shrink-0 text-red-400" />
                     <div>
                         <p class="font-medium text-white">No tracking or analytics</p>
-                        <p class="mt-1 text-sm text-zinc-400">No cookies, no pixels, no third-party scripts watching what you do.</p>
+                        <p class="mt-1 text-sm text-zinc-400">No cookies, no trackers, no third-party scripts watching what you do.</p>
                     </div>
                 </div>
 
