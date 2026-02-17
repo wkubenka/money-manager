@@ -138,7 +138,7 @@ new class extends Component {
     #[Computed]
     public function emergencyFund(): ?NetWorthAccount
     {
-        return Auth::user()->emergencyFund();
+        return $this->accounts->firstWhere('is_emergency_fund', true);
     }
 
     #[Computed]
