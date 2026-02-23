@@ -40,6 +40,20 @@ class AppServiceProvider extends ServiceProvider
 
         if (app()->isProduction()) {
             URL::forceScheme('https');
+
+            // CloudFront doesn't forward X-Forwarded-Proto or X-Forwarded-Host,
+            // causing a scheme/host mismatch in signed URL validation (Livewire file uploads).
+            // Signed URLs are generated with https:// but the origin connection is http://.
+            if (! request()->headers->has('X-Forwarded-Proto')) {
+                request()->headers->set('X-Forwarded-Proto', 'https');
+            }
+
+            if (! request()->headers->has('X-Forwarded-Host')) {
+                request()->headers->set(
+                    'X-Forwarded-Host',
+                    parse_url(config('app.url'), PHP_URL_HOST),
+                );
+            }
         }
 
         DB::prohibitDestructiveCommands(
