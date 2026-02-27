@@ -49,6 +49,9 @@ new class extends Component {
     public array $matchedExpenses = [];
     public array $selectedMatches = [];
 
+    // Monthly history
+    public bool $showMonthlyHistory = false;
+
     // Bulk categorize prompt
     public bool $showBulkCategorizeModal = false;
     public string $bulkCategorizeMerchant = '';
@@ -115,6 +118,48 @@ new class extends Component {
         }
 
         return $totals;
+    }
+
+    #[Computed]
+    public function monthlyHistory(): array
+    {
+        $query = Auth::user()->expenses()
+            ->where('date', '<', now()->startOfMonth())
+            ->where('category', '!=', SpendingCategory::Ignored);
+
+        $this->applyTabFilter($query);
+
+        $expenses = (clone $query)
+            ->selectRaw("strftime('%Y-%m', date) as month, sum(amount) as total")
+            ->groupByRaw("strftime('%Y-%m', date)")
+            ->orderByDesc('month')
+            ->get();
+
+        $months = [];
+        foreach ($expenses as $row) {
+            $categoryTotals = [];
+            foreach (SpendingCategory::spendingCases() as $category) {
+                $catQuery = Auth::user()->expenses()
+                    ->where('category', $category->value)
+                    ->whereRaw("strftime('%Y-%m', date) = ?", [$row->month]);
+
+                $this->applyTabFilter($catQuery);
+
+                $catTotal = (int) $catQuery->sum('amount');
+                if ($catTotal > 0) {
+                    $categoryTotals[$category->value] = $catTotal;
+                }
+            }
+
+            $months[] = [
+                'month' => $row->month,
+                'label' => \Carbon\Carbon::createFromFormat('Y-m', $row->month)->format('F Y'),
+                'total' => (int) $row->total,
+                'categories' => $categoryTotals,
+            ];
+        }
+
+        return $months;
     }
 
     private function applyTabFilter($query): void
@@ -483,7 +528,7 @@ new class extends Component {
 
     private function resetExpensesCaches(): void
     {
-        unset($this->expenses, $this->hasMore, $this->monthlyTotal, $this->categoryTotals, $this->uncategorizedCount);
+        unset($this->expenses, $this->hasMore, $this->monthlyTotal, $this->categoryTotals, $this->monthlyHistory, $this->uncategorizedCount);
     }
 
 }; ?>
@@ -533,6 +578,42 @@ new class extends Component {
             </div>
         @endif
     </div>
+
+    {{-- Previous months toggle --}}
+    @if (count($this->monthlyHistory) > 0)
+        <div class="mb-6 -mt-4">
+            <button
+                wire:click="$toggle('showMonthlyHistory')"
+                class="flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300 transition-colors"
+            >
+                <flux:icon.chevron-right class="size-4 transition-transform {{ $showMonthlyHistory ? 'rotate-90' : '' }}" />
+                {{ __('Previous months') }}
+            </button>
+
+            @if ($showMonthlyHistory)
+                <div class="mt-3 space-y-2">
+                    @foreach ($this->monthlyHistory as $month)
+                        <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-4">
+                            <div class="flex items-center justify-between">
+                                <flux:subheading>{{ $month['label'] }}</flux:subheading>
+                                <span class="text-lg font-bold text-zinc-900 dark:text-zinc-100">${{ format_cents($month['total'], 2) }}</span>
+                            </div>
+                            @if (count($month['categories']) > 0)
+                                <div class="flex flex-wrap gap-2 mt-2">
+                                    @foreach ($month['categories'] as $catValue => $catTotal)
+                                        @php $cat = SpendingCategory::from($catValue); @endphp
+                                        <flux:badge size="sm" color="{{ $cat->badgeColor() }}" variant="solid">
+                                            {{ $cat->label() }}: ${{ format_cents($catTotal) }}
+                                        </flux:badge>
+                                    @endforeach
+                                </div>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+    @endif
 
     {{-- Account tabs --}}
     <div class="mb-4 flex flex-wrap items-center gap-1 border-b border-zinc-200 dark:border-zinc-700">

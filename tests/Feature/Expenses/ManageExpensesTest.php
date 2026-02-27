@@ -441,3 +441,163 @@ test('category tab filters expenses to that category', function () {
         ->assertSee('Coffee Shop')
         ->assertDontSee('Electric Company');
 });
+
+test('monthly history shows previous months totals', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'amount' => 5000,
+        'category' => SpendingCategory::FixedCosts,
+        'date' => now()->subMonth()->startOfMonth()->addDays(5),
+    ]);
+
+    Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'amount' => 3000,
+        'category' => SpendingCategory::GuiltFree,
+        'date' => now()->subMonth()->startOfMonth()->addDays(10),
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::expenses.index');
+
+    $history = $component->get('monthlyHistory');
+
+    expect($history)->toHaveCount(1);
+    expect($history[0]['total'])->toBe(8000);
+    expect($history[0]['categories'][SpendingCategory::FixedCosts->value])->toBe(5000);
+    expect($history[0]['categories'][SpendingCategory::GuiltFree->value])->toBe(3000);
+});
+
+test('monthly history excludes current month', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'amount' => 5000,
+        'category' => SpendingCategory::FixedCosts,
+        'date' => now(),
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::expenses.index');
+
+    expect($component->get('monthlyHistory'))->toBeEmpty();
+});
+
+test('monthly history excludes ignored expenses', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'amount' => 5000,
+        'category' => SpendingCategory::FixedCosts,
+        'date' => now()->subMonth(),
+    ]);
+
+    Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'amount' => 2000,
+        'category' => SpendingCategory::Ignored,
+        'date' => now()->subMonth(),
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::expenses.index');
+
+    $history = $component->get('monthlyHistory');
+
+    expect($history)->toHaveCount(1);
+    expect($history[0]['total'])->toBe(5000);
+    expect($history[0]['categories'])->not->toHaveKey(SpendingCategory::Ignored->value);
+});
+
+test('monthly history respects account tab filter', function () {
+    $user = User::factory()->create();
+    $account1 = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    $account2 = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account1->id,
+        'amount' => 5000,
+        'category' => SpendingCategory::FixedCosts,
+        'date' => now()->subMonth(),
+    ]);
+
+    Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account2->id,
+        'amount' => 3000,
+        'category' => SpendingCategory::GuiltFree,
+        'date' => now()->subMonth(),
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->set('selectedAccountId', (string) $account1->id);
+
+    $history = $component->get('monthlyHistory');
+
+    expect($history)->toHaveCount(1);
+    expect($history[0]['total'])->toBe(5000);
+});
+
+test('monthly history orders by most recent month first', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'amount' => 1000,
+        'category' => SpendingCategory::FixedCosts,
+        'date' => now()->subMonths(3),
+    ]);
+
+    Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'amount' => 2000,
+        'category' => SpendingCategory::FixedCosts,
+        'date' => now()->subMonth(),
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::expenses.index');
+
+    $history = $component->get('monthlyHistory');
+
+    expect($history)->toHaveCount(2);
+    expect($history[0]['total'])->toBe(2000);
+    expect($history[1]['total'])->toBe(1000);
+});
+
+test('monthly history toggle shows and hides previous months', function () {
+    $user = User::factory()->create();
+    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+
+    Expense::factory()->create([
+        'user_id' => $user->id,
+        'expense_account_id' => $account->id,
+        'amount' => 5000,
+        'category' => SpendingCategory::FixedCosts,
+        'date' => now()->subMonth(),
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::expenses.index')
+        ->assertSee('Previous months')
+        ->assertDontSee(now()->subMonth()->format('F Y'))
+        ->toggle('showMonthlyHistory')
+        ->assertSee(now()->subMonth()->format('F Y'));
+});
