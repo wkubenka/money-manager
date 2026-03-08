@@ -35,18 +35,23 @@ A personal finance app based on Ramit Sethi's "I Will Teach You To Be Rich" meth
 
 ## Features
 
+### Profile (Single-User)
+- Single-row `profile` table replaces user-level fields
+- Model: `Profile` with `date_of_birth`, `retirement_age`, `expected_return`, `withdrawal_rate`
+- Access via `Profile::instance()` (uses `firstOrCreate`)
+
 ### Conscious Spending Plans (`routes/spending-plans.php`, `spending-plans.*`)
-- Models: `SpendingPlan` (belongsTo User), `SpendingPlanItem` (belongsTo SpendingPlan)
+- Models: `SpendingPlan`, `SpendingPlanItem` (belongsTo SpendingPlan)
 - Pages: dashboard (list+delete), create, show (read-only), edit (inline item CRUD)
 
 ### Net Worth Tracker (`routes/net-worth.php`, `net-worth.*`)
 - 4 categories: Assets, Investments, Savings, Debt (enum `App\Enums\AccountCategory`)
 - Formula: Assets + Investments + Savings − Debt (`isDeducted()` on enum)
-- Model: `NetWorthAccount` (belongsTo User), balance in cents
+- Model: `NetWorthAccount`, balance in cents
 - Pages: index (inline CRUD)
 
 ### Expenses (`routes/expenses.php`, `expenses.*`)
-- Models: `Expense` (belongsTo User, belongsTo ExpenseAccount), `ExpenseAccount` (belongsTo User)
+- Models: `Expense` (belongsTo ExpenseAccount), `ExpenseAccount`
 - Service: `App\Services\CsvExpenseImporter` — CSV parsing, column detection, deduplication, and import
 - Single page (`⚡index.blade.php`) with tabs per account + "Uncategorized" tab
 - Features: add/edit/delete expenses, CSV import with auto-categorization, bulk merchant categorization
@@ -57,31 +62,31 @@ A personal finance app based on Ramit Sethi's "I Will Teach You To Be Rich" meth
 - Tests organized by feature: `tests/Feature/Expenses/`, `tests/Feature/SpendingPlans/`, `tests/Feature/NetWorth/`
 - Expense tests split into `ManageExpensesTest.php`, `ManageExpenseAccountsTest.php`, `ImportExpensesTest.php`
 
-## Deployment (Elastic Beanstalk)
+## NativePHP Desktop App
 
-- **Platform**: PHP 8.5 on Amazon Linux 2023 (single instance, us-west-1)
-- **Database**: SQLite persisted on EFS mounted at `/mnt/efs`
-- **Profile**: `personal` (configured in `.elasticbeanstalk/config.yml`)
-- **Assets**: Built locally, included via `.ebignore` (which omits the `/public/build` exclusion from `.gitignore`)
+- **Runtime**: NativePHP Electron — runs Laravel as a native desktop app
+- **Database**: SQLite stored in the app's local data directory (managed by NativePHP)
+- **Config**: `config/nativephp.php`, `app/Providers/NativeAppServiceProvider.php`
 
-### Deploy
+### Development
 
 ```bash
 npm run build
-eb deploy
+php artisan native:serve
 ```
 
-### Key Files
+### Release
 
-- `.ebextensions/01-efs-mount.config` — installs `amazon-efs-utils`, mounts EFS
-- `.ebextensions/02-document-root.config` — sets nginx document root to `/public`
-- `.platform/hooks/postdeploy/01_laravel.sh` — EFS/SQLite setup, migrations, caches, permissions
-- `.platform/confighooks/postdeploy/01_cache.sh` — rebuilds caches after `eb setenv` changes
-- `.platform/nginx/conf.d/elasticbeanstalk/laravel.conf` — `try_files` rewrite for Laravel routing
+Tag a commit and push — GitHub Actions builds `.dmg` (macOS) and `.exe` (Windows) and creates a GitHub Release:
 
-### Environment Variables
+```bash
+git tag v1.0.0 && git push origin v1.0.0
+```
 
-Set via `eb setenv`: `APP_ENV`, `APP_KEY`, `APP_DEBUG`, `APP_URL`, `DB_CONNECTION`, `EFS_ID`, `ADMIN_EMAILS`
+### Static Marketing Site
+
+- Lives in `site/` — plain HTML + Tailwind CDN, hosted on S3/CloudFront
+- Deploy: `S3_BUCKET=... CF_DISTRIBUTION_ID=... ./site/deploy.sh`
 
 ## Gotchas
 
