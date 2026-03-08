@@ -32,6 +32,11 @@ jobs:
           composer install --no-interaction --prefer-dist
           npm ci
 
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
       - name: Build frontend assets
         run: npm run build
 
