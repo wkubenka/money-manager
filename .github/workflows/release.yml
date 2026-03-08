@@ -10,17 +10,7 @@ permissions:
 
 jobs:
   build:
-    strategy:
-      matrix:
-        include:
-          - os: macos-latest
-            platform: mac
-            artifact: '*.dmg'
-          - os: windows-latest
-            platform: win
-            artifact: '*.exe'
-
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-latest
     environment: Testing
 
     steps:
@@ -39,6 +29,7 @@ jobs:
           cache: 'npm'
 
       - name: Add Flux Credentials
+        if: ${{ secrets.FLUX_USERNAME != '' }}
         run: composer config http-basic.composer.fluxui.dev "${{ secrets.FLUX_USERNAME }}" "${{ secrets.FLUX_LICENSE_KEY }}"
 
       - name: Install dependencies
@@ -50,13 +41,13 @@ jobs:
         run: npm run build
 
       - name: Build native app
-        run: php artisan native:build ${{ matrix.platform }}
+        run: php artisan native:build mac
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: build-${{ matrix.platform }}
-          path: dist/${{ matrix.artifact }}
+          name: build-mac
+          path: dist/*.dmg
 
   release:
     needs: build
