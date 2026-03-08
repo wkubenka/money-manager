@@ -21,6 +21,7 @@ jobs:
             artifact: '*.exe'
 
     runs-on: ${{ matrix.os }}
+    environment: Testing
 
     steps:
       - uses: actions/checkout@v4
