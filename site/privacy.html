@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Privacy Policy — Astute Money</title>
+    <meta name="description" content="Astute Money privacy policy. Your data stays on your computer.">
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <meta name="theme-color" content="#10b981">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+                    },
+                },
+            },
+        }
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-neutral-950 to-neutral-900 text-white antialiased">
+
+    <!-- Nav -->
+    <nav class="mx-auto flex max-w-5xl items-center justify-between px-6 py-6">
+        <a href="/" class="flex items-center gap-2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" class="h-8 w-8">
+                <ellipse cx="20" cy="32" rx="14" ry="5" fill="#10b981" opacity="0.3"/>
+                <ellipse cx="20" cy="27" rx="14" ry="5" fill="#10b981" opacity="0.5"/>
+                <ellipse cx="20" cy="22" rx="14" ry="5" fill="#10b981" opacity="0.7"/>
+                <ellipse cx="20" cy="17" rx="14" ry="5" fill="#10b981"/>
+                <path d="M20 10v-6M16 5.5l4-3.5 4 3.5" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="text-lg font-semibold">Astute Money</span>
+        </a>
+
+        <div class="flex items-center gap-6">
+            <a href="/" class="text-sm text-zinc-400 hover:text-white transition">Home</a>
+            <a href="https://github.com/wkubenka/money-manager/releases/latest"
+               class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-400 transition">
+                Download
+            </a>
+        </div>
+    </nav>
+
+    <!-- Content -->
+    <div class="mx-auto max-w-2xl px-6 py-12">
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold tracking-tight">Privacy Policy</h1>
+            <p class="mt-2 text-sm text-zinc-400">Last updated: March 8, 2026</p>
+        </div>
+
+        <div class="space-y-8 text-sm leading-relaxed text-zinc-300">
+            <section>
+                <h2 class="mb-2 text-lg font-semibold text-white">Your Data Stays on Your Computer</h2>
+                <p>
+                    Astute Money is a desktop application. All of your financial data &mdash; spending plans, account balances, expenses, and settings &mdash; is stored locally on your computer in a SQLite database. Nothing is sent to any server.
+                </p>
+            </section>
+
+            <section>
+                <h2 class="mb-2 text-lg font-semibold text-white">What We Collect</h2>
+                <p>
+                    <strong class="text-white">Nothing.</strong> Astute Money does not collect, transmit, or store any personal data externally. There are no accounts, no analytics, no telemetry, and no tracking of any kind.
+                </p>
+            </section>
+
+            <section>
+                <h2 class="mb-2 text-lg font-semibold text-white">What We Don&rsquo;t Do</h2>
+                <ul class="list-disc space-y-1 pl-5">
+                    <li>We do not sell your personal data. Ever.</li>
+                    <li>We do not share your data with third parties.</li>
+                    <li>We do not use your data for advertising or marketing purposes.</li>
+                    <li>We do not use analytics or tracking tools.</li>
+                    <li>We do not transmit any data from your computer.</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2 class="mb-2 text-lg font-semibold text-white">Data Storage</h2>
+                <p>
+                    Your data is stored in a local SQLite database within the application&rsquo;s data directory on your machine. You have full control over this file &mdash; you can back it up, move it, or delete it at any time.
+                </p>
+            </section>
+
+            <section>
+                <h2 class="mb-2 text-lg font-semibold text-white">This Website</h2>
+                <p>
+                    This marketing site is a static HTML page hosted on AWS. It does not use cookies, analytics, or tracking scripts. The only external resource loaded is the Tailwind CSS CDN and Google Fonts.
+                </p>
+            </section>
+
+            <section>
+                <h2 class="mb-2 text-lg font-semibold text-white">Open Source</h2>
+                <p>
+                    Astute Money is open source. You can inspect the entire codebase on
+                    <a href="https://github.com/wkubenka/money-manager" class="text-emerald-400 underline hover:text-emerald-300">GitHub</a>
+                    to verify these claims for yourself.
+                </p>
+            </section>
+
+            <section>
+                <h2 class="mb-2 text-lg font-semibold text-white">Contact</h2>
+                <p>
+                    If you have any questions about this privacy policy, please open an issue on the
+                    <a href="https://github.com/wkubenka/money-manager/issues" class="text-emerald-400 underline hover:text-emerald-300">GitHub repository</a>.
+                </p>
+            </section>
+        </div>
+
+        <div class="mt-10">
+            <a href="/" class="text-sm text-zinc-400 hover:text-white transition">&larr; Back to home</a>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="border-t border-zinc-800 py-8">
+        <div class="mx-auto flex max-w-5xl items-center justify-between px-6">
+            <p class="text-sm text-zinc-500">&copy; 2026 Astute Money</p>
+            <div class="flex gap-6">
+                <a href="/privacy.html" class="text-sm text-zinc-500 hover:text-zinc-300 transition">Privacy</a>
+                <a href="https://github.com/wkubenka/money-manager" class="text-sm text-zinc-500 hover:text-zinc-300 transition">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>
