@@ -2,7 +2,7 @@
 
 ## Overview
 
-Migrate Astute Money from a multi-user web app on AWS Elastic Beanstalk to a single-user NativePHP Electron desktop app. Create a static marketing site hosted on S3/CloudFront with download links. Build a deployment script for .dmg/.exe distribution.
+Migrate Astute Money from a multi-user web app on AWS Elastic Beanstalk to a single-user NativePHP Electron desktop app. Create a static marketing site hosted on S3/CloudFront that links to the GitHub Releases page. Use git tags and a GitHub Actions workflow to build and publish .dmg/.exe releases.
 
 ---
 
@@ -404,17 +404,13 @@ Convert `welcome.blade.php` to plain HTML:
 - Replace Blade directives with hardcoded strings
 - Inline the SVG logo
 - Keep the dark theme, all sections, same copy
-- Replace login/register CTAs with download buttons:
+- Replace login/register CTAs with a single download link pointing to the GitHub Releases page:
 
 ```html
-<div class="mt-8 flex items-center gap-3">
-    <a href="https://downloads.YOURDOMAIN.com/Money-Manager-latest.dmg"
+<div class="mt-8">
+    <a href="https://github.com/OWNER/REPO/releases/latest"
        class="rounded-lg bg-emerald-500 px-6 py-2.5 text-base font-medium text-white">
-        Download for Mac
-    </a>
-    <a href="https://downloads.YOURDOMAIN.com/Money-Manager-latest.exe"
-       class="rounded-lg bg-zinc-700 px-6 py-2.5 text-base font-medium text-white">
-        Download for Windows
+        Download Latest Release
     </a>
 </div>
 ```
@@ -426,11 +422,104 @@ Convert `privacy.blade.php` to plain HTML. Update language for desktop:
 - Remove account deletion section (no accounts)
 - Emphasize local-first, no-cloud architecture
 
+### 4D: S3/CloudFront Setup
+
+| Resource | Configuration |
+|----------|--------------|
+| S3 Bucket | Static site files only |
+| CloudFront | Origin: S3 with OAC. Default root object: `index.html` |
+| ACM Certificate | For custom domain (optional) |
+
 ---
 
-## Phase 5: Deployment Script
+## Phase 5: Release Workflow (GitHub Actions + Git Tags)
 
-### 5A: `bin/deploy.sh`
+### 5A: Release Process
+
+1. Tag a commit: `git tag v1.0.0 && git push origin v1.0.0`
+2. GitHub Actions builds .dmg and .exe on platform-specific runners
+3. Workflow creates a GitHub Release with the binaries attached
+4. The static site links to `https://github.com/OWNER/REPO/releases/latest`
+
+### 5B: `.github/workflows/release.yml`
+
+```yaml
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            platform: mac
+            artifact: '*.dmg'
+          - os: windows-latest
+            platform: win
+            artifact: '*.exe'
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          composer install --no-interaction --prefer-dist
+          npm ci
+
+      - name: Build frontend assets
+        run: npm run build
+
+      - name: Build native app
+        run: php artisan native:build ${{ matrix.platform }}
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.platform }}
+          path: dist/${{ matrix.artifact }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: artifacts/*
+```
+
+macOS .dmg requires a macOS runner (code signing needs Apple tools). Windows .exe is most reliable on a Windows runner.
+
+### 5C: Static Site Deploy Script
 
 ```bash
 #!/usr/bin/env bash
@@ -438,28 +527,9 @@ set -euo pipefail
 
 S3_BUCKET="${S3_BUCKET:?Set S3_BUCKET env var}"
 CF_DISTRIBUTION_ID="${CF_DISTRIBUTION_ID:?Set CF_DISTRIBUTION_ID env var}"
-APP_VERSION=$(git describe --tags --always)
-
-echo "=== Building frontend assets ==="
-npm run build
-
-echo "=== Building macOS app ==="
-php artisan native:build mac
-
-echo "=== Uploading binaries to S3 ==="
-aws s3 cp dist/Money-Manager.dmg \
-    "s3://${S3_BUCKET}/releases/Money-Manager-${APP_VERSION}.dmg"
-aws s3 cp "s3://${S3_BUCKET}/releases/Money-Manager-${APP_VERSION}.dmg" \
-    "s3://${S3_BUCKET}/releases/Money-Manager-latest.dmg"
-
-# Uncomment when Windows build is available:
-# aws s3 cp dist/Money-Manager.exe \
-#     "s3://${S3_BUCKET}/releases/Money-Manager-${APP_VERSION}.exe"
-# aws s3 cp "s3://${S3_BUCKET}/releases/Money-Manager-${APP_VERSION}.exe" \
-#     "s3://${S3_BUCKET}/releases/Money-Manager-latest.exe"
 
 echo "=== Deploying static site ==="
-aws s3 sync site/ "s3://${S3_BUCKET}/site/" \
+aws s3 sync site/ "s3://${S3_BUCKET}/" \
     --delete \
     --cache-control "max-age=3600"
 
@@ -468,28 +538,10 @@ aws cloudfront create-invalidation \
     --distribution-id "${CF_DISTRIBUTION_ID}" \
     --paths "/*"
 
-echo "=== Deploy complete (${APP_VERSION}) ==="
+echo "=== Site deploy complete ==="
 ```
 
-### 5B: GitHub Actions for Cross-Platform Builds
-
-Create `.github/workflows/build.yml`:
-- Trigger on tag push (`v*`)
-- Matrix: `macos-latest` for .dmg, `windows-latest` for .exe
-- Steps: checkout, install PHP + Node, `composer install`, `npm ci`, `npm run build`, `php artisan native:build`
-- Upload artifacts to S3
-- After both builds: sync static site, invalidate CloudFront
-
-macOS .dmg requires a macOS runner (code signing needs Apple tools). Windows .exe is most reliable on a Windows runner.
-
-### 5C: S3/CloudFront Setup
-
-| Resource | Configuration |
-|----------|--------------|
-| S3 Bucket | Two prefixes: `/site/` (static pages), `/releases/` (binaries) |
-| CloudFront | Origin: S3 with OAC. Default root object: `site/index.html` |
-| ACM Certificate | For custom domain (optional) |
-| Binary access | Public read on `/releases/*` for direct downloads |
+This script only handles the static marketing site. Binary releases are fully managed by the GitHub Actions workflow above.
 
 ---
 
@@ -527,8 +579,8 @@ php artisan native:serve  # manual smoke test
 | 6 | Phase 2I-2J | Update routes, factories, seeder | ~10 |
 | 7 | Phase 2K | Update tests | ~12 |
 | 8 | Phase 3 | Install NativePHP, configure | ~4 |
-| 9 | Phase 4 | Create static site | 4 new |
-| 10 | Phase 5 | Deployment script + CI | 2 new |
+| 9 | Phase 4 | Create static site, S3/CloudFront setup | 4 new |
+| 10 | Phase 5 | GitHub Actions release workflow | 2 new |
 | 11 | Phase 6 | Docs, cleanup, final test | ~3 |
 
 ---
