@@ -36,6 +36,7 @@ jobs:
         run: |
           cp .env.example .env
           php artisan key:generate
+          echo "NATIVEPHP_APP_VERSION=${GITHUB_REF_NAME#v}" >> .env
 
       - name: Build frontend assets
         run: npm run build
