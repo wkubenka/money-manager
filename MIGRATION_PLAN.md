@@ -1,141 +1,546 @@
-# Migrate from Elastic Beanstalk to Oracle Cloud Always Free
+# Migration Plan: NativePHP Desktop App + Static Marketing Site
 
-## Context
+## Overview
 
-Two personal Laravel projects each run on their own Elastic Beanstalk environment with an ALB and EFS (~$78/month total). Moving both onto a single Oracle Cloud Always Free ARM instance brings this to $0/month.
-
-**Oracle Cloud Always Free specs:** Up to 4 ARM OCPUs, 24 GB RAM, 200 GB block storage — permanently free.
+Migrate Money Manager from a multi-user web app on AWS Elastic Beanstalk to a single-user NativePHP Electron desktop app. Create a static marketing site hosted on S3/CloudFront with download links. Build a deployment script for .dmg/.exe distribution.
 
 ---
 
-## What changes in this repo
+## Phase 1: Remove Elastic Beanstalk Infrastructure
 
-### 1. Simplify `app/Providers/AppServiceProvider.php`
-Remove the CloudFront/ALB proxy workarounds (lines 44-56). Nginx terminates TLS directly, so no proxy mismatch. Keep `URL::forceScheme('https')`.
+### Files to Delete
 
-### 2. Narrow trusted proxies in `bootstrap/app.php`
-Change `trustProxies(at: '*')` to remove it or set to `'127.0.0.1'` — no ALB/CloudFront in front.
+| Path | Purpose |
+|------|---------|
+| `.ebextensions/01-efs-mount.config` | EFS mount configuration |
+| `.ebextensions/02-document-root.config` | Nginx document root |
+| `.ebextensions/03-https.config` | HTTPS/SSL listener |
+| `.ebextensions/04-efs-logs.config` | Log collection from EFS |
+| `.platform/hooks/postdeploy/01_laravel.sh` | Post-deploy: migrations, caches, permissions |
+| `.platform/confighooks/postdeploy/01_cache.sh` | Cache rebuild after `eb setenv` |
+| `.platform/nginx/conf.d/elasticbeanstalk/laravel.conf` | Laravel routing rewrite |
+| `.platform/nginx/conf.d/elasticbeanstalk/https_redirect.conf` | HTTP-to-HTTPS redirect |
+| `.platform/nginx/conf.d/elasticbeanstalk/static_cache.conf` | Asset caching rules |
+| `.ebignore` | EB deploy ignore rules |
+| `.elasticbeanstalk/` | EB CLI configuration (entire directory) |
 
-### 3. Delete EB-specific files
-- `.ebextensions/` (4 files)
-- `.platform/` (5 files across hooks, confighooks, nginx)
-- `.elasticbeanstalk/`
-- `.ebignore`
+### Files to Modify
 
-### 4. Add `deploy.sh`
-Replaces `.platform/hooks/postdeploy/01_laravel.sh`. Builds assets on the server:
+**`bootstrap/app.php`**
+- Remove `$middleware->trustProxies(at: '*')` (EB proxy trust)
+- Remove `admin` middleware alias and `EnsureUserIsAdmin` import
+
+**`app/Providers/AppServiceProvider.php`**
+- Remove `User::observe(UserObserver::class)` and imports
+- Remove entire production HTTPS/CloudFront proxy block (lines 41-57)
+- Remove `Password::defaults(...)` (no auth)
+- Keep `Date::use(CarbonImmutable::class)` and `DB::prohibitDestructiveCommands()`
+
+**`.gitignore`** — Remove Elastic Beanstalk section
+
+**`.env.example`** — Remove `ADMIN_EMAILS`, `EFS_ID`, mail variables, `AWS_*` variables
+
+---
+
+## Phase 2: Remove Auth/User System
+
+### 2A: Remove Fortify Package
+
 ```bash
-#!/bin/bash
-set -e
-APP_DIR="/var/www/money-manager"
-cd "$APP_DIR"
-git pull origin main
-composer install --no-dev --optimize-autoloader --no-interaction
-npm ci && npm run build
-php artisan migrate --force
-php artisan config:cache && php artisan route:cache && php artisan view:cache
-chown -R www-data:www-data storage bootstrap/cache
-chmod -R 775 storage bootstrap/cache
-sudo systemctl restart php-fpm
+composer remove laravel/fortify
 ```
 
-### 5. Update CLAUDE.md deployment section
-Replace EB deployment docs with new workflow.
+### 2B: Files to Delete
+
+**Auth infrastructure:**
+
+| Path | Purpose |
+|------|---------|
+| `app/Providers/FortifyServiceProvider.php` | Fortify service provider |
+| `app/Actions/Fortify/CreateNewUser.php` | User registration action |
+| `app/Actions/Fortify/ResetUserPassword.php` | Password reset action |
+| `app/Concerns/PasswordValidationRules.php` | Password validation rules |
+| `app/Concerns/ProfileValidationRules.php` | Profile validation rules |
+| `app/Http/Middleware/EnsureUserIsAdmin.php` | Admin gate middleware |
+| `app/Livewire/Actions/Logout.php` | Logout action |
+| `app/Observers/UserObserver.php` | User observer |
+| `app/Models/User.php` | User model |
+| `database/factories/UserFactory.php` | User factory |
+| `config/admin.php` | Admin email list config |
+| `config/fortify.php` | Fortify config |
+
+**Auth views (all under `resources/views/`):**
+
+| Path |
+|------|
+| `pages/auth/` (entire directory: login, register, verify-email, etc.) |
+| `layouts/auth.blade.php` |
+| `layouts/auth/card.blade.php` |
+| `layouts/auth/simple.blade.php` |
+| `layouts/auth/split.blade.php` |
+| `components/auth-header.blade.php` |
+| `components/auth-session-status.blade.php` |
+| `components/desktop-user-menu.blade.php` |
+
+**Settings pages to delete:**
+
+| Path |
+|------|
+| `pages/settings/⚡profile.blade.php` |
+| `pages/settings/⚡password.blade.php` |
+| `pages/settings/⚡delete-user-form.blade.php` |
+
+**Admin:**
+
+| Path |
+|------|
+| `pages/admin/⚡dashboard.blade.php` |
+| `routes/admin.php` |
+
+**Welcome page (moves to static site):**
+
+| Path |
+|------|
+| `resources/views/welcome.blade.php` |
+
+**Auth tests:**
+
+| Path |
+|------|
+| `tests/Feature/Auth/` (entire directory) |
+| `tests/Feature/Admin/AdminDashboardTest.php` |
+| `tests/Feature/Settings/PasswordUpdateTest.php` |
+| `tests/Feature/Settings/ProfileUpdateTest.php` |
+
+**Remove from `bootstrap/providers.php`:**
+- `App\Providers\FortifyServiceProvider::class`
+
+### 2C: Create Profile Model (replaces user-level fields)
+
+User-level fields (`date_of_birth`, `retirement_age`, `expected_return`, `withdrawal_rate`) move to a single-row `profile` table.
+
+**New migration: `create_profile_table.php`**
+
+```php
+Schema::create('profile', function (Blueprint $table) {
+    $table->id();
+    $table->date('date_of_birth')->nullable();
+    $table->unsignedSmallInteger('retirement_age')->nullable()->default(65);
+    $table->decimal('expected_return', 4, 1)->nullable()->default(7.0);
+    $table->decimal('withdrawal_rate', 4, 1)->nullable()->default(4.0);
+    $table->timestamps();
+});
+```
+
+**New model: `app/Models/Profile.php`**
+
+```php
+class Profile extends Model
+{
+    protected $table = 'profile';
+
+    protected $fillable = ['date_of_birth', 'retirement_age', 'expected_return', 'withdrawal_rate'];
+
+    protected function casts(): array
+    {
+        return [
+            'date_of_birth' => 'date',
+            'retirement_age' => 'integer',
+            'expected_return' => 'decimal:1',
+            'withdrawal_rate' => 'decimal:1',
+        ];
+    }
+
+    public static function instance(): static
+    {
+        return static::firstOrCreate([]);
+    }
+
+    public function age(): ?int
+    {
+        return $this->date_of_birth?->age;
+    }
+}
+```
+
+**New factory: `database/factories/ProfileFactory.php`**
+
+### 2D: Migration to Remove Auth Tables and user_id Columns
+
+**New migration: `remove_auth_and_user_scoping.php`**
+
+Drop tables:
+- `users`
+- `password_reset_tokens`
+- `sessions`
+
+Drop `user_id` column from:
+- `spending_plans`
+- `net_worth_accounts`
+- `rich_life_visions`
+- `expense_accounts`
+- `expenses` (also drop the composite `['user_id', 'date']` index)
+
+### 2E: Update Models (remove user relationships)
+
+All models below: remove `user()` BelongsTo relationship, remove `user_id` from `$fillable`.
+
+| Model | Additional Changes |
+|-------|-------------------|
+| `app/Models/SpendingPlan.php` | `markCurrentIfOnly()`: replace `$this->user->spendingPlans()` with `SpendingPlan::query()`. `ensureCurrentPlanForUser(User $user)` becomes `ensureCurrentPlan()` using `SpendingPlan::query()`. |
+| `app/Models/NetWorthAccount.php` | Remove user relationship only |
+| `app/Models/RichLifeVision.php` | Remove user relationship only |
+| `app/Models/ExpenseAccount.php` | Remove user relationship only |
+| `app/Models/Expense.php` | Remove user relationship only |
+
+### 2F: Update Services and Actions
+
+**`app/Actions/CopySpendingPlan.php`**
+- Remove `User $user` parameter from `__invoke()`
+- Remove `abort_unless($plan->user_id === $user->id, 403)` ownership check
+- Remove `'user_id' => $user->id` from create array
+- Replace `$user->spendingPlans()->count()` with `SpendingPlan::count()`
+
+**`app/Services/CsvExpenseImporter.php`**
+- Remove `int $userId` parameter from `parse()` and `import()`
+- Replace `Expense::where('user_id', $userId)` with `Expense::query()`
+- Remove `abort_unless($account->user_id === $userId, 403)` checks
+- Remove `'user_id' => $userId` from create calls
+- Remove `$userId` from `lookupMerchantCategory()`
+
+### 2G: Update Livewire Page Components
+
+Every `Auth::user()->relationship()` becomes a direct `Model::query()` call.
+Every `abort_unless($model->user_id === Auth::id(), 403)` is removed.
+Every `Auth::user()->update(...)` for profile fields becomes `Profile::instance()->update(...)`.
+
+**`resources/views/pages/⚡dashboard.blade.php`** (~30 Auth references)
+- `mount()`: Use `Profile::instance()` for retirement fields
+- `visions()`: `RichLifeVision::query()->orderBy(...)->get()`
+- `addVision()`: `RichLifeVision::create([...])` (no user_id)
+- All vision/account mutations: remove ownership checks
+- `accounts()`: `NetWorthAccount::query()->get()`
+- `currentPlan()`: `SpendingPlan::where('is_current', true)->first()?->load('items')`
+- `monthlyExpenseTotals()`: `Expense::query()->whereNotNull(...)...`
+- `saveRetirementSettings()`: `Profile::instance()->update([...])`
+- Blade: Replace `Auth::user()->spendingPlans()->exists()` with `SpendingPlan::exists()`
+
+**`resources/views/pages/expenses/⚡index.blade.php`** (~30 Auth references)
+- `accounts()`: `ExpenseAccount::query()->orderBy('name')->get()`
+- All query methods: `Expense::query()` instead of `Auth::user()->expenses()`
+- All CRUD: remove ownership checks, remove `user_id` from creates
+- Account CRUD: `ExpenseAccount::create([...])` (no user_id)
+- CSV import: remove `Auth::id()` from `$importer->parse()` and `$importer->import()`
+- Auto/bulk categorization: `Expense::query()` instead of `Auth::user()->expenses()`
+
+**`resources/views/pages/spending-plans/⚡dashboard.blade.php`**
+- `plans()`: `SpendingPlan::oldest()->with('items')->get()`
+- `copyPlan()`: `app(CopySpendingPlan::class)($plan)` (no user param)
+- `markAsCurrent()`: remove ownership check, use `SpendingPlan::where(...)` directly
+
+**`resources/views/pages/spending-plans/⚡create.blade.php`**
+- `createPlan()`: `SpendingPlan::count()` and `SpendingPlan::create(...)` (no user_id)
+
+**`resources/views/pages/spending-plans/⚡show.blade.php`**
+- Remove `abort_unless` ownership check in `mount()`
+- `deletePlan()`: `SpendingPlan::count()`, `SpendingPlan::ensureCurrentPlan()`
+- `copyPlan()`: no user param
+
+**`resources/views/pages/spending-plans/⚡edit.blade.php`**
+- Remove ownership checks in `mount()` and item mutations
+
+**`resources/views/pages/net-worth/⚡index.blade.php`**
+- `accounts()`: `NetWorthAccount::query()->orderBy(...)->get()`
+- All CRUD: remove ownership checks, remove user_id
+
+### 2H: Update Layout and Navigation
+
+**`resources/views/layouts/app/sidebar.blade.php`**
+- Remove admin section (conditional admin link)
+- Remove `<x-desktop-user-menu>` component
+- Remove mobile user menu dropdown (name, email, logout)
+- Add a simple "Settings" nav item linking to appearance
+- Remove all `auth()->user()` references
+
+**`resources/views/pages/settings/layout.blade.php`**
+- Remove Profile and Password navlist items
+- Keep only Appearance
+
+**`resources/views/pages/settings/⚡appearance.blade.php`**
+- Update heading/subtitle to remove "profile and account" language
+
+### 2I: Update Routes
+
+**`routes/web.php`**
+
+```php
+Route::redirect('/', '/dashboard');
+Route::view('/privacy', 'privacy')->name('privacy');
+Route::get('/offline', fn () => view('offline'));
+Route::livewire('dashboard', 'pages::dashboard')->name('dashboard');
+require __DIR__.'/settings.php';
+require __DIR__.'/spending-plans.php';
+require __DIR__.'/net-worth.php';
+require __DIR__.'/expenses.php';
+```
+
+- Remove: welcome route, dev/login, guest middleware, auth/verified middleware, admin require
+
+**`routes/spending-plans.php`** — Remove `['auth', 'verified']` middleware wrapper
+
+**`routes/net-worth.php`** — Remove `['auth', 'verified']` middleware wrapper
+
+**`routes/expenses.php`** — Remove `['auth', 'verified']` middleware wrapper
+
+**`routes/settings.php`** — Remove auth middleware, remove profile/password routes, keep only appearance
+
+**Delete `routes/admin.php`**
+
+### 2J: Update Factories and Seeder
+
+Remove `'user_id' => User::factory()` from:
+- `database/factories/SpendingPlanFactory.php`
+- `database/factories/NetWorthAccountFactory.php`
+- `database/factories/ExpenseFactory.php`
+- `database/factories/ExpenseAccountFactory.php`
+- `database/factories/RichLifeVisionFactory.php`
+
+**`database/seeders/DatabaseSeeder.php`** — Remove User creation, remove `$user->id` from all creates.
+
+### 2K: Update Tests
+
+**Transform pattern for all remaining test files:**
+- Remove `User::factory()->create()` and `$this->actingAs($user)`
+- Remove `'user_id' => $user->id` from factory calls
+- Remove "guests redirected to login" tests
+- Remove "user cannot access another user's data" tests
+- For dashboard: assert on `Profile::instance()` instead of `$user->refresh()`
+
+**Test files to modify:**
+
+| File |
+|------|
+| `tests/Feature/DashboardTest.php` (heaviest — ~45 user refs) |
+| `tests/Feature/SpendingPlans/CreateSpendingPlanTest.php` |
+| `tests/Feature/SpendingPlans/EditSpendingPlanTest.php` |
+| `tests/Feature/SpendingPlans/ShowSpendingPlanTest.php` |
+| `tests/Feature/SpendingPlans/SpendingPlanDashboardTest.php` |
+| `tests/Feature/SpendingPlans/CopySpendingPlanTest.php` |
+| `tests/Feature/SpendingPlans/CurrentSpendingPlanTest.php` |
+| `tests/Feature/NetWorth/ManageNetWorthAccountsTest.php` |
+| `tests/Feature/NetWorth/NetWorthCalculationTest.php` |
+| `tests/Feature/Expenses/ManageExpensesTest.php` |
+| `tests/Feature/Expenses/ManageExpenseAccountsTest.php` |
+| `tests/Feature/Expenses/ImportExpensesTest.php` |
 
 ---
 
-## Infrastructure guide (manual server setup)
+## Phase 3: Install and Configure NativePHP Electron
 
-### Oracle Cloud instance
-- **Shape:** VM.Standard.A1.Flex (ARM) — allocate 2 OCPUs, 12 GB RAM (leaves room for the second project's instance or a single shared instance)
-- **OS:** Oracle Linux 8 or Ubuntu 22.04 (both available in OCI free tier)
-- **Region:** Pick one with ARM availability (us-ashburn-1, us-phoenix-1 tend to have capacity)
-- **Reserve a public IP** for DNS stability
+### 3A: Install
 
-### Storage layout
-Use the instance's boot volume (47-200 GB included free). No separate volume needed at this scale, but keep data in a dedicated directory:
-
-```
-/data/money-manager/database.sqlite
-/data/money-manager/storage/logs/
-/data/second-project/database.sqlite
-/data/second-project/storage/logs/
-```
-Symlink each app's `database/database.sqlite` and `storage/logs/` into `/data/`.
-
-### Software stack
-- PHP 8.2+ with FPM, Node.js 20, Composer
-- **Nginx** — two vhosts, one per domain, `root /var/www/{project}/public`
-- **Certbot** with nginx plugin for free auto-renewing HTTPS
-
-### Security
-- OCI security list / network security group: port 22 (your IP), 80, 443
-- SSH key-only auth
-- Automatic OS security updates
-- `iptables` rules on the instance as defense-in-depth (OCI's default `iptables` blocks everything except SSH — you'll need to open 80/443 at both the OCI security list AND the OS firewall)
-
----
-
-## SQLite backup strategy
-
-| Layer | Frequency | Method | Retention |
-|---|---|---|---|
-| Object Storage backup | Daily (cron) | `sqlite3 .backup` then upload to OCI Object Storage (free 10 GB) or AWS S3 | 1 year |
-| Boot volume backup | Weekly | OCI boot volume backup (5 free backups included) | 4 weeks |
-
-Daily cron script:
 ```bash
-#!/bin/bash
-TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-for project in money-manager second-project; do
-    DB="/data/$project/database.sqlite"
-    [ -f "$DB" ] && sqlite3 "$DB" ".backup /tmp/${project}-${TIMESTAMP}.sqlite"
-    # Upload to OCI Object Storage (free tier) or S3
-    oci os object put --bucket-name backups --file "/tmp/${project}-${TIMESTAMP}.sqlite" \
-        --name "${project}/${TIMESTAMP}.sqlite"
-    rm -f "/tmp/${project}-${TIMESTAMP}.sqlite"
-done
+composer require nativephp/electron
+php artisan native:install
 ```
 
-Key: use `sqlite3 .backup` (not `cp`) for a consistent copy during writes.
+This publishes `config/nativephp.php` and creates `app/Providers/NativeAppServiceProvider.php`.
+
+### 3B: Configure NativeAppServiceProvider
+
+```php
+use Native\Laravel\Facades\Window;
+
+public function boot(): void
+{
+    Window::open()
+        ->title('Money Manager')
+        ->width(1200)
+        ->height(800)
+        ->minWidth(900)
+        ->minHeight(600);
+}
+```
+
+### 3C: Configure `config/nativephp.php`
+
+- App name: `Money Manager`
+- SQLite database: NativePHP automatically places it in the app's data directory
+
+### 3D: Environment Configuration
+
+Desktop defaults:
+- `SESSION_DRIVER=file`
+- `CACHE_STORE=file`
+- `QUEUE_CONNECTION=sync`
+- `APP_ENV=local` for dev, `production` for builds
+
+### 3E: Verify Locally
+
+```bash
+npm run build
+php artisan native:serve
+```
 
 ---
 
-## Migration sequence
+## Phase 4: Static Marketing Site (S3/CloudFront)
 
-1. **Create OCI account** and provision ARM instance
-2. **Open firewall** — OCI security list + OS `iptables` for ports 80, 443
-3. **Install stack** — PHP 8.2, nginx, Composer, Node.js, Certbot
-4. **Deploy apps** — clone repos, install deps, configure `.env`, set up `/data/` symlinks
-5. **Test** — hit the public IP directly (local `/etc/hosts` override)
-6. **Lower DNS TTL** to 60s, wait for old TTL to expire
-7. **Copy databases** — put EB apps in maintenance mode, `scp` SQLite files from EFS to `/data/`
-8. **Cut DNS** — point A records to the OCI instance's reserved IP
-9. **Run Certbot** — obtain SSL certificates
-10. **Verify** — test everything, restore DNS TTL
-11. **Set up backups** — daily cron + weekly volume backups
-12. **Decommission EB** — terminate environments, delete EFS, ALB, ACM cert
+### 4A: Create `site/` Directory
 
-**Expected downtime:** 10-30 minutes.
+```
+site/
+  index.html          # Marketing page (converted from welcome.blade.php)
+  privacy.html        # Privacy policy (converted from privacy.blade.php)
+  favicon.svg         # Copied from public/
+  apple-touch-icon.png
+```
+
+### 4B: `site/index.html`
+
+Convert `welcome.blade.php` to plain HTML:
+- Use Tailwind CDN (`<script src="https://cdn.tailwindcss.com">`) — no build step for a 2-page site
+- Replace `<flux:*>` components with equivalent HTML + Tailwind classes
+- Replace Blade directives with hardcoded strings
+- Inline the SVG logo
+- Keep the dark theme, all sections, same copy
+- Replace login/register CTAs with download buttons:
+
+```html
+<div class="mt-8 flex items-center gap-3">
+    <a href="https://downloads.YOURDOMAIN.com/Money-Manager-latest.dmg"
+       class="rounded-lg bg-emerald-500 px-6 py-2.5 text-base font-medium text-white">
+        Download for Mac
+    </a>
+    <a href="https://downloads.YOURDOMAIN.com/Money-Manager-latest.exe"
+       class="rounded-lg bg-zinc-700 px-6 py-2.5 text-base font-medium text-white">
+        Download for Windows
+    </a>
+</div>
+```
+
+### 4C: `site/privacy.html`
+
+Convert `privacy.blade.php` to plain HTML. Update language for desktop:
+- "Your data stays on your computer" (not "stored on our servers")
+- Remove account deletion section (no accounts)
+- Emphasize local-first, no-cloud architecture
 
 ---
 
-## Cost comparison
+## Phase 5: Deployment Script
 
-| | Current (2x EB) | Oracle Cloud Free |
-|---|---|---|
-| Compute | ~$30 | $0 |
-| Load balancer | ~$44 | $0 |
-| Storage | ~$3 | $0 |
-| Backups | $0 | $0 |
-| **Total** | **~$78/month** | **$0/month** |
+### 5A: `bin/deploy.sh`
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+S3_BUCKET="${S3_BUCKET:?Set S3_BUCKET env var}"
+CF_DISTRIBUTION_ID="${CF_DISTRIBUTION_ID:?Set CF_DISTRIBUTION_ID env var}"
+APP_VERSION=$(git describe --tags --always)
+
+echo "=== Building frontend assets ==="
+npm run build
+
+echo "=== Building macOS app ==="
+php artisan native:build mac
+
+echo "=== Uploading binaries to S3 ==="
+aws s3 cp dist/Money-Manager.dmg \
+    "s3://${S3_BUCKET}/releases/Money-Manager-${APP_VERSION}.dmg"
+aws s3 cp "s3://${S3_BUCKET}/releases/Money-Manager-${APP_VERSION}.dmg" \
+    "s3://${S3_BUCKET}/releases/Money-Manager-latest.dmg"
+
+# Uncomment when Windows build is available:
+# aws s3 cp dist/Money-Manager.exe \
+#     "s3://${S3_BUCKET}/releases/Money-Manager-${APP_VERSION}.exe"
+# aws s3 cp "s3://${S3_BUCKET}/releases/Money-Manager-${APP_VERSION}.exe" \
+#     "s3://${S3_BUCKET}/releases/Money-Manager-latest.exe"
+
+echo "=== Deploying static site ==="
+aws s3 sync site/ "s3://${S3_BUCKET}/site/" \
+    --delete \
+    --cache-control "max-age=3600"
+
+echo "=== Invalidating CloudFront cache ==="
+aws cloudfront create-invalidation \
+    --distribution-id "${CF_DISTRIBUTION_ID}" \
+    --paths "/*"
+
+echo "=== Deploy complete (${APP_VERSION}) ==="
+```
+
+### 5B: GitHub Actions for Cross-Platform Builds
+
+Create `.github/workflows/build.yml`:
+- Trigger on tag push (`v*`)
+- Matrix: `macos-latest` for .dmg, `windows-latest` for .exe
+- Steps: checkout, install PHP + Node, `composer install`, `npm ci`, `npm run build`, `php artisan native:build`
+- Upload artifacts to S3
+- After both builds: sync static site, invalidate CloudFront
+
+macOS .dmg requires a macOS runner (code signing needs Apple tools). Windows .exe is most reliable on a Windows runner.
+
+### 5C: S3/CloudFront Setup
+
+| Resource | Configuration |
+|----------|--------------|
+| S3 Bucket | Two prefixes: `/site/` (static pages), `/releases/` (binaries) |
+| CloudFront | Origin: S3 with OAC. Default root object: `site/index.html` |
+| ACM Certificate | For custom domain (optional) |
+| Binary access | Public read on `/releases/*` for direct downloads |
 
 ---
 
-## Verification
-- Both apps load over HTTPS with valid certificates
-- Login, CRUD, CSV import all work
-- Database contains expected data after migration
-- Backup cron runs and files appear in Object Storage
-- `sudo certbot renew --dry-run` succeeds
-- Run test suites: `php artisan test --compact`
+## Phase 6: Cleanup
+
+### 6A: Update CLAUDE.md
+- Remove all Elastic Beanstalk documentation
+- Remove auth-related patterns and gotchas
+- Add NativePHP development patterns
+- Document `Profile::instance()` pattern
+- Update deploy instructions
+
+### 6B: Delete Obsolete Files
+- `ORACLE_MIGRATION_PLAN.md`
+
+### 6C: Final Verification
+
+```bash
+vendor/bin/pint --dirty --format agent
+php artisan test --compact
+php artisan native:serve  # manual smoke test
+```
+
+---
+
+## Implementation Order
+
+| Step | Phase | Scope | Est. Files |
+|------|-------|-------|-----------|
+| 1 | Phase 1 | Delete EB files, clean bootstrap/provider | ~15 |
+| 2 | Phase 2A-2B | Remove Fortify, delete auth files | ~25 |
+| 3 | Phase 2C-2D | Create Profile model, auth removal migration | 3 new |
+| 4 | Phase 2E-2F | Update models and services | 7 |
+| 5 | Phase 2G-2H | Update Livewire pages and layouts | ~10 |
+| 6 | Phase 2I-2J | Update routes, factories, seeder | ~10 |
+| 7 | Phase 2K | Update tests | ~12 |
+| 8 | Phase 3 | Install NativePHP, configure | ~4 |
+| 9 | Phase 4 | Create static site | 4 new |
+| 10 | Phase 5 | Deployment script + CI | 2 new |
+| 11 | Phase 6 | Docs, cleanup, final test | ~3 |
+
+---
+
+## Risks and Considerations
+
+1. **NativePHP + Livewire** — NativePHP runs a local PHP server so Livewire should work normally. File uploads (CSV import) may need testing for temp file paths in Electron.
+
+2. **SQLite path** — NativePHP manages the storage directory. Verify `database_path()` resolves correctly in the packaged app, or use NativePHP's storage API.
+
+3. **No automatic data migration** — Moving from web (EFS SQLite) to desktop (local SQLite) has no automatic path. Consider adding a one-time SQLite import tool if existing data matters.
+
+4. **Cross-platform fonts** — Font preloads use `Vite::asset()` which should work in the packaged build, but test on both platforms.
+
+5. **NativePHP maturity** — Actively developed but relatively young. Pin to a specific version and test thoroughly.
