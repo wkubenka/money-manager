@@ -1,4 +1,4 @@
-# Money Manager
+# Astute Money
 
 A personal finance app for tracking net worth and building conscious spending plans. Built with Laravel 12, Livewire 4, and Flux UI.
 

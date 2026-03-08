@@ -2,7 +2,7 @@
 
 ## Overview
 
-Migrate Money Manager from a multi-user web app on AWS Elastic Beanstalk to a single-user NativePHP Electron desktop app. Create a static marketing site hosted on S3/CloudFront with download links. Build a deployment script for .dmg/.exe distribution.
+Migrate Astute Money from a multi-user web app on AWS Elastic Beanstalk to a single-user NativePHP Electron desktop app. Create a static marketing site hosted on S3/CloudFront with download links. Build a deployment script for .dmg/.exe distribution.
 
 ---
 
@@ -354,7 +354,7 @@ use Native\Laravel\Facades\Window;
 public function boot(): void
 {
     Window::open()
-        ->title('Money Manager')
+        ->title('Astute Money')
         ->width(1200)
         ->height(800)
         ->minWidth(900)
@@ -364,7 +364,7 @@ public function boot(): void
 
 ### 3C: Configure `config/nativephp.php`
 
-- App name: `Money Manager`
+- App name: `Astute Money`
 - SQLite database: NativePHP automatically places it in the app's data directory
 
 ### 3D: Environment Configuration

@@ -1,4 +1,4 @@
-# Money Manager
+# Astute Money
 
 A personal finance app based on Ramit Sethi's "I Will Teach You To Be Rich" methodology.
 

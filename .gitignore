@@ -22,7 +22,3 @@ yarn-error.log
 /.vscode
 /.zed
 /.claude/settings.local.json
-# Elastic Beanstalk Files
-.elasticbeanstalk/*
-!.elasticbeanstalk/*.cfg.yml
-!.elasticbeanstalk/*.global.yml

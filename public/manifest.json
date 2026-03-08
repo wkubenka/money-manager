@@ -1,7 +1,7 @@
 {
     "id": "/dashboard",
-    "name": "Money Manager",
-    "short_name": "Money Manager",
+    "name": "Astute Money",
+    "short_name": "Astute Money",
     "start_url": "/dashboard",
     "display": "standalone",
     "theme_color": "#10b981",

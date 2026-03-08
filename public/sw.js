@@ -1,4 +1,4 @@
-const CACHE_NAME = 'money-manager-v1';
+const CACHE_NAME = 'astute-money-v1';
 const OFFLINE_URL = '/offline';
 
 self.addEventListener('install', (event) => {
