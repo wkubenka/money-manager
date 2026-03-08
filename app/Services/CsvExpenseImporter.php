@@ -13,7 +13,7 @@ class CsvExpenseImporter
      *
      * @return array{parsedRows: array, matchedExpenses: array, feedback: string}
      */
-    public function parse(string $filePath, int $accountId, int $userId): array
+    public function parse(string $filePath, int $accountId): array
     {
         $handle = fopen($filePath, 'r');
 
@@ -45,15 +45,13 @@ class CsvExpenseImporter
         $requiredColCount = max($dateCol, $merchantCol, $amountCol);
 
         // Load existing reference numbers for this account (for re-import detection)
-        $existingRefNumbers = Expense::where('user_id', $userId)
-            ->where('expense_account_id', $accountId)
+        $existingRefNumbers = Expense::where('expense_account_id', $accountId)
             ->whereNotNull('reference_number')
             ->pluck('reference_number')
             ->toArray();
 
         // Load unimported expenses as a consumable amount pool (for manual entry matching)
-        $unimportedExpenses = Expense::where('user_id', $userId)
-            ->where('expense_account_id', $accountId)
+        $unimportedExpenses = Expense::where('expense_account_id', $accountId)
             ->where('is_imported', false)
             ->get(['id', 'amount', 'merchant', 'date']);
 
@@ -168,7 +166,7 @@ class CsvExpenseImporter
                 continue;
             }
 
-            $category = $this->lookupMerchantCategory($raw['merchant'], $userId);
+            $category = $this->lookupMerchantCategory($raw['merchant']);
 
             $rows[] = [
                 'date' => $date,
@@ -190,10 +188,9 @@ class CsvExpenseImporter
     /**
      * Import selected expenses and update matched manual entries.
      */
-    public function import(array $selectedRows, array $parsedRows, array $selectedMatches, array $matchedExpenses, int $accountId, int $userId): void
+    public function import(array $selectedRows, array $parsedRows, array $selectedMatches, array $matchedExpenses, int $accountId): void
     {
         $account = ExpenseAccount::findOrFail($accountId);
-        abort_unless($account->user_id === $userId, 403);
 
         foreach ($selectedRows as $index) {
             if (! isset($parsedRows[$index])) {
@@ -203,7 +200,6 @@ class CsvExpenseImporter
             $row = $parsedRows[$index];
 
             Expense::create([
-                'user_id' => $userId,
                 'expense_account_id' => $accountId,
                 'merchant' => $row['merchant'],
                 'amount' => $row['amount'],
@@ -223,7 +219,6 @@ class CsvExpenseImporter
             $match = $matchedExpenses[$index];
 
             Expense::where('id', $match['expense_id'])
-                ->where('user_id', $userId)
                 ->update([
                     'is_imported' => true,
                     'reference_number' => $match['reference_number'],
@@ -243,10 +238,9 @@ class CsvExpenseImporter
         return null;
     }
 
-    private function lookupMerchantCategory(string $merchant, int $userId): ?string
+    private function lookupMerchantCategory(string $merchant): ?string
     {
-        $expense = Expense::where('user_id', $userId)
-            ->where('merchant', $merchant)
+        $expense = Expense::where('merchant', $merchant)
             ->whereNotNull('category')
             ->latest('date')
             ->first();

@@ -3,17 +3,14 @@
 namespace App\Actions;
 
 use App\Models\SpendingPlan;
-use App\Models\User;
 
 class CopySpendingPlan
 {
-    public function __invoke(SpendingPlan $plan, User $user): SpendingPlan
+    public function __invoke(SpendingPlan $plan): SpendingPlan
     {
-        abort_unless($plan->user_id === $user->id, 403);
-        abort_if($user->spendingPlans()->count() >= SpendingPlan::MAX_PER_USER, 422);
+        abort_if(SpendingPlan::count() >= SpendingPlan::MAX_PER_USER, 422);
 
         $copy = SpendingPlan::create([
-            'user_id' => $user->id,
             'name' => "Copy of {$plan->name}",
             'monthly_income' => $plan->monthly_income,
             'gross_monthly_income' => $plan->gross_monthly_income,

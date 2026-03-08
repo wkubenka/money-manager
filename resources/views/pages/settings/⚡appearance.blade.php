@@ -7,7 +7,7 @@ new class extends Component {
 }; ?>
 
 <section class="w-full">
-    <x-page-heading title="Settings" subtitle="Manage your profile and account settings" />
+    <x-page-heading title="Settings" subtitle="Manage your application settings" />
 
     <flux:heading class="sr-only">{{ __('Appearance Settings') }}</flux:heading>
 

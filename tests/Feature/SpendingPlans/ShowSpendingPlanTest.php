@@ -3,35 +3,20 @@
 use App\Enums\SpendingCategory;
 use App\Models\SpendingPlan;
 use App\Models\SpendingPlanItem;
-use App\Models\User;
 
 uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
 
-test('owner can view their plan', function () {
-    $user = User::factory()->create();
-    $plan = SpendingPlan::factory()->create(['user_id' => $user->id]);
+test('plan page is accessible', function () {
+    $plan = SpendingPlan::factory()->create();
 
-    $this->actingAs($user)
-        ->get(route('spending-plans.show', $plan))
+    $this->get(route('spending-plans.show', $plan))
         ->assertOk();
 });
 
-test('user cannot view another users plan', function () {
-    $user = User::factory()->create();
-    $otherUser = User::factory()->create();
-    $plan = SpendingPlan::factory()->create(['user_id' => $otherUser->id]);
-
-    $this->actingAs($user)
-        ->get(route('spending-plans.show', $plan))
-        ->assertForbidden();
-});
-
 test('plan detail shows all categories', function () {
-    $user = User::factory()->create();
-    $plan = SpendingPlan::factory()->create(['user_id' => $user->id]);
+    $plan = SpendingPlan::factory()->create();
 
-    $response = $this->actingAs($user)
-        ->get(route('spending-plans.show', $plan));
+    $response = $this->get(route('spending-plans.show', $plan));
 
     foreach (SpendingCategory::spendingCases() as $category) {
         $response->assertSee($category->label());
@@ -39,8 +24,7 @@ test('plan detail shows all categories', function () {
 });
 
 test('plan detail shows line items', function () {
-    $user = User::factory()->create();
-    $plan = SpendingPlan::factory()->create(['user_id' => $user->id]);
+    $plan = SpendingPlan::factory()->create();
 
     SpendingPlanItem::factory()->create([
         'spending_plan_id' => $plan->id,
@@ -49,16 +33,13 @@ test('plan detail shows line items', function () {
         'amount' => 150000,
     ]);
 
-    $this->actingAs($user)
-        ->get(route('spending-plans.show', $plan))
+    $this->get(route('spending-plans.show', $plan))
         ->assertSee('Monthly Rent')
         ->assertSee('1,500');
 });
 
 test('fixed costs shows miscellaneous line with correct amount', function () {
-    $user = User::factory()->create();
     $plan = SpendingPlan::factory()->create([
-        'user_id' => $user->id,
         'monthly_income' => 500000,
         'fixed_costs_misc_percent' => 15,
     ]);
@@ -70,8 +51,7 @@ test('fixed costs shows miscellaneous line with correct amount', function () {
         'amount' => 200000,
     ]);
 
-    $this->actingAs($user)
-        ->get(route('spending-plans.show', $plan))
+    $this->get(route('spending-plans.show', $plan))
         ->assertSee('Miscellaneous')
         ->assertSee('15%')
         ->assertSee('300');
@@ -111,9 +91,7 @@ test('guilt free accounts for fixed costs miscellaneous', function () {
 });
 
 test('miscellaneous line is hidden when percentage is zero', function () {
-    $user = User::factory()->create();
     $plan = SpendingPlan::factory()->create([
-        'user_id' => $user->id,
         'monthly_income' => 500000,
         'fixed_costs_misc_percent' => 0,
     ]);
@@ -125,8 +103,7 @@ test('miscellaneous line is hidden when percentage is zero', function () {
         'amount' => 200000,
     ]);
 
-    $this->actingAs($user)
-        ->get(route('spending-plans.show', $plan))
+    $this->get(route('spending-plans.show', $plan))
         ->assertDontSee('Miscellaneous');
 });
 

@@ -3,7 +3,6 @@
 use App\Actions\CopySpendingPlan;
 use App\Enums\SpendingCategory;
 use App\Models\SpendingPlan;
-use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
@@ -14,25 +13,22 @@ new class extends Component {
 
     public function mount(SpendingPlan $spendingPlan): void
     {
-        abort_unless($spendingPlan->user_id === Auth::id(), 403);
         $this->spendingPlan = $spendingPlan->load('items');
     }
 
     public function deletePlan(): void
     {
-        abort_unless($this->spendingPlan->user_id === Auth::id(), 403);
-        abort_if(Auth::user()->spendingPlans()->count() <= 1, 422);
+        abort_if(SpendingPlan::count() <= 1, 422);
 
-        $user = Auth::user();
         $this->spendingPlan->delete();
-        SpendingPlan::ensureCurrentPlanForUser($user);
+        SpendingPlan::ensureCurrentPlan();
 
         $this->redirect(route('spending-plans.dashboard'), navigate: true);
     }
 
     public function copyPlan(): void
     {
-        $copy = app(CopySpendingPlan::class)($this->spendingPlan, Auth::user());
+        $copy = app(CopySpendingPlan::class)($this->spendingPlan);
 
         $this->redirect(route('spending-plans.edit', $copy), navigate: true);
     }
@@ -63,7 +59,7 @@ new class extends Component {
             @endif
         </div>
         <div class="mt-3 flex items-center gap-2">
-            @if (Auth::user()->spendingPlans()->count() < SpendingPlan::MAX_PER_USER)
+            @if (\App\Models\SpendingPlan::count() < SpendingPlan::MAX_PER_USER)
                 <flux:button variant="ghost" size="sm" icon="document-duplicate" wire:click="copyPlan" aria-label="{{ __('Copy plan') }}">
                     {{ __('Copy Plan') }}
                 </flux:button>
@@ -175,7 +171,7 @@ new class extends Component {
         </div>
     </div>
 
-    @if (Auth::user()->spendingPlans()->count() > 1)
+    @if (\App\Models\SpendingPlan::count() > 1)
         <div class="mt-8">
             <flux:button variant="ghost" size="sm" icon="trash" wire:click="$set('confirmingDelete', true)" class="text-red-600! dark:text-red-400!">
                 {{ __('Delete Plan') }}

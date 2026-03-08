@@ -3,7 +3,6 @@
 use App\Actions\CopySpendingPlan;
 use App\Enums\SpendingCategory;
 use App\Models\SpendingPlan;
-use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
@@ -11,13 +10,13 @@ new class extends Component {
     #[Computed]
     public function plans()
     {
-        return Auth::user()->spendingPlans()->oldest()->with('items')->get();
+        return SpendingPlan::query()->oldest()->with('items')->get();
     }
 
     public function copyPlan(int $planId): void
     {
         $plan = SpendingPlan::findOrFail($planId);
-        $copy = app(CopySpendingPlan::class)($plan, Auth::user());
+        $copy = app(CopySpendingPlan::class)($plan);
 
         $this->redirect(route('spending-plans.edit', $copy), navigate: true);
     }
@@ -25,9 +24,8 @@ new class extends Component {
     public function markAsCurrent(int $planId): void
     {
         $plan = SpendingPlan::findOrFail($planId);
-        abort_unless($plan->user_id === Auth::id(), 403);
 
-        Auth::user()->spendingPlans()->where('is_current', true)->update(['is_current' => false]);
+        SpendingPlan::where('is_current', true)->update(['is_current' => false]);
         $plan->update(['is_current' => true]);
         unset($this->plans);
     }

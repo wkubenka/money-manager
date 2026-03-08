@@ -3,15 +3,12 @@
 use App\Enums\SpendingCategory;
 use App\Models\SpendingPlan;
 use App\Models\SpendingPlanItem;
-use App\Models\User;
 use Livewire\Livewire;
 
 uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
 
 test('user can copy a plan from the dashboard', function () {
-    $user = User::factory()->create();
     $plan = SpendingPlan::factory()->create([
-        'user_id' => $user->id,
         'name' => 'My Plan',
         'monthly_income' => 500000,
         'gross_monthly_income' => 700000,
@@ -35,8 +32,7 @@ test('user can copy a plan from the dashboard', function () {
         'sort_order' => 0,
     ]);
 
-    Livewire::actingAs($user)
-        ->test('pages::spending-plans.dashboard')
+    Livewire::test('pages::spending-plans.dashboard')
         ->call('copyPlan', $plan->id);
 
     $copy = SpendingPlan::where('name', 'Copy of My Plan')->first();
@@ -54,9 +50,7 @@ test('user can copy a plan from the dashboard', function () {
 });
 
 test('user can copy a plan from the show page', function () {
-    $user = User::factory()->create();
     $plan = SpendingPlan::factory()->create([
-        'user_id' => $user->id,
         'name' => 'Original',
         'monthly_income' => 400000,
     ]);
@@ -69,8 +63,7 @@ test('user can copy a plan from the show page', function () {
         'sort_order' => 0,
     ]);
 
-    Livewire::actingAs($user)
-        ->test('pages::spending-plans.show', ['spendingPlan' => $plan])
+    Livewire::test('pages::spending-plans.show', ['spendingPlan' => $plan])
         ->call('copyPlan');
 
     $copy = SpendingPlan::where('name', 'Copy of Original')->first();
@@ -81,76 +74,45 @@ test('user can copy a plan from the show page', function () {
 });
 
 test('copied plan preserves miscellaneous percentage', function () {
-    $user = User::factory()->create();
     $plan = SpendingPlan::factory()->create([
-        'user_id' => $user->id,
         'fixed_costs_misc_percent' => 10,
     ]);
 
-    Livewire::actingAs($user)
-        ->test('pages::spending-plans.dashboard')
+    Livewire::test('pages::spending-plans.dashboard')
         ->call('copyPlan', $plan->id);
 
-    $copy = SpendingPlan::where('id', '!=', $plan->id)->where('user_id', $user->id)->first();
+    $copy = SpendingPlan::where('id', '!=', $plan->id)->first();
     expect($copy->fixed_costs_misc_percent)->toBe(10);
 });
 
 test('copied plan is not marked as current', function () {
-    $user = User::factory()->create();
     $plan = SpendingPlan::factory()->create([
-        'user_id' => $user->id,
         'is_current' => true,
     ]);
 
-    Livewire::actingAs($user)
-        ->test('pages::spending-plans.dashboard')
+    Livewire::test('pages::spending-plans.dashboard')
         ->call('copyPlan', $plan->id);
 
-    $copy = SpendingPlan::where('id', '!=', $plan->id)->where('user_id', $user->id)->first();
+    $copy = SpendingPlan::where('id', '!=', $plan->id)->first();
     expect($copy->is_current)->toBeFalse();
 });
 
-test('user cannot copy another users plan from dashboard', function () {
-    $user = User::factory()->create();
-    $otherUser = User::factory()->create();
-    $plan = SpendingPlan::factory()->create(['user_id' => $otherUser->id]);
-
-    Livewire::actingAs($user)
-        ->test('pages::spending-plans.dashboard')
-        ->call('copyPlan', $plan->id)
-        ->assertForbidden();
-});
-
-test('user cannot copy another users plan from show page', function () {
-    $user = User::factory()->create();
-    $otherUser = User::factory()->create();
-    $plan = SpendingPlan::factory()->create(['user_id' => $otherUser->id]);
-
-    $this->actingAs($user)
-        ->get(route('spending-plans.show', $plan))
-        ->assertForbidden();
-});
-
 test('user cannot copy plan when at max limit from dashboard', function () {
-    $user = User::factory()->create();
-    $plans = SpendingPlan::factory()->count(SpendingPlan::MAX_PER_USER)->create(['user_id' => $user->id]);
+    $plans = SpendingPlan::factory()->count(SpendingPlan::MAX_PER_USER)->create();
 
-    Livewire::actingAs($user)
-        ->test('pages::spending-plans.dashboard')
+    Livewire::test('pages::spending-plans.dashboard')
         ->call('copyPlan', $plans->first()->id)
         ->assertStatus(422);
 
-    expect(SpendingPlan::where('user_id', $user->id)->count())->toBe(SpendingPlan::MAX_PER_USER);
+    expect(SpendingPlan::count())->toBe(SpendingPlan::MAX_PER_USER);
 });
 
 test('user cannot copy plan when at max limit from show page', function () {
-    $user = User::factory()->create();
-    $plans = SpendingPlan::factory()->count(SpendingPlan::MAX_PER_USER)->create(['user_id' => $user->id]);
+    $plans = SpendingPlan::factory()->count(SpendingPlan::MAX_PER_USER)->create();
 
-    Livewire::actingAs($user)
-        ->test('pages::spending-plans.show', ['spendingPlan' => $plans->first()])
+    Livewire::test('pages::spending-plans.show', ['spendingPlan' => $plans->first()])
         ->call('copyPlan')
         ->assertStatus(422);
 
-    expect(SpendingPlan::where('user_id', $user->id)->count())->toBe(SpendingPlan::MAX_PER_USER);
+    expect(SpendingPlan::count())->toBe(SpendingPlan::MAX_PER_USER);
 });

@@ -4,7 +4,6 @@ use App\Enums\SpendingCategory;
 use App\Models\Expense;
 use App\Models\ExpenseAccount;
 use App\Services\CsvExpenseImporter;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
@@ -61,19 +60,19 @@ new class extends Component {
     #[Computed]
     public function accounts()
     {
-        return Auth::user()->expenseAccounts()->orderBy('name')->get();
+        return ExpenseAccount::query()->orderBy('name')->get();
     }
 
     #[Computed]
     public function uncategorizedCount(): int
     {
-        return Auth::user()->expenses()->whereNull('category')->count();
+        return Expense::query()->whereNull('category')->count();
     }
 
     #[Computed]
     public function expenses()
     {
-        $query = Auth::user()->expenses()->with('expenseAccount')
+        $query = Expense::query()->with('expenseAccount')
             ->latest('date')
             ->latest('id');
 
@@ -85,7 +84,7 @@ new class extends Component {
     #[Computed]
     public function hasMore(): bool
     {
-        $query = Auth::user()->expenses();
+        $query = Expense::query();
 
         $this->applyTabFilter($query);
 
@@ -95,7 +94,7 @@ new class extends Component {
     #[Computed]
     public function monthlyTotal(): int
     {
-        $query = Auth::user()->expenses()
+        $query = Expense::query()
             ->where('category', '!=', SpendingCategory::Ignored)
             ->whereBetween('date', [now()->startOfMonth(), now()->endOfMonth()]);
 
@@ -107,7 +106,7 @@ new class extends Component {
     #[Computed]
     public function categoryTotals(): array
     {
-        $query = Auth::user()->expenses()
+        $query = Expense::query()
             ->whereBetween('date', [now()->startOfMonth(), now()->endOfMonth()]);
 
         $this->applyTabFilter($query);
@@ -123,7 +122,7 @@ new class extends Component {
     #[Computed]
     public function monthlyHistory(): array
     {
-        $query = Auth::user()->expenses()
+        $query = Expense::query()
             ->where('date', '<', now()->startOfMonth())
             ->where('category', '!=', SpendingCategory::Ignored);
 
@@ -139,7 +138,7 @@ new class extends Component {
         foreach ($expenses as $row) {
             $categoryTotals = [];
             foreach (SpendingCategory::spendingCases() as $category) {
-                $catQuery = Auth::user()->expenses()
+                $catQuery = Expense::query()
                     ->where('category', $category->value)
                     ->whereRaw("strftime('%Y-%m', date) = ?", [$row->month]);
 
@@ -193,7 +192,7 @@ new class extends Component {
             return;
         }
 
-        $recentExpense = Auth::user()->expenses()
+        $recentExpense = Expense::query()
             ->where('merchant', $this->newMerchant)
             ->latest('date')
             ->first();
@@ -226,10 +225,7 @@ new class extends Component {
             'newDate' => 'date',
         ]);
 
-        $account = ExpenseAccount::findOrFail($this->newAccountId);
-        abort_unless($account->user_id === Auth::id(), 403);
-
-        Auth::user()->expenses()->create([
+        Expense::create([
             'expense_account_id' => $this->newAccountId,
             'merchant' => $this->newMerchant,
             'amount' => (int) round($this->newAmount * 100),
@@ -246,7 +242,6 @@ new class extends Component {
     public function editExpense(int $expenseId): void
     {
         $expense = Expense::findOrFail($expenseId);
-        abort_unless($expense->user_id === Auth::id(), 403);
 
         $this->editingExpenseId = $expenseId;
         $this->editingMerchant = $expense->merchant;
@@ -269,10 +264,6 @@ new class extends Component {
         ]);
 
         $expense = Expense::findOrFail($this->editingExpenseId);
-        abort_unless($expense->user_id === Auth::id(), 403);
-
-        $account = ExpenseAccount::findOrFail($validated['editingAccountId']);
-        abort_unless($account->user_id === Auth::id(), 403);
 
         $expense->update([
             'merchant' => $validated['editingMerchant'],
@@ -299,7 +290,6 @@ new class extends Component {
     public function categorizeExpense(int $expenseId, string $category): void
     {
         $expense = Expense::findOrFail($expenseId);
-        abort_unless($expense->user_id === Auth::id(), 403);
 
         if (! SpendingCategory::tryFrom($category)) {
             return;
@@ -307,7 +297,7 @@ new class extends Component {
 
         $expense->update(['category' => $category]);
 
-        $uncategorizedCount = Auth::user()->expenses()
+        $uncategorizedCount = Expense::query()
             ->where('merchant', $expense->merchant)
             ->whereNull('category')
             ->count();
@@ -328,7 +318,7 @@ new class extends Component {
             return;
         }
 
-        Auth::user()->expenses()
+        Expense::query()
             ->where('merchant', $this->bulkCategorizeMerchant)
             ->whereNull('category')
             ->update(['category' => $this->bulkCategorizeCategory]);
@@ -348,7 +338,6 @@ new class extends Component {
     public function removeExpense(int $expenseId): void
     {
         $expense = Expense::findOrFail($expenseId);
-        abort_unless($expense->user_id === Auth::id(), 403);
 
         $expense->delete();
         $this->resetExpensesCaches();
@@ -362,7 +351,7 @@ new class extends Component {
             'firstAccountName' => ['required', 'string', 'max:255'],
         ]);
 
-        $account = Auth::user()->expenseAccounts()->create([
+        $account = ExpenseAccount::create([
             'name' => $this->firstAccountName,
         ]);
 
@@ -374,7 +363,7 @@ new class extends Component {
 
     public function addAccount(): void
     {
-        $account = Auth::user()->expenseAccounts()->create([
+        $account = ExpenseAccount::create([
             'name' => 'New',
         ]);
 
@@ -394,7 +383,6 @@ new class extends Component {
         }
 
         $account = ExpenseAccount::findOrFail($this->selectedAccountId);
-        abort_unless($account->user_id === Auth::id(), 403);
 
         $this->isRenamingAccount = true;
         $this->renamingAccountName = $account->name;
@@ -413,7 +401,6 @@ new class extends Component {
         ]);
 
         $account = ExpenseAccount::findOrFail($this->selectedAccountId);
-        abort_unless($account->user_id === Auth::id(), 403);
 
         $account->update(['name' => $this->renamingAccountName]);
 
@@ -435,7 +422,6 @@ new class extends Component {
         }
 
         $account = ExpenseAccount::findOrFail($this->selectedAccountId);
-        abort_unless($account->user_id === Auth::id(), 403);
 
         $account->delete();
         $this->selectedAccountId = 'all';
@@ -478,7 +464,7 @@ new class extends Component {
         }
 
         $importer = app(CsvExpenseImporter::class);
-        $result = $importer->parse($this->csvFile->getRealPath(), $this->importAccountId, Auth::id());
+        $result = $importer->parse($this->csvFile->getRealPath(), $this->importAccountId);
 
         $this->parsedRows = $result['parsedRows'];
         $this->matchedExpenses = $result['matchedExpenses'];
@@ -500,7 +486,6 @@ new class extends Component {
             $this->selectedMatches,
             $this->matchedExpenses,
             $this->importAccountId,
-            Auth::id(),
         );
 
         $this->showImportModal = false;

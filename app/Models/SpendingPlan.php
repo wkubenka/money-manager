@@ -5,7 +5,6 @@ namespace App\Models;
 use App\Enums\SpendingCategory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class SpendingPlan extends Model
@@ -41,7 +40,6 @@ class SpendingPlan extends Model
     ];
 
     protected $fillable = [
-        'user_id',
         'name',
         'monthly_income',
         'gross_monthly_income',
@@ -51,25 +49,25 @@ class SpendingPlan extends Model
     ];
 
     /**
-     * Mark this plan as the user's only plan if no other plans exist.
+     * Mark this plan as the only plan if no other plans exist.
      */
     public function markCurrentIfOnly(): void
     {
-        if (! $this->is_current && $this->user->spendingPlans()->count() === 1) {
+        if (! $this->is_current && static::query()->count() === 1) {
             $this->update(['is_current' => true]);
         }
     }
 
     /**
-     * After deleting a plan, ensure the user still has a current plan.
+     * After deleting a plan, ensure there is still a current plan.
      */
-    public static function ensureCurrentPlanForUser(User $user): void
+    public static function ensureCurrentPlan(): void
     {
-        if ($user->spendingPlans()->where('is_current', true)->exists()) {
+        if (static::where('is_current', true)->exists()) {
             return;
         }
 
-        $user->spendingPlans()->oldest()->first()?->update(['is_current' => true]);
+        static::oldest()->first()?->update(['is_current' => true]);
     }
 
     protected function casts(): array
@@ -81,11 +79,6 @@ class SpendingPlan extends Model
             'is_current' => 'boolean',
             'fixed_costs_misc_percent' => 'integer',
         ];
-    }
-
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
     }
 
     public function items(): HasMany

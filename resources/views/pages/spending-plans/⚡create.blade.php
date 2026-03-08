@@ -2,7 +2,6 @@
 
 use App\Enums\SpendingCategory;
 use App\Models\SpendingPlan;
-use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
 new class extends Component {
@@ -15,7 +14,7 @@ new class extends Component {
 
     public function createPlan(): void
     {
-        abort_if(Auth::user()->spendingPlans()->count() >= SpendingPlan::MAX_PER_USER, 422);
+        abort_if(SpendingPlan::count() >= SpendingPlan::MAX_PER_USER, 422);
 
         $this->monthly_income = sanitize_money_input($this->monthly_income);
         $this->gross_monthly_income = sanitize_money_input($this->gross_monthly_income);
@@ -29,7 +28,7 @@ new class extends Component {
             'fixed_costs_misc_percent' => ['required', 'integer', 'min:0', 'max:30'],
         ]);
 
-        $plan = Auth::user()->spendingPlans()->create([
+        $plan = SpendingPlan::create([
             'name' => $validated['name'],
             'monthly_income' => (int) round($validated['monthly_income'] * 100),
             'gross_monthly_income' => (int) round(((float) $validated['gross_monthly_income']) * 100),

@@ -2,7 +2,6 @@
 
 use App\Enums\AccountCategory;
 use App\Models\NetWorthAccount;
-use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
@@ -19,7 +18,7 @@ new class extends Component {
     #[Computed]
     public function accounts()
     {
-        return Auth::user()->netWorthAccounts()
+        return NetWorthAccount::query()
             ->orderBy('category')
             ->orderBy('sort_order')
             ->orderBy('name')
@@ -66,7 +65,7 @@ new class extends Component {
             422
         );
 
-        Auth::user()->netWorthAccounts()->create([
+        NetWorthAccount::create([
             'category' => $category,
             'name' => $this->newAccountNames[$category],
             'balance' => (int) round($this->newAccountBalances[$category] * 100),
@@ -82,7 +81,6 @@ new class extends Component {
     public function editAccount(int $accountId): void
     {
         $account = NetWorthAccount::findOrFail($accountId);
-        abort_unless($account->user_id === Auth::id(), 403);
 
         $this->editingAccountId = $accountId;
         $this->editingAccountName = $account->name;
@@ -99,7 +97,6 @@ new class extends Component {
         ]);
 
         $account = NetWorthAccount::findOrFail($this->editingAccountId);
-        abort_unless($account->user_id === Auth::id(), 403);
 
         $data = ['balance' => (int) round($validated['editingAccountBalance'] * 100)];
 
@@ -124,7 +121,6 @@ new class extends Component {
     public function removeAccount(int $accountId): void
     {
         $account = NetWorthAccount::findOrFail($accountId);
-        abort_unless($account->user_id === Auth::id(), 403);
         abort_if($account->is_emergency_fund, 422);
 
         $account->delete();

@@ -7,10 +7,10 @@ use App\Enums\SpendingCategory;
 use App\Models\Expense;
 use App\Models\ExpenseAccount;
 use App\Models\NetWorthAccount;
+use App\Models\Profile;
 use App\Models\RichLifeVision;
 use App\Models\SpendingPlan;
 use App\Models\SpendingPlanItem;
-use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 
@@ -21,22 +21,20 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $user = User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        Profile::instance()->update([
             'date_of_birth' => '1993-09-19',
             'retirement_age' => 65,
             'expected_return' => 7.0,
             'withdrawal_rate' => 4.0,
         ]);
 
-        $this->seedSpendingPlans($user);
-        $this->seedNetWorthAccounts($user);
-        $this->seedRichLifeVisions($user);
-        $this->seedExpenses($user);
+        $this->seedSpendingPlans();
+        $this->seedNetWorthAccounts();
+        $this->seedRichLifeVisions();
+        $this->seedExpenses();
     }
 
-    private function seedSpendingPlans(User $user): void
+    private function seedSpendingPlans(): void
     {
         $sharedPlanFields = [
             'monthly_income' => 624400,
@@ -61,7 +59,6 @@ class DatabaseSeeder extends Seeder
 
         // Plan 1: "Real" (current)
         $real = SpendingPlan::create([
-            'user_id' => $user->id,
             'name' => 'Real',
             'is_current' => true,
             ...$sharedPlanFields,
@@ -79,7 +76,6 @@ class DatabaseSeeder extends Seeder
 
         // Plan 2: "2 bed on my own"
         $solo = SpendingPlan::create([
-            'user_id' => $user->id,
             'name' => '2 bed on my own',
             'is_current' => false,
             ...$sharedPlanFields,
@@ -97,7 +93,6 @@ class DatabaseSeeder extends Seeder
 
         // Plan 3: "2 bed split"
         $split = SpendingPlan::create([
-            'user_id' => $user->id,
             'name' => '2 bed split',
             'is_current' => false,
             ...$sharedPlanFields,
@@ -129,10 +124,16 @@ class DatabaseSeeder extends Seeder
         }
     }
 
-    private function seedNetWorthAccounts(User $user): void
+    private function seedNetWorthAccounts(): void
     {
-        // Update the Emergency Fund created by migration with the real balance
-        $user->emergencyFund()->update(['balance' => 2105000]);
+        // Create the Emergency Fund first
+        NetWorthAccount::create([
+            'category' => AccountCategory::Savings,
+            'name' => 'Emergency Fund',
+            'balance' => 2105000,
+            'sort_order' => 0,
+            'is_emergency_fund' => true,
+        ]);
 
         $accounts = [
             ['category' => AccountCategory::Assets, 'name' => 'Car', 'balance' => 1559000],
@@ -150,14 +151,13 @@ class DatabaseSeeder extends Seeder
 
         foreach ($accounts as $account) {
             NetWorthAccount::create([
-                'user_id' => $user->id,
                 'sort_order' => 0,
                 ...$account,
             ]);
         }
     }
 
-    private function seedRichLifeVisions(User $user): void
+    private function seedRichLifeVisions(): void
     {
         $visions = [
             'I am healthy and active',
@@ -172,19 +172,18 @@ class DatabaseSeeder extends Seeder
 
         foreach ($visions as $index => $text) {
             RichLifeVision::create([
-                'user_id' => $user->id,
                 'text' => $text,
                 'sort_order' => $index,
             ]);
         }
     }
 
-    private function seedExpenses(User $user): void
+    private function seedExpenses(): void
     {
-        $boa = ExpenseAccount::create(['user_id' => $user->id, 'name' => 'BoA']);
-        $amex = ExpenseAccount::create(['user_id' => $user->id, 'name' => 'Amex']);
-        $checking = ExpenseAccount::create(['user_id' => $user->id, 'name' => 'Checking']);
-        $cash = ExpenseAccount::create(['user_id' => $user->id, 'name' => 'Cash']);
+        $boa = ExpenseAccount::create(['name' => 'BoA']);
+        $amex = ExpenseAccount::create(['name' => 'Amex']);
+        $checking = ExpenseAccount::create(['name' => 'Checking']);
+        $cash = ExpenseAccount::create(['name' => 'Cash']);
 
         $today = Carbon::today();
 
@@ -308,7 +307,6 @@ class DatabaseSeeder extends Seeder
 
         foreach ($expenses as [$account, $merchant, $amount, $category, $date]) {
             Expense::create([
-                'user_id' => $user->id,
                 'expense_account_id' => $account->id,
                 'merchant' => $merchant,
                 'amount' => $amount,

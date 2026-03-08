@@ -13,7 +13,6 @@ class Expense extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id',
         'expense_account_id',
         'merchant',
         'amount',
@@ -31,11 +30,6 @@ class Expense extends Model
             'date' => 'date',
             'is_imported' => 'boolean',
         ];
-    }
-
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
     }
 
     public function expenseAccount(): BelongsTo

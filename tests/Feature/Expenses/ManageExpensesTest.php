@@ -3,30 +3,19 @@
 use App\Enums\SpendingCategory;
 use App\Models\Expense;
 use App\Models\ExpenseAccount;
-use App\Models\User;
 use Livewire\Livewire;
 
 uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
 
-test('guests are redirected to the login page', function () {
+test('expenses page is accessible', function () {
     $this->get(route('expenses.index'))
-        ->assertRedirect(route('login'));
-});
-
-test('authenticated users can view expenses page', function () {
-    $user = User::factory()->create();
-
-    $this->actingAs($user)
-        ->get(route('expenses.index'))
         ->assertOk();
 });
 
 test('user can add an expense', function () {
-    $user = User::factory()->create();
-    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    $account = ExpenseAccount::factory()->create();
 
-    Livewire::actingAs($user)
-        ->test('pages::expenses.index')
+    Livewire::test('pages::expenses.index')
         ->set('newAccountId', $account->id)
         ->set('newMerchant', 'Trader Joe\'s')
         ->set('newAmount', '42.50')
@@ -35,7 +24,7 @@ test('user can add an expense', function () {
         ->call('addExpense')
         ->assertHasNoErrors();
 
-    $expense = Expense::where('user_id', $user->id)->first();
+    $expense = Expense::first();
     expect($expense)->not->toBeNull();
     expect($expense->merchant)->toBe('Trader Joe\'s');
     expect($expense->amount)->toBe(4250);
@@ -45,11 +34,9 @@ test('user can add an expense', function () {
 });
 
 test('expense amount is stored as cents', function () {
-    $user = User::factory()->create();
-    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    $account = ExpenseAccount::factory()->create();
 
-    Livewire::actingAs($user)
-        ->test('pages::expenses.index')
+    Livewire::test('pages::expenses.index')
         ->set('newAccountId', $account->id)
         ->set('newMerchant', 'Test')
         ->set('newAmount', '1500.99')
@@ -62,11 +49,9 @@ test('expense amount is stored as cents', function () {
 });
 
 test('merchant is required', function () {
-    $user = User::factory()->create();
-    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    $account = ExpenseAccount::factory()->create();
 
-    Livewire::actingAs($user)
-        ->test('pages::expenses.index')
+    Livewire::test('pages::expenses.index')
         ->set('newAccountId', $account->id)
         ->set('newMerchant', '')
         ->set('newAmount', '10.00')
@@ -77,11 +62,9 @@ test('merchant is required', function () {
 });
 
 test('amount is required', function () {
-    $user = User::factory()->create();
-    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    $account = ExpenseAccount::factory()->create();
 
-    Livewire::actingAs($user)
-        ->test('pages::expenses.index')
+    Livewire::test('pages::expenses.index')
         ->set('newAccountId', $account->id)
         ->set('newMerchant', 'Test')
         ->set('newAmount', '')
@@ -92,11 +75,9 @@ test('amount is required', function () {
 });
 
 test('category is required', function () {
-    $user = User::factory()->create();
-    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    $account = ExpenseAccount::factory()->create();
 
-    Livewire::actingAs($user)
-        ->test('pages::expenses.index')
+    Livewire::test('pages::expenses.index')
         ->set('newAccountId', $account->id)
         ->set('newMerchant', 'Test')
         ->set('newAmount', '10.00')
@@ -107,11 +88,9 @@ test('category is required', function () {
 });
 
 test('date is required', function () {
-    $user = User::factory()->create();
-    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    $account = ExpenseAccount::factory()->create();
 
-    Livewire::actingAs($user)
-        ->test('pages::expenses.index')
+    Livewire::test('pages::expenses.index')
         ->set('newAccountId', $account->id)
         ->set('newMerchant', 'Test')
         ->set('newAmount', '10.00')
@@ -122,10 +101,7 @@ test('date is required', function () {
 });
 
 test('account is required', function () {
-    $user = User::factory()->create();
-
-    Livewire::actingAs($user)
-        ->test('pages::expenses.index')
+    Livewire::test('pages::expenses.index')
         ->set('newAccountId', '')
         ->set('newMerchant', 'Test')
         ->set('newAmount', '10.00')
@@ -135,34 +111,15 @@ test('account is required', function () {
         ->assertHasErrors(['newAccountId' => 'required']);
 });
 
-test('user cannot use another users expense account', function () {
-    $user = User::factory()->create();
-    $otherUser = User::factory()->create();
-    $otherAccount = ExpenseAccount::factory()->create(['user_id' => $otherUser->id]);
-
-    Livewire::actingAs($user)
-        ->test('pages::expenses.index')
-        ->set('newAccountId', $otherAccount->id)
-        ->set('newMerchant', 'Test')
-        ->set('newAmount', '10.00')
-        ->set('newCategory', SpendingCategory::GuiltFree->value)
-        ->set('newDate', '2026-02-10')
-        ->call('addExpense')
-        ->assertForbidden();
-});
-
 test('user can edit an expense', function () {
-    $user = User::factory()->create();
-    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    $account = ExpenseAccount::factory()->create();
     $expense = Expense::factory()->create([
-        'user_id' => $user->id,
         'expense_account_id' => $account->id,
         'merchant' => 'Old Merchant',
         'amount' => 1000,
     ]);
 
-    Livewire::actingAs($user)
-        ->test('pages::expenses.index')
+    Livewire::test('pages::expenses.index')
         ->call('editExpense', $expense->id)
         ->set('editingMerchant', 'New Merchant')
         ->set('editingAmount', '25.00')
@@ -175,63 +132,25 @@ test('user can edit an expense', function () {
 });
 
 test('user can remove an expense', function () {
-    $user = User::factory()->create();
-    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    $account = ExpenseAccount::factory()->create();
     $expense = Expense::factory()->create([
-        'user_id' => $user->id,
         'expense_account_id' => $account->id,
     ]);
 
-    Livewire::actingAs($user)
-        ->test('pages::expenses.index')
+    Livewire::test('pages::expenses.index')
         ->call('removeExpense', $expense->id)
         ->assertHasNoErrors();
 
     expect(Expense::find($expense->id))->toBeNull();
 });
 
-test('user cannot edit another users expense', function () {
-    $user = User::factory()->create();
-    $otherUser = User::factory()->create();
-    $account = ExpenseAccount::factory()->create(['user_id' => $otherUser->id]);
-    $expense = Expense::factory()->create([
-        'user_id' => $otherUser->id,
-        'expense_account_id' => $account->id,
-    ]);
-
-    Livewire::actingAs($user)
-        ->test('pages::expenses.index')
-        ->call('editExpense', $expense->id)
-        ->assertForbidden();
-});
-
-test('user cannot remove another users expense', function () {
-    $user = User::factory()->create();
-    $otherUser = User::factory()->create();
-    $account = ExpenseAccount::factory()->create(['user_id' => $otherUser->id]);
-    $expense = Expense::factory()->create([
-        'user_id' => $otherUser->id,
-        'expense_account_id' => $account->id,
-    ]);
-
-    Livewire::actingAs($user)
-        ->test('pages::expenses.index')
-        ->call('removeExpense', $expense->id)
-        ->assertForbidden();
-
-    expect(Expense::find($expense->id))->not->toBeNull();
-});
-
 test('user can cancel editing', function () {
-    $user = User::factory()->create();
-    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    $account = ExpenseAccount::factory()->create();
     $expense = Expense::factory()->create([
-        'user_id' => $user->id,
         'expense_account_id' => $account->id,
     ]);
 
-    Livewire::actingAs($user)
-        ->test('pages::expenses.index')
+    Livewire::test('pages::expenses.index')
         ->call('editExpense', $expense->id)
         ->assertSet('editingExpenseId', $expense->id)
         ->call('cancelEdit')
@@ -239,11 +158,9 @@ test('user can cancel editing', function () {
 });
 
 test('inputs are cleared after adding expense except account and date', function () {
-    $user = User::factory()->create();
-    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    $account = ExpenseAccount::factory()->create();
 
-    Livewire::actingAs($user)
-        ->test('pages::expenses.index')
+    Livewire::test('pages::expenses.index')
         ->set('newAccountId', (string) $account->id)
         ->set('newMerchant', 'Test Merchant')
         ->set('newAmount', '50.00')
@@ -258,95 +175,64 @@ test('inputs are cleared after adding expense except account and date', function
 });
 
 test('merchant auto-categorization sets category from previous expense', function () {
-    $user = User::factory()->create();
-    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    $account = ExpenseAccount::factory()->create();
     Expense::factory()->create([
-        'user_id' => $user->id,
         'expense_account_id' => $account->id,
         'merchant' => 'Netflix',
         'category' => SpendingCategory::FixedCosts,
         'date' => now()->subDays(5),
     ]);
 
-    Livewire::actingAs($user)
-        ->test('pages::expenses.index')
+    Livewire::test('pages::expenses.index')
         ->set('newMerchant', 'Netflix')
         ->assertSet('newCategory', SpendingCategory::FixedCosts->value);
 });
 
 test('merchant auto-categorization does not set category when merchant not found', function () {
-    $user = User::factory()->create();
-
-    Livewire::actingAs($user)
-        ->test('pages::expenses.index')
+    Livewire::test('pages::expenses.index')
         ->set('newMerchant', 'Unknown Merchant')
         ->assertSet('newCategory', '');
 });
 
 test('merchant auto-categorization does not override manually set category', function () {
-    $user = User::factory()->create();
-    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    $account = ExpenseAccount::factory()->create();
     Expense::factory()->create([
-        'user_id' => $user->id,
         'expense_account_id' => $account->id,
         'merchant' => 'Netflix',
         'category' => SpendingCategory::FixedCosts,
         'date' => now()->subDays(5),
     ]);
 
-    Livewire::actingAs($user)
-        ->test('pages::expenses.index')
+    Livewire::test('pages::expenses.index')
         ->set('newCategory', SpendingCategory::GuiltFree->value)
         ->set('newMerchant', 'Netflix')
         ->assertSet('newCategory', SpendingCategory::GuiltFree->value);
 });
 
 test('load more increases visible expenses', function () {
-    $user = User::factory()->create();
-    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    $account = ExpenseAccount::factory()->create();
     Expense::factory()->count(30)->create([
-        'user_id' => $user->id,
         'expense_account_id' => $account->id,
     ]);
 
-    Livewire::actingAs($user)
-        ->test('pages::expenses.index')
+    Livewire::test('pages::expenses.index')
         ->assertSet('perPage', 25)
         ->call('loadMore')
         ->assertSet('perPage', 50);
 });
 
 test('switching tabs resets per page', function () {
-    $user = User::factory()->create();
-    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    $account = ExpenseAccount::factory()->create();
 
-    Livewire::actingAs($user)
-        ->test('pages::expenses.index')
+    Livewire::test('pages::expenses.index')
         ->set('perPage', 50)
         ->set('selectedAccountId', (string) $account->id)
         ->assertSet('perPage', 25);
 });
 
-test('deleting a user cascades to expenses', function () {
-    $user = User::factory()->create();
-    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
-    Expense::factory()->count(3)->create([
-        'user_id' => $user->id,
-        'expense_account_id' => $account->id,
-    ]);
-
-    $userId = $user->id;
-    $user->delete();
-
-    expect(Expense::where('user_id', $userId)->count())->toBe(0);
-    expect(ExpenseAccount::where('user_id', $userId)->count())->toBe(0);
-});
-
 test('deleting an expense account cascades to its expenses', function () {
-    $user = User::factory()->create();
-    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    $account = ExpenseAccount::factory()->create();
     Expense::factory()->count(3)->create([
-        'user_id' => $user->id,
         'expense_account_id' => $account->id,
     ]);
 
@@ -357,11 +243,9 @@ test('deleting an expense account cascades to its expenses', function () {
 });
 
 test('ignored expenses are excluded from monthly total', function () {
-    $user = User::factory()->create();
-    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    $account = ExpenseAccount::factory()->create();
 
     Expense::factory()->create([
-        'user_id' => $user->id,
         'expense_account_id' => $account->id,
         'amount' => 5000,
         'category' => SpendingCategory::FixedCosts,
@@ -369,42 +253,35 @@ test('ignored expenses are excluded from monthly total', function () {
     ]);
 
     Expense::factory()->create([
-        'user_id' => $user->id,
         'expense_account_id' => $account->id,
         'amount' => 3000,
         'category' => SpendingCategory::Ignored,
         'date' => now(),
     ]);
 
-    $component = Livewire::actingAs($user)
-        ->test('pages::expenses.index');
+    $component = Livewire::test('pages::expenses.index');
 
     expect($component->get('monthlyTotal'))->toBe(5000);
 });
 
 test('ignored expenses are not counted as uncategorized', function () {
-    $user = User::factory()->create();
-    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    $account = ExpenseAccount::factory()->create();
 
     Expense::factory()->create([
-        'user_id' => $user->id,
         'expense_account_id' => $account->id,
         'category' => SpendingCategory::Ignored,
         'date' => now(),
     ]);
 
-    $component = Livewire::actingAs($user)
-        ->test('pages::expenses.index');
+    $component = Livewire::test('pages::expenses.index');
 
     expect($component->get('uncategorizedCount'))->toBe(0);
 });
 
 test('user can add an expense with ignored category', function () {
-    $user = User::factory()->create();
-    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    $account = ExpenseAccount::factory()->create();
 
-    Livewire::actingAs($user)
-        ->test('pages::expenses.index')
+    Livewire::test('pages::expenses.index')
         ->set('newAccountId', $account->id)
         ->set('newMerchant', 'Transfer')
         ->set('newAmount', '100.00')
@@ -413,41 +290,35 @@ test('user can add an expense with ignored category', function () {
         ->call('addExpense')
         ->assertHasNoErrors();
 
-    $expense = Expense::where('user_id', $user->id)->first();
+    $expense = Expense::first();
     expect($expense->category)->toBe(SpendingCategory::Ignored);
 });
 
 test('category tab filters expenses to that category', function () {
-    $user = User::factory()->create();
-    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    $account = ExpenseAccount::factory()->create();
 
     Expense::factory()->create([
-        'user_id' => $user->id,
         'expense_account_id' => $account->id,
         'category' => SpendingCategory::GuiltFree,
         'merchant' => 'Coffee Shop',
     ]);
 
     Expense::factory()->create([
-        'user_id' => $user->id,
         'expense_account_id' => $account->id,
         'category' => SpendingCategory::FixedCosts,
         'merchant' => 'Electric Company',
     ]);
 
-    Livewire::actingAs($user)
-        ->test('pages::expenses.index')
+    Livewire::test('pages::expenses.index')
         ->set('selectedAccountId', 'category:guilt_free')
         ->assertSee('Coffee Shop')
         ->assertDontSee('Electric Company');
 });
 
 test('monthly history shows previous months totals', function () {
-    $user = User::factory()->create();
-    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    $account = ExpenseAccount::factory()->create();
 
     Expense::factory()->create([
-        'user_id' => $user->id,
         'expense_account_id' => $account->id,
         'amount' => 5000,
         'category' => SpendingCategory::FixedCosts,
@@ -455,15 +326,13 @@ test('monthly history shows previous months totals', function () {
     ]);
 
     Expense::factory()->create([
-        'user_id' => $user->id,
         'expense_account_id' => $account->id,
         'amount' => 3000,
         'category' => SpendingCategory::GuiltFree,
         'date' => now()->subMonth()->startOfMonth()->addDays(10),
     ]);
 
-    $component = Livewire::actingAs($user)
-        ->test('pages::expenses.index');
+    $component = Livewire::test('pages::expenses.index');
 
     $history = $component->get('monthlyHistory');
 
@@ -474,29 +343,24 @@ test('monthly history shows previous months totals', function () {
 });
 
 test('monthly history excludes current month', function () {
-    $user = User::factory()->create();
-    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    $account = ExpenseAccount::factory()->create();
 
     Expense::factory()->create([
-        'user_id' => $user->id,
         'expense_account_id' => $account->id,
         'amount' => 5000,
         'category' => SpendingCategory::FixedCosts,
         'date' => now(),
     ]);
 
-    $component = Livewire::actingAs($user)
-        ->test('pages::expenses.index');
+    $component = Livewire::test('pages::expenses.index');
 
     expect($component->get('monthlyHistory'))->toBeEmpty();
 });
 
 test('monthly history excludes ignored expenses', function () {
-    $user = User::factory()->create();
-    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    $account = ExpenseAccount::factory()->create();
 
     Expense::factory()->create([
-        'user_id' => $user->id,
         'expense_account_id' => $account->id,
         'amount' => 5000,
         'category' => SpendingCategory::FixedCosts,
@@ -504,15 +368,13 @@ test('monthly history excludes ignored expenses', function () {
     ]);
 
     Expense::factory()->create([
-        'user_id' => $user->id,
         'expense_account_id' => $account->id,
         'amount' => 2000,
         'category' => SpendingCategory::Ignored,
         'date' => now()->subMonth(),
     ]);
 
-    $component = Livewire::actingAs($user)
-        ->test('pages::expenses.index');
+    $component = Livewire::test('pages::expenses.index');
 
     $history = $component->get('monthlyHistory');
 
@@ -522,12 +384,10 @@ test('monthly history excludes ignored expenses', function () {
 });
 
 test('monthly history respects account tab filter', function () {
-    $user = User::factory()->create();
-    $account1 = ExpenseAccount::factory()->create(['user_id' => $user->id]);
-    $account2 = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    $account1 = ExpenseAccount::factory()->create();
+    $account2 = ExpenseAccount::factory()->create();
 
     Expense::factory()->create([
-        'user_id' => $user->id,
         'expense_account_id' => $account1->id,
         'amount' => 5000,
         'category' => SpendingCategory::FixedCosts,
@@ -535,15 +395,13 @@ test('monthly history respects account tab filter', function () {
     ]);
 
     Expense::factory()->create([
-        'user_id' => $user->id,
         'expense_account_id' => $account2->id,
         'amount' => 3000,
         'category' => SpendingCategory::GuiltFree,
         'date' => now()->subMonth(),
     ]);
 
-    $component = Livewire::actingAs($user)
-        ->test('pages::expenses.index')
+    $component = Livewire::test('pages::expenses.index')
         ->set('selectedAccountId', (string) $account1->id);
 
     $history = $component->get('monthlyHistory');
@@ -553,11 +411,9 @@ test('monthly history respects account tab filter', function () {
 });
 
 test('monthly history orders by most recent month first', function () {
-    $user = User::factory()->create();
-    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    $account = ExpenseAccount::factory()->create();
 
     Expense::factory()->create([
-        'user_id' => $user->id,
         'expense_account_id' => $account->id,
         'amount' => 1000,
         'category' => SpendingCategory::FixedCosts,
@@ -565,15 +421,13 @@ test('monthly history orders by most recent month first', function () {
     ]);
 
     Expense::factory()->create([
-        'user_id' => $user->id,
         'expense_account_id' => $account->id,
         'amount' => 2000,
         'category' => SpendingCategory::FixedCosts,
         'date' => now()->subMonth(),
     ]);
 
-    $component = Livewire::actingAs($user)
-        ->test('pages::expenses.index');
+    $component = Livewire::test('pages::expenses.index');
 
     $history = $component->get('monthlyHistory');
 
@@ -583,19 +437,16 @@ test('monthly history orders by most recent month first', function () {
 });
 
 test('monthly history toggle shows and hides previous months', function () {
-    $user = User::factory()->create();
-    $account = ExpenseAccount::factory()->create(['user_id' => $user->id]);
+    $account = ExpenseAccount::factory()->create();
 
     Expense::factory()->create([
-        'user_id' => $user->id,
         'expense_account_id' => $account->id,
         'amount' => 5000,
         'category' => SpendingCategory::FixedCosts,
         'date' => now()->subMonth(),
     ]);
 
-    Livewire::actingAs($user)
-        ->test('pages::expenses.index')
+    Livewire::test('pages::expenses.index')
         ->assertSee('Previous months')
         ->assertDontSee(now()->subMonth()->format('F Y'))
         ->toggle('showMonthlyHistory')

@@ -4,7 +4,6 @@ namespace Database\Factories;
 
 use App\Enums\AccountCategory;
 use App\Models\NetWorthAccount;
-use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /** @extends Factory<NetWorthAccount> */
@@ -13,7 +12,6 @@ class NetWorthAccountFactory extends Factory
     public function definition(): array
     {
         return [
-            'user_id' => User::factory(),
             'category' => fake()->randomElement(AccountCategory::cases()),
             'name' => fake()->randomElement([
                 'House', 'Car', '401k', 'Roth IRA', 'Brokerage',

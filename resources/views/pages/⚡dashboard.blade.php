@@ -2,9 +2,11 @@
 
 use App\Enums\AccountCategory;
 use App\Enums\SpendingCategory;
+use App\Models\Expense;
 use App\Models\NetWorthAccount;
+use App\Models\Profile;
 use App\Models\RichLifeVision;
-use Illuminate\Support\Facades\Auth;
+use App\Models\SpendingPlan;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
@@ -21,17 +23,17 @@ new class extends Component {
 
     public function mount(): void
     {
-        $user = Auth::user();
-        $this->dateOfBirth = $user->date_of_birth?->format('Y-m-d');
-        $this->retirementAge = $user->retirement_age;
-        $this->expectedReturn = (float) $user->expected_return;
-        $this->withdrawalRate = (float) $user->withdrawal_rate;
+        $profile = Profile::instance();
+        $this->dateOfBirth = $profile->date_of_birth?->format('Y-m-d');
+        $this->retirementAge = $profile->retirement_age;
+        $this->expectedReturn = (float) $profile->expected_return;
+        $this->withdrawalRate = (float) $profile->withdrawal_rate;
     }
 
     #[Computed]
     public function visions()
     {
-        return Auth::user()->richLifeVisions()->orderBy('sort_order')->orderBy('id')->get();
+        return RichLifeVision::query()->orderBy('sort_order')->orderBy('id')->get();
     }
 
     public function addVision(): void
@@ -40,9 +42,9 @@ new class extends Component {
             'newVisionText' => ['required', 'string', 'max:255'],
         ]);
 
-        $nextOrder = Auth::user()->richLifeVisions()->max('sort_order') + 1;
+        $nextOrder = RichLifeVision::query()->max('sort_order') + 1;
 
-        Auth::user()->richLifeVisions()->create([
+        RichLifeVision::create([
             'text' => $this->newVisionText,
             'sort_order' => $nextOrder,
         ]);
@@ -54,7 +56,6 @@ new class extends Component {
     public function editVision(int $visionId): void
     {
         $vision = RichLifeVision::findOrFail($visionId);
-        abort_unless($vision->user_id === Auth::id(), 403);
 
         $this->editingVisionId = $visionId;
         $this->editingVisionText = $vision->text;
@@ -67,7 +68,6 @@ new class extends Component {
         ]);
 
         $vision = RichLifeVision::findOrFail($this->editingVisionId);
-        abort_unless($vision->user_id === Auth::id(), 403);
 
         $vision->update(['text' => $this->editingVisionText]);
 
@@ -84,7 +84,6 @@ new class extends Component {
     public function removeVision(int $visionId): void
     {
         $vision = RichLifeVision::findOrFail($visionId);
-        abort_unless($vision->user_id === Auth::id(), 403);
 
         $vision->delete();
         unset($this->visions);
@@ -94,7 +93,6 @@ new class extends Component {
     {
         foreach ($orderedIds as $index => $id) {
             $vision = RichLifeVision::findOrFail($id);
-            abort_unless($vision->user_id === Auth::id(), 403);
             $vision->update(['sort_order' => $index]);
         }
 
@@ -104,7 +102,7 @@ new class extends Component {
     #[Computed]
     public function accounts()
     {
-        return Auth::user()->netWorthAccounts()->get();
+        return NetWorthAccount::query()->get();
     }
 
     #[Computed]
@@ -132,7 +130,7 @@ new class extends Component {
     #[Computed]
     public function currentPlan()
     {
-        return Auth::user()->currentSpendingPlan()?->load('items');
+        return SpendingPlan::where('is_current', true)->first()?->load('items');
     }
 
     #[Computed]
@@ -147,7 +145,7 @@ new class extends Component {
         $start = now()->startOfMonth();
         $end = now()->endOfMonth();
 
-        return Auth::user()->expenses()
+        return Expense::query()
             ->whereNotNull('category')
             ->whereBetween('date', [$start, $end])
             ->selectRaw('category, sum(amount) as total')
@@ -160,7 +158,7 @@ new class extends Component {
     #[Computed]
     public function uncategorizedExpenseCount(): int
     {
-        return Auth::user()->expenses()->whereNull('category')->count();
+        return Expense::query()->whereNull('category')->count();
     }
 
     public function saveRetirementSettings(): void
@@ -172,7 +170,7 @@ new class extends Component {
             'withdrawalRate' => ['nullable', 'numeric', 'min:0', 'max:30'],
         ]);
 
-        Auth::user()->update([
+        Profile::instance()->update([
             'date_of_birth' => $this->dateOfBirth,
             'retirement_age' => $this->retirementAge,
             'expected_return' => $this->expectedReturn,
@@ -449,7 +447,7 @@ new class extends Component {
             </div>
         @else
             <div class="order-2 rounded-xl border border-dashed border-zinc-300 dark:border-zinc-600 p-6 text-center">
-                @if (Auth::user()->spendingPlans()->exists())
+                @if (\App\Models\SpendingPlan::exists())
                     <flux:subheading class="mb-2">{{ __('No current spending plan') }}</flux:subheading>
                     <flux:button variant="subtle" size="sm" :href="route('spending-plans.dashboard')" wire:navigate>
                         {{ __('Choose a Plan') }}

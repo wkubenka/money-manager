@@ -3,7 +3,6 @@
 use App\Enums\SpendingCategory;
 use App\Models\SpendingPlan;
 use App\Models\SpendingPlanItem;
-use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
@@ -28,7 +27,6 @@ new class extends Component {
 
     public function mount(SpendingPlan $spendingPlan): void
     {
-        abort_unless($spendingPlan->user_id === Auth::id(), 403);
         $this->spendingPlan = $spendingPlan;
         $this->name = $spendingPlan->name;
         $this->monthly_income = (string) ($spendingPlan->monthly_income / 100);
@@ -122,7 +120,6 @@ new class extends Component {
     public function editItem(int $itemId): void
     {
         $item = SpendingPlanItem::findOrFail($itemId);
-        abort_unless($item->spendingPlan->user_id === Auth::id(), 403);
 
         $this->editingItemId = $itemId;
         $this->editingItemName = $item->name;
@@ -139,7 +136,6 @@ new class extends Component {
         ]);
 
         $item = SpendingPlanItem::findOrFail($this->editingItemId);
-        abort_unless($item->spendingPlan->user_id === Auth::id(), 403);
 
         $item->update([
             'name' => $validated['editingItemName'],
@@ -161,7 +157,6 @@ new class extends Component {
     public function removeItem(int $itemId): void
     {
         $item = SpendingPlanItem::findOrFail($itemId);
-        abort_unless($item->spendingPlan->user_id === Auth::id(), 403);
 
         $item->delete();
         $this->spendingPlan->unsetRelation('items');

@@ -3,38 +3,28 @@
 use App\Enums\SpendingCategory;
 use App\Models\SpendingPlan;
 use App\Models\SpendingPlanItem;
-use App\Models\User;
 use Livewire\Livewire;
 
 uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
 
 test('create page is displayed', function () {
-    $user = User::factory()->create();
-
-    $this->actingAs($user)
-        ->get(route('spending-plans.create'))
+    $this->get(route('spending-plans.create'))
         ->assertOk();
 });
 
 test('user can create a spending plan', function () {
-    $user = User::factory()->create();
-
-    Livewire::actingAs($user)
-        ->test('pages::spending-plans.create')
+    Livewire::test('pages::spending-plans.create')
         ->set('name', 'My Plan')
         ->set('monthly_income', '5000.00')
         ->call('createPlan')
         ->assertHasNoErrors();
 
-    expect(SpendingPlan::where('user_id', $user->id)->count())->toBe(1);
+    expect(SpendingPlan::count())->toBe(1);
     expect(SpendingPlan::first()->name)->toBe('My Plan');
 });
 
 test('name is required', function () {
-    $user = User::factory()->create();
-
-    Livewire::actingAs($user)
-        ->test('pages::spending-plans.create')
+    Livewire::test('pages::spending-plans.create')
         ->set('name', '')
         ->set('monthly_income', '5000.00')
         ->call('createPlan')
@@ -42,10 +32,7 @@ test('name is required', function () {
 });
 
 test('monthly income is required', function () {
-    $user = User::factory()->create();
-
-    Livewire::actingAs($user)
-        ->test('pages::spending-plans.create')
+    Livewire::test('pages::spending-plans.create')
         ->set('name', 'My Plan')
         ->set('monthly_income', '')
         ->call('createPlan')
@@ -53,10 +40,7 @@ test('monthly income is required', function () {
 });
 
 test('monthly income must be positive', function () {
-    $user = User::factory()->create();
-
-    Livewire::actingAs($user)
-        ->test('pages::spending-plans.create')
+    Livewire::test('pages::spending-plans.create')
         ->set('name', 'My Plan')
         ->set('monthly_income', '0')
         ->call('createPlan')
@@ -64,10 +48,7 @@ test('monthly income must be positive', function () {
 });
 
 test('income is stored as cents', function () {
-    $user = User::factory()->create();
-
-    Livewire::actingAs($user)
-        ->test('pages::spending-plans.create')
+    Livewire::test('pages::spending-plans.create')
         ->set('name', 'My Plan')
         ->set('monthly_income', '5000.00')
         ->call('createPlan');
@@ -76,10 +57,7 @@ test('income is stored as cents', function () {
 });
 
 test('gross income and pre-tax investments are stored as cents', function () {
-    $user = User::factory()->create();
-
-    Livewire::actingAs($user)
-        ->test('pages::spending-plans.create')
+    Livewire::test('pages::spending-plans.create')
         ->set('name', 'My Plan')
         ->set('monthly_income', '5000.00')
         ->set('gross_monthly_income', '7000.00')
@@ -93,10 +71,7 @@ test('gross income and pre-tax investments are stored as cents', function () {
 });
 
 test('gross income and pre-tax investments are optional', function () {
-    $user = User::factory()->create();
-
-    Livewire::actingAs($user)
-        ->test('pages::spending-plans.create')
+    Livewire::test('pages::spending-plans.create')
         ->set('name', 'My Plan')
         ->set('monthly_income', '5000.00')
         ->call('createPlan')
@@ -108,10 +83,7 @@ test('gross income and pre-tax investments are optional', function () {
 });
 
 test('plan is created with default miscellaneous percentage', function () {
-    $user = User::factory()->create();
-
-    Livewire::actingAs($user)
-        ->test('pages::spending-plans.create')
+    Livewire::test('pages::spending-plans.create')
         ->set('name', 'My Plan')
         ->set('monthly_income', '5000.00')
         ->call('createPlan')
@@ -121,10 +93,7 @@ test('plan is created with default miscellaneous percentage', function () {
 });
 
 test('plan can be created with custom miscellaneous percentage', function () {
-    $user = User::factory()->create();
-
-    Livewire::actingAs($user)
-        ->test('pages::spending-plans.create')
+    Livewire::test('pages::spending-plans.create')
         ->set('name', 'My Plan')
         ->set('monthly_income', '5000.00')
         ->set('fixed_costs_misc_percent', '10')
@@ -135,10 +104,7 @@ test('plan can be created with custom miscellaneous percentage', function () {
 });
 
 test('miscellaneous percentage cannot exceed 30', function () {
-    $user = User::factory()->create();
-
-    Livewire::actingAs($user)
-        ->test('pages::spending-plans.create')
+    Livewire::test('pages::spending-plans.create')
         ->set('name', 'My Plan')
         ->set('monthly_income', '5000.00')
         ->set('fixed_costs_misc_percent', '31')
@@ -147,24 +113,19 @@ test('miscellaneous percentage cannot exceed 30', function () {
 });
 
 test('user cannot create more than max plans', function () {
-    $user = User::factory()->create();
-    SpendingPlan::factory()->count(SpendingPlan::MAX_PER_USER)->create(['user_id' => $user->id]);
+    SpendingPlan::factory()->count(SpendingPlan::MAX_PER_USER)->create();
 
-    Livewire::actingAs($user)
-        ->test('pages::spending-plans.create')
+    Livewire::test('pages::spending-plans.create')
         ->set('name', 'One Too Many')
         ->set('monthly_income', '5000.00')
         ->call('createPlan')
         ->assertStatus(422);
 
-    expect(SpendingPlan::where('user_id', $user->id)->count())->toBe(SpendingPlan::MAX_PER_USER);
+    expect(SpendingPlan::count())->toBe(SpendingPlan::MAX_PER_USER);
 });
 
 test('creating with defaults populates default items', function () {
-    $user = User::factory()->create();
-
-    Livewire::actingAs($user)
-        ->test('pages::spending-plans.create')
+    Livewire::test('pages::spending-plans.create')
         ->set('name', 'My Plan')
         ->set('monthly_income', '5000.00')
         ->set('includeDefaults', true)
@@ -197,10 +158,7 @@ test('creating with defaults populates default items', function () {
 });
 
 test('creating without defaults produces zero items', function () {
-    $user = User::factory()->create();
-
-    Livewire::actingAs($user)
-        ->test('pages::spending-plans.create')
+    Livewire::test('pages::spending-plans.create')
         ->set('name', 'My Plan')
         ->set('monthly_income', '5000.00')
         ->set('includeDefaults', false)
