@@ -8,50 +8,39 @@
             <div class="mb-8">
                 <flux:heading size="xl">{{ __('Privacy Policy') }}</flux:heading>
                 <flux:text class="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-                    {{ __('Last updated: :date', ['date' => 'February 10, 2026']) }}
+                    {{ __('Last updated: :date', ['date' => 'March 8, 2026']) }}
                 </flux:text>
             </div>
 
             <div class="space-y-6 text-sm text-zinc-700 dark:text-zinc-300">
                 <section>
-                    <flux:heading size="lg" class="mb-2">{{ __('What We Collect') }}</flux:heading>
-                    <p>{{ config('app.name') }} {{ __('collects only the information you provide directly: your name, email address, and the financial data you enter into the application (spending plans, account balances, etc.).') }}</p>
-                    <p class="mt-2">{{ __('We may also collect common server metrics automatically, such as your IP address, browser type, and access timestamps. This information is used for security, performance monitoring, and debugging purposes.') }}</p>
-                </section>
-
-                <section>
-                    <flux:heading size="lg" class="mb-2">{{ __('How We Use Your Data') }}</flux:heading>
-                    <p>{{ __('Your personal data is used solely to provide the application\'s functionality to you. We may also use it for debugging and resolving technical issues.') }}</p>
+                    <flux:heading size="lg" class="mb-2">{{ __('Your Data Stays on Your Device') }}</flux:heading>
+                    <p>{{ config('app.name') }} {{ __('is a desktop application. All of your financial data — spending plans, account balances, expenses, and personal details — is stored locally on your computer in a SQLite database. Nothing is sent to external servers.') }}</p>
                 </section>
 
                 <section>
                     <flux:heading size="lg" class="mb-2">{{ __('What We Don\'t Do') }}</flux:heading>
                     <ul class="list-disc space-y-1 pl-5">
-                        <li>{{ __('We do not sell your personal data. Ever.') }}</li>
+                        <li>{{ __('We do not collect or transmit your personal data.') }}</li>
+                        <li>{{ __('We do not use analytics, tracking, or telemetry.') }}</li>
                         <li>{{ __('We do not share your data with third parties.') }}</li>
-                        <li>{{ __('We do not use your data for advertising or marketing purposes.') }}</li>
-                        <li>{{ __('We do not use analytics or tracking tools.') }}</li>
+                        <li>{{ __('We do not require an account or login.') }}</li>
                     </ul>
                 </section>
 
                 <section>
-                    <flux:heading size="lg" class="mb-2">{{ __('Data Storage') }}</flux:heading>
-                    <p>{{ __('Your data is stored securely and is only accessible to you through your authenticated account.') }}</p>
+                    <flux:heading size="lg" class="mb-2">{{ __('Removing Your Data') }}</flux:heading>
+                    <p>{{ __('Since all data is stored locally, uninstalling the application removes everything. You can also delete the application\'s data directory to remove all stored information.') }}</p>
                 </section>
 
                 <section>
-                    <flux:heading size="lg" class="mb-2">{{ __('Account Deletion') }}</flux:heading>
-                    <p>{{ __('You may delete your account at any time from your account settings. This will permanently remove all of your data.') }}</p>
-                </section>
-
-                <section>
-                    <flux:heading size="lg" class="mb-2">{{ __('Contact') }}</flux:heading>
-                    <p>{{ __('If you have any questions about this privacy policy, please reach out to the application administrator.') }}</p>
+                    <flux:heading size="lg" class="mb-2">{{ __('Updates') }}</flux:heading>
+                    <p>{{ __('The application checks for updates via GitHub Releases. No personal data is sent during this process.') }}</p>
                 </section>
             </div>
 
             <div class="mt-10">
-                <flux:button variant="subtle" size="sm" href="{{ url()->previous(route('home')) }}">
+                <flux:button variant="subtle" size="sm" href="{{ url()->previous(route('dashboard')) }}">
                     &larr; {{ __('Back') }}
                 </flux:button>
             </div>
