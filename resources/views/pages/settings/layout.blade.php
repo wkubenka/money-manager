@@ -2,6 +2,7 @@
     <div class="me-10 w-full pb-4 md:w-[220px]">
         <flux:navlist aria-label="{{ __('Settings') }}">
             <flux:navlist.item :href="route('appearance.edit')" wire:navigate>{{ __('Appearance') }}</flux:navlist.item>
+            <flux:navlist.item :href="route('data.edit')" wire:navigate>{{ __('Data') }}</flux:navlist.item>
             <flux:navlist.item :href="route('privacy')">{{ __('Privacy Policy') }}</flux:navlist.item>
         </flux:navlist>
     </div>
