@@ -8,6 +8,7 @@ use App\Models\ExpenseAccount;
 use App\Models\NetWorthAccount;
 use App\Models\Profile;
 use App\Models\RichLifeVision;
+use App\Models\RichLifeVisionCategory;
 use App\Models\SpendingPlan;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -54,9 +55,14 @@ class DataImporter
             'net_worth_accounts.*.sort_order' => 'required|integer|min:0',
             'net_worth_accounts.*.is_emergency_fund' => 'sometimes|boolean',
 
+            'rich_life_vision_categories' => 'sometimes|array',
+            'rich_life_vision_categories.*.name' => 'required|string|max:255',
+            'rich_life_vision_categories.*.sort_order' => 'required|integer|min:0',
+
             'rich_life_visions' => 'present|array',
             'rich_life_visions.*.text' => 'required|string|max:255',
             'rich_life_visions.*.sort_order' => 'required|integer|min:0',
+            'rich_life_visions.*.category_name' => 'nullable|string|max:255',
 
             'expense_accounts' => 'present|array',
             'expense_accounts.*.name' => 'required|string|max:255',
@@ -115,6 +121,9 @@ class DataImporter
             }
             if (Schema::hasTable('net_worth_accounts')) {
                 $this->importNetWorthAccounts($data['net_worth_accounts']);
+            }
+            if (Schema::hasTable('rich_life_vision_categories')) {
+                $this->importRichLifeVisionCategories($data['rich_life_vision_categories'] ?? []);
             }
             if (Schema::hasTable('rich_life_visions')) {
                 $this->importRichLifeVisions($data['rich_life_visions']);
@@ -216,9 +225,27 @@ class DataImporter
         }
     }
 
+    private function importRichLifeVisionCategories(array $categories): void
+    {
+        foreach ($categories as $categoryData) {
+            RichLifeVisionCategory::create($categoryData);
+        }
+    }
+
     private function importRichLifeVisions(array $visions): void
     {
+        $categoryMap = Schema::hasTable('rich_life_vision_categories')
+            ? RichLifeVisionCategory::pluck('id', 'name')
+            : collect();
+
         foreach ($visions as $visionData) {
+            $categoryName = $visionData['category_name'] ?? null;
+            unset($visionData['category_name']);
+
+            if ($categoryName && $categoryMap->has($categoryName)) {
+                $visionData['rich_life_vision_category_id'] = $categoryMap->get($categoryName);
+            }
+
             RichLifeVision::create($visionData);
         }
     }

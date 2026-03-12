@@ -7,6 +7,7 @@ use App\Models\ExpenseAccount;
 use App\Models\NetWorthAccount;
 use App\Models\Profile;
 use App\Models\RichLifeVision;
+use App\Models\RichLifeVisionCategory;
 use App\Models\SpendingPlan;
 use App\Models\SpendingPlanItem;
 use App\Services\DataExporter;
@@ -38,7 +39,8 @@ function seedTestData(): array
     $netWorthAccount = NetWorthAccount::where('is_emergency_fund', true)->first();
     $netWorthAccount->update(['balance' => 500000]);
 
-    $vision = RichLifeVision::factory()->create(['text' => 'Travel the world']);
+    $visionCategory = RichLifeVisionCategory::factory()->create(['name' => 'Travel & Experiences']);
+    $vision = RichLifeVision::factory()->inCategory($visionCategory)->create(['text' => 'Travel the world']);
 
     $expenseAccount = ExpenseAccount::factory()->create(['name' => 'Amex']);
     $expense = Expense::factory()->create([
@@ -49,7 +51,7 @@ function seedTestData(): array
         'date' => '2026-03-01',
     ]);
 
-    return compact('profile', 'plan', 'item', 'netWorthAccount', 'vision', 'expenseAccount', 'expense');
+    return compact('profile', 'plan', 'item', 'netWorthAccount', 'visionCategory', 'vision', 'expenseAccount', 'expense');
 }
 
 function buildValidBackupData(array $overrides = []): array
@@ -57,7 +59,7 @@ function buildValidBackupData(array $overrides = []): array
     return array_merge([
         'meta' => [
             'app' => 'Astute Money',
-            'migration' => '2026_03_08_203425_seed_default_emergency_fund',
+            'migration' => '2026_03_11_000002_add_category_to_rich_life_visions_table',
             'exported_at' => now()->toIso8601String(),
         ],
         'profile' => [
@@ -93,10 +95,17 @@ function buildValidBackupData(array $overrides = []): array
                 'is_emergency_fund' => true,
             ],
         ],
+        'rich_life_vision_categories' => [
+            [
+                'name' => 'Generosity',
+                'sort_order' => 0,
+            ],
+        ],
         'rich_life_visions' => [
             [
                 'text' => 'Be generous',
                 'sort_order' => 0,
+                'category_name' => 'Generosity',
             ],
         ],
         'expense_accounts' => [
@@ -124,12 +133,13 @@ test('export includes all models with correct structure', function () {
 
     $data = (new DataExporter)->export();
 
-    expect($data)->toHaveKeys(['meta', 'profile', 'spending_plans', 'net_worth_accounts', 'rich_life_visions', 'expense_accounts']);
+    expect($data)->toHaveKeys(['meta', 'profile', 'spending_plans', 'net_worth_accounts', 'rich_life_vision_categories', 'rich_life_visions', 'expense_accounts']);
     expect($data['meta'])->toHaveKeys(['app', 'migration', 'exported_at']);
     expect($data['meta']['app'])->toBe('Astute Money');
     expect($data['spending_plans'])->toHaveCount(1);
     expect($data['spending_plans'][0]['items'])->toHaveCount(1);
     expect($data['net_worth_accounts'])->toHaveCount(1);
+    expect($data['rich_life_vision_categories'])->toHaveCount(1);
     expect($data['rich_life_visions'])->toHaveCount(1);
     expect($data['expense_accounts'])->toHaveCount(1);
     expect($data['expense_accounts'][0]['expenses'])->toHaveCount(1);
@@ -188,6 +198,7 @@ test('export handles empty database gracefully', function () {
     expect($data['spending_plans'])->toBeEmpty();
     // Migration seeds a default Emergency Fund, so 1 account always exists
     expect($data['net_worth_accounts'])->toHaveCount(1);
+    expect($data['rich_life_vision_categories'])->toBeEmpty();
     expect($data['rich_life_visions'])->toBeEmpty();
     expect($data['expense_accounts'])->toBeEmpty();
     expect($data['profile'])->toHaveKeys(['date_of_birth', 'retirement_age', 'expected_return', 'withdrawal_rate']);
@@ -436,6 +447,7 @@ test('exported data can be re-imported identically', function () {
     Expense::query()->delete();
     ExpenseAccount::query()->delete();
     RichLifeVision::query()->delete();
+    RichLifeVisionCategory::query()->delete();
     NetWorthAccount::query()->delete();
     SpendingPlanItem::query()->delete();
     SpendingPlan::query()->delete();
@@ -447,7 +459,10 @@ test('exported data can be re-imported identically', function () {
     expect(SpendingPlanItem::count())->toBe(1);
     expect(SpendingPlanItem::first()->name)->toBe('Rent');
     expect(NetWorthAccount::count())->toBe($originalNetWorthCount);
+    expect(RichLifeVisionCategory::count())->toBe(1);
+    expect(RichLifeVisionCategory::first()->name)->toBe('Travel & Experiences');
     expect(RichLifeVision::first()->text)->toBe('Travel the world');
+    expect(RichLifeVision::first()->rich_life_vision_category_id)->toBe(RichLifeVisionCategory::first()->id);
     expect(ExpenseAccount::first()->name)->toBe('Amex');
     expect(Expense::first()->merchant)->toBe('Netflix');
 });
@@ -519,4 +534,61 @@ test('cancelling import clears state', function () {
         ->assertSet('showConfirmModal', false)
         ->assertSet('importErrors', [])
         ->assertSet('importSummary', []);
+});
+
+// --- Vision Category Export/Import Tests ---
+
+test('export includes rich life vision categories', function () {
+    $category = RichLifeVisionCategory::factory()->create(['name' => 'Health & Wellness', 'sort_order' => 0]);
+
+    $data = (new DataExporter)->export();
+
+    expect($data['rich_life_vision_categories'])->toHaveCount(1);
+    expect($data['rich_life_vision_categories'][0]['name'])->toBe('Health & Wellness');
+    expect($data['rich_life_vision_categories'][0]['sort_order'])->toBe(0);
+});
+
+test('export includes category name on visions', function () {
+    $category = RichLifeVisionCategory::factory()->create(['name' => 'Travel']);
+    RichLifeVision::factory()->inCategory($category)->create(['text' => 'Visit Japan']);
+    RichLifeVision::factory()->create(['text' => 'No category']);
+
+    $data = (new DataExporter)->export();
+
+    $withCategory = collect($data['rich_life_visions'])->firstWhere('text', 'Visit Japan');
+    $withoutCategory = collect($data['rich_life_visions'])->firstWhere('text', 'No category');
+
+    expect($withCategory['category_name'])->toBe('Travel');
+    expect($withoutCategory['category_name'])->toBeNull();
+});
+
+test('import creates categories and links visions', function () {
+    $data = buildValidBackupData();
+
+    (new DataImporter)->import($data);
+
+    $category = RichLifeVisionCategory::first();
+    expect($category)->not->toBeNull();
+    expect($category->name)->toBe('Generosity');
+
+    $vision = RichLifeVision::first();
+    expect($vision->rich_life_vision_category_id)->toBe($category->id);
+});
+
+test('import without categories key works for backward compatibility', function () {
+    $data = buildValidBackupData();
+    unset($data['rich_life_vision_categories']);
+    $data['rich_life_visions'] = [
+        ['text' => 'Old vision', 'sort_order' => 0],
+    ];
+
+    $errors = (new DataImporter)->validate($data);
+    expect($errors)->toBeEmpty();
+
+    (new DataImporter)->import($data);
+
+    expect(RichLifeVisionCategory::count())->toBe(0);
+    expect(RichLifeVision::count())->toBe(1);
+    expect(RichLifeVision::first()->text)->toBe('Old vision');
+    expect(RichLifeVision::first()->rich_life_vision_category_id)->toBeNull();
 });

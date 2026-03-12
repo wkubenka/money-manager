@@ -9,6 +9,7 @@ use App\Models\ExpenseAccount;
 use App\Models\NetWorthAccount;
 use App\Models\Profile;
 use App\Models\RichLifeVision;
+use App\Models\RichLifeVisionCategory;
 use App\Models\SpendingPlan;
 use App\Models\SpendingPlanItem;
 use Carbon\Carbon;
@@ -159,22 +160,40 @@ class DatabaseSeeder extends Seeder
 
     private function seedRichLifeVisions(): void
     {
-        $visions = [
-            'I am healthy and active',
-            'I prioritize peace and simplicity',
-            'I am engaged with my community',
-            'I shop local if at all possible',
-            'I only have clothes that I look and feel good in',
-            'I have a beautiful home that I love',
-            'I take a month-long vacation every year',
-            'I am the most generous of all my friends',
+        $categories = [
+            'Health & Wellness' => [
+                'I am healthy and active',
+            ],
+            'Home & Living' => [
+                'I prioritize peace and simplicity',
+                'I have a beautiful home that I love',
+                'I only have clothes that I look and feel good in',
+            ],
+            'Travel & Experiences' => [
+                'I take a month-long vacation every year',
+            ],
+            'Generosity' => [
+                'I am engaged with my community',
+                'I shop local if at all possible',
+                'I am the most generous of all my friends',
+            ],
         ];
 
-        foreach ($visions as $index => $text) {
-            RichLifeVision::create([
-                'text' => $text,
-                'sort_order' => $index,
+        $categoryOrder = 0;
+
+        foreach ($categories as $categoryName => $visions) {
+            $category = RichLifeVisionCategory::create([
+                'name' => $categoryName,
+                'sort_order' => $categoryOrder++,
             ]);
+
+            foreach ($visions as $index => $text) {
+                RichLifeVision::create([
+                    'rich_life_vision_category_id' => $category->id,
+                    'text' => $text,
+                    'sort_order' => $index,
+                ]);
+            }
         }
     }
 

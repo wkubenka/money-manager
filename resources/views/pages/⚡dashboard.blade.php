@@ -6,6 +6,7 @@ use App\Models\Expense;
 use App\Models\NetWorthAccount;
 use App\Models\Profile;
 use App\Models\RichLifeVision;
+use App\Models\RichLifeVisionCategory;
 use App\Models\SpendingPlan;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
@@ -13,8 +14,14 @@ use Livewire\Component;
 new class extends Component {
     public bool $visionEditing = false;
     public string $newVisionText = '';
+    public ?int $addVisionToCategoryId = null;
     public ?int $editingVisionId = null;
     public string $editingVisionText = '';
+
+    public string $newCategoryName = '';
+    public ?int $editingCategoryId = null;
+    public string $editingCategoryName = '';
+
     public ?string $dateOfBirth = null;
     public ?int $retirementAge = null;
     public ?float $expectedReturn = null;
@@ -31,26 +38,105 @@ new class extends Component {
     }
 
     #[Computed]
-    public function visions()
+    public function visionCategories()
     {
-        return RichLifeVision::query()->orderBy('sort_order')->orderBy('id')->get();
+        return RichLifeVisionCategory::query()
+            ->with('visions')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
     }
 
-    public function addVision(): void
+    #[Computed]
+    public function uncategorizedVisions()
+    {
+        return RichLifeVision::query()
+            ->whereNull('rich_life_vision_category_id')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+    }
+
+    public function addCategory(): void
+    {
+        $this->validate([
+            'newCategoryName' => ['required', 'string', 'max:255'],
+        ]);
+
+        $nextOrder = RichLifeVisionCategory::query()->max('sort_order') + 1;
+
+        RichLifeVisionCategory::create([
+            'name' => $this->newCategoryName,
+            'sort_order' => $nextOrder,
+        ]);
+
+        $this->newCategoryName = '';
+        unset($this->visionCategories);
+    }
+
+    public function editCategory(int $categoryId): void
+    {
+        $category = RichLifeVisionCategory::findOrFail($categoryId);
+
+        $this->editingCategoryId = $categoryId;
+        $this->editingCategoryName = $category->name;
+    }
+
+    public function updateCategory(): void
+    {
+        $this->validate([
+            'editingCategoryName' => ['required', 'string', 'max:255'],
+        ]);
+
+        $category = RichLifeVisionCategory::findOrFail($this->editingCategoryId);
+        $category->update(['name' => $this->editingCategoryName]);
+
+        $this->cancelEditCategory();
+        unset($this->visionCategories);
+    }
+
+    public function cancelEditCategory(): void
+    {
+        $this->editingCategoryId = null;
+        $this->editingCategoryName = '';
+    }
+
+    public function removeCategory(int $categoryId): void
+    {
+        $category = RichLifeVisionCategory::findOrFail($categoryId);
+
+        $category->delete();
+        unset($this->visionCategories, $this->uncategorizedVisions);
+    }
+
+    public function reorderCategories(array $orderedIds): void
+    {
+        foreach ($orderedIds as $index => $id) {
+            RichLifeVisionCategory::where('id', $id)->update(['sort_order' => $index]);
+        }
+
+        unset($this->visionCategories);
+    }
+
+    public function addVision(?int $categoryId = null): void
     {
         $this->validate([
             'newVisionText' => ['required', 'string', 'max:255'],
         ]);
 
-        $nextOrder = RichLifeVision::query()->max('sort_order') + 1;
+        $nextOrder = RichLifeVision::query()
+            ->where('rich_life_vision_category_id', $categoryId)
+            ->max('sort_order') + 1;
 
         RichLifeVision::create([
+            'rich_life_vision_category_id' => $categoryId,
             'text' => $this->newVisionText,
             'sort_order' => $nextOrder,
         ]);
 
         $this->newVisionText = '';
-        unset($this->visions);
+        $this->addVisionToCategoryId = null;
+        unset($this->visionCategories, $this->uncategorizedVisions);
     }
 
     public function editVision(int $visionId): void
@@ -72,7 +158,7 @@ new class extends Component {
         $vision->update(['text' => $this->editingVisionText]);
 
         $this->cancelEditVision();
-        unset($this->visions);
+        unset($this->visionCategories, $this->uncategorizedVisions);
     }
 
     public function cancelEditVision(): void
@@ -86,17 +172,16 @@ new class extends Component {
         $vision = RichLifeVision::findOrFail($visionId);
 
         $vision->delete();
-        unset($this->visions);
+        unset($this->visionCategories, $this->uncategorizedVisions);
     }
 
     public function reorderVisions(array $orderedIds): void
     {
         foreach ($orderedIds as $index => $id) {
-            $vision = RichLifeVision::findOrFail($id);
-            $vision->update(['sort_order' => $index]);
+            RichLifeVision::where('id', $id)->update(['sort_order' => $index]);
         }
 
-        unset($this->visions);
+        unset($this->visionCategories, $this->uncategorizedVisions);
     }
 
     #[Computed]
@@ -209,49 +294,160 @@ new class extends Component {
                 />
             </div>
 
-            @if ($this->visions->isNotEmpty())
-                <ul class="space-y-1 {{ $visionEditing ? 'mb-4' : '' }}" data-sortable-visions>
-                    @foreach ($this->visions as $vision)
-                        <li class="flex items-center gap-2 py-1.5 group" data-vision-id="{{ $vision->id }}" wire:key="vision-{{ $vision->id }}">
-                            @if ($visionEditing && $editingVisionId === $vision->id)
+            <div class="space-y-4" data-sortable-categories>
+                @foreach ($this->visionCategories as $cat)
+                    <div class="category-item" data-category-id="{{ $cat->id }}" wire:key="category-{{ $cat->id }}">
+                        {{-- Category heading --}}
+                        <div class="flex items-center gap-2 mb-1">
+                            @if ($visionEditing && $editingCategoryId === $cat->id)
                                 <div class="flex-1 flex items-center gap-2">
-                                    <flux:input wire:model="editingVisionText" size="sm" wire:keydown.enter="updateVision" />
-                                    <flux:button size="xs" variant="primary" wire:click="updateVision">{{ __('Save') }}</flux:button>
-                                    <flux:button size="xs" variant="ghost" wire:click="cancelEditVision">{{ __('Cancel') }}</flux:button>
+                                    <flux:input wire:model="editingCategoryName" size="sm" wire:keydown.enter="updateCategory" />
+                                    <flux:button size="xs" variant="primary" wire:click="updateCategory">{{ __('Save') }}</flux:button>
+                                    <flux:button size="xs" variant="ghost" wire:click="cancelEditCategory">{{ __('Cancel') }}</flux:button>
                                 </div>
                             @elseif ($visionEditing)
-                                <div class="drag-handle cursor-grab active:cursor-grabbing text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 touch-none">
+                                <div class="category-drag-handle cursor-grab active:cursor-grabbing text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 touch-none">
                                     <flux:icon.bars-3 variant="micro" />
                                 </div>
-                                <span class="flex-1 text-sm text-zinc-700 dark:text-zinc-300">{{ $vision->text }}</span>
+                                <span class="flex-1 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ $cat->name }}</span>
                                 <div class="flex items-center gap-0.5">
-                                    <flux:button size="xs" variant="ghost" icon="pencil" wire:click="editVision({{ $vision->id }})" aria-label="{{ __('Edit vision') }}" />
-                                    <flux:button size="xs" variant="ghost" icon="trash" wire:click="removeVision({{ $vision->id }})" wire:confirm="{{ __('Remove this item?') }}" aria-label="{{ __('Remove vision') }}" />
+                                    <flux:button size="xs" variant="ghost" icon="pencil" wire:click="editCategory({{ $cat->id }})" aria-label="{{ __('Edit category') }}" />
+                                    <flux:button size="xs" variant="ghost" icon="trash" wire:click="removeCategory({{ $cat->id }})" wire:confirm="{{ __('Remove this category? Visions will become uncategorized.') }}" aria-label="{{ __('Remove category') }}" />
                                 </div>
                             @else
-                                <span class="text-sm text-zinc-700 dark:text-zinc-300">{{ $vision->text }}</span>
+                                <span class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ $cat->name }}</span>
                             @endif
-                        </li>
-                    @endforeach
-                </ul>
+                        </div>
+
+                        {{-- Visions in this category --}}
+                        @if ($cat->visions->isNotEmpty() || $visionEditing)
+                            <ul class="space-y-1" data-sortable-visions data-category-id="{{ $cat->id }}">
+                                @foreach ($cat->visions as $vision)
+                                    <li class="flex items-center gap-2 py-1.5 group" data-vision-id="{{ $vision->id }}" wire:key="vision-{{ $vision->id }}">
+                                        @if ($visionEditing && $editingVisionId === $vision->id)
+                                            <div class="flex-1 flex items-center gap-2">
+                                                <flux:input wire:model="editingVisionText" size="sm" wire:keydown.enter="updateVision" />
+                                                <flux:button size="xs" variant="primary" wire:click="updateVision">{{ __('Save') }}</flux:button>
+                                                <flux:button size="xs" variant="ghost" wire:click="cancelEditVision">{{ __('Cancel') }}</flux:button>
+                                            </div>
+                                        @elseif ($visionEditing)
+                                            <div class="drag-handle cursor-grab active:cursor-grabbing text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 touch-none">
+                                                <flux:icon.bars-3 variant="micro" />
+                                            </div>
+                                            <span class="flex-1 text-sm text-zinc-700 dark:text-zinc-300">{{ $vision->text }}</span>
+                                            <div class="flex items-center gap-0.5">
+                                                <flux:button size="xs" variant="ghost" icon="pencil" wire:click="editVision({{ $vision->id }})" aria-label="{{ __('Edit vision') }}" />
+                                                <flux:button size="xs" variant="ghost" icon="trash" wire:click="removeVision({{ $vision->id }})" wire:confirm="{{ __('Remove this item?') }}" aria-label="{{ __('Remove vision') }}" />
+                                            </div>
+                                        @else
+                                            <span class="text-sm text-zinc-700 dark:text-zinc-300">{{ $vision->text }}</span>
+                                        @endif
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @endif
+
+                        {{-- Per-category add vision input --}}
+                        @if ($visionEditing)
+                            <div class="flex items-center gap-2 mt-1">
+                                <div class="flex-1">
+                                    <flux:input
+                                        wire:model="newVisionText"
+                                        size="sm"
+                                        :placeholder="__('Add a vision...')"
+                                        wire:keydown.enter="addVision({{ $cat->id }})"
+                                        wire:focus="$set('addVisionToCategoryId', {{ $cat->id }})"
+                                    />
+                                </div>
+                                <flux:button
+                                    size="sm"
+                                    variant="ghost"
+                                    icon="plus"
+                                    wire:click="addVision({{ $cat->id }})"
+                                    aria-label="{{ __('Add vision') }}"
+                                />
+                            </div>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+
+            {{-- Uncategorized visions --}}
+            @if ($this->uncategorizedVisions->isNotEmpty() || $visionEditing)
+                <div class="{{ $this->visionCategories->isNotEmpty() ? 'mt-4' : '' }}">
+                    @if ($this->uncategorizedVisions->isNotEmpty())
+                        @if ($this->visionCategories->isNotEmpty())
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">{{ __('Uncategorized') }}</span>
+                            </div>
+                        @endif
+                        <ul class="space-y-1" data-sortable-visions data-category-id="uncategorized">
+                            @foreach ($this->uncategorizedVisions as $vision)
+                                <li class="flex items-center gap-2 py-1.5 group" data-vision-id="{{ $vision->id }}" wire:key="vision-{{ $vision->id }}">
+                                    @if ($visionEditing && $editingVisionId === $vision->id)
+                                        <div class="flex-1 flex items-center gap-2">
+                                            <flux:input wire:model="editingVisionText" size="sm" wire:keydown.enter="updateVision" />
+                                            <flux:button size="xs" variant="primary" wire:click="updateVision">{{ __('Save') }}</flux:button>
+                                            <flux:button size="xs" variant="ghost" wire:click="cancelEditVision">{{ __('Cancel') }}</flux:button>
+                                        </div>
+                                    @elseif ($visionEditing)
+                                        <div class="drag-handle cursor-grab active:cursor-grabbing text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 touch-none">
+                                            <flux:icon.bars-3 variant="micro" />
+                                        </div>
+                                        <span class="flex-1 text-sm text-zinc-700 dark:text-zinc-300">{{ $vision->text }}</span>
+                                        <div class="flex items-center gap-0.5">
+                                            <flux:button size="xs" variant="ghost" icon="pencil" wire:click="editVision({{ $vision->id }})" aria-label="{{ __('Edit vision') }}" />
+                                            <flux:button size="xs" variant="ghost" icon="trash" wire:click="removeVision({{ $vision->id }})" wire:confirm="{{ __('Remove this item?') }}" aria-label="{{ __('Remove vision') }}" />
+                                        </div>
+                                    @else
+                                        <span class="text-sm text-zinc-700 dark:text-zinc-300">{{ $vision->text }}</span>
+                                    @endif
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endif
+
+                    {{-- Add uncategorized vision input --}}
+                    @if ($visionEditing)
+                        <div class="flex items-center gap-2 mt-1">
+                            <div class="flex-1">
+                                <flux:input
+                                    wire:model="newVisionText"
+                                    size="sm"
+                                    :placeholder="__('Add a vision...')"
+                                    wire:keydown.enter="addVision(null)"
+                                    wire:focus="$set('addVisionToCategoryId', null)"
+                                />
+                            </div>
+                            <flux:button
+                                size="sm"
+                                variant="ghost"
+                                icon="plus"
+                                wire:click="addVision(null)"
+                                aria-label="{{ __('Add vision') }}"
+                            />
+                        </div>
+                    @endif
+                </div>
             @endif
 
+            {{-- Add category input --}}
             @if ($visionEditing)
-                <div class="flex items-center gap-2 {{ $this->visions->isNotEmpty() ? 'pt-3 border-t border-zinc-100 dark:border-zinc-700' : '' }}">
+                <div class="flex items-center gap-2 mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-700">
                     <div class="flex-1">
                         <flux:input
-                            wire:model="newVisionText"
+                            wire:model="newCategoryName"
                             size="sm"
-                            :placeholder="__('Add a vision...')"
-                            wire:keydown.enter="addVision"
+                            :placeholder="__('Add a category...')"
+                            wire:keydown.enter="addCategory"
                         />
                     </div>
                     <flux:button
                         size="sm"
                         variant="ghost"
                         icon="plus"
-                        wire:click="addVision"
-                        aria-label="{{ __('Add vision') }}"
+                        wire:click="addCategory"
+                        aria-label="{{ __('Add category') }}"
                     />
                 </div>
             @endif
@@ -558,26 +754,45 @@ new class extends Component {
 
 @script
 <script>
-    function initVisionSortable() {
-        const el = $wire.$el.querySelector('[data-sortable-visions]');
-        if (!el || el._sortable) return;
-        el._sortable = Sortable.create(el, {
-            handle: '.drag-handle',
-            animation: 150,
-            ghostClass: 'opacity-30',
-            onEnd() {
-                $wire.reorderVisions(
-                    Array.from(el.children)
-                        .filter(child => child.dataset.visionId)
-                        .map(child => child.dataset.visionId)
-                );
-            }
+    function initVisionSortables() {
+        // Category sortable
+        const catContainer = $wire.$el.querySelector('[data-sortable-categories]');
+        if (catContainer && !catContainer._sortable) {
+            catContainer._sortable = Sortable.create(catContainer, {
+                handle: '.category-drag-handle',
+                animation: 150,
+                ghostClass: 'opacity-30',
+                onEnd() {
+                    $wire.reorderCategories(
+                        Array.from(catContainer.children)
+                            .filter(child => child.dataset.categoryId)
+                            .map(child => child.dataset.categoryId)
+                    );
+                }
+            });
+        }
+
+        // Per-list vision sortables
+        $wire.$el.querySelectorAll('[data-sortable-visions]').forEach(el => {
+            if (el._sortable) return;
+            el._sortable = Sortable.create(el, {
+                handle: '.drag-handle',
+                animation: 150,
+                ghostClass: 'opacity-30',
+                onEnd() {
+                    $wire.reorderVisions(
+                        Array.from(el.children)
+                            .filter(child => child.dataset.visionId)
+                            .map(child => child.dataset.visionId)
+                    );
+                }
+            });
         });
     }
 
-    initVisionSortable();
+    initVisionSortables();
 
-    new MutationObserver(() => initVisionSortable())
+    new MutationObserver(() => initVisionSortables())
         .observe($wire.$el, { childList: true, subtree: true });
 </script>
 @endscript

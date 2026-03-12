@@ -6,6 +6,7 @@ use App\Models\ExpenseAccount;
 use App\Models\NetWorthAccount;
 use App\Models\Profile;
 use App\Models\RichLifeVision;
+use App\Models\RichLifeVisionCategory;
 use App\Models\SpendingPlan;
 use Illuminate\Support\Facades\DB;
 
@@ -19,6 +20,7 @@ class DataExporter
             'profile' => $this->exportProfile(),
             'spending_plans' => $this->exportSpendingPlans(),
             'net_worth_accounts' => $this->exportNetWorthAccounts(),
+            'rich_life_vision_categories' => $this->exportRichLifeVisionCategories(),
             'rich_life_visions' => $this->exportRichLifeVisions(),
             'expense_accounts' => $this->exportExpenseAccounts(),
         ];
@@ -83,11 +85,21 @@ class DataExporter
     }
 
     /** @return list<array<string, mixed>> */
+    private function exportRichLifeVisionCategories(): array
+    {
+        return RichLifeVisionCategory::all()->map(fn (RichLifeVisionCategory $category) => [
+            'name' => $category->name,
+            'sort_order' => $category->sort_order,
+        ])->toArray();
+    }
+
+    /** @return list<array<string, mixed>> */
     private function exportRichLifeVisions(): array
     {
-        return RichLifeVision::all()->map(fn (RichLifeVision $vision) => [
+        return RichLifeVision::with('category')->get()->map(fn (RichLifeVision $vision) => [
             'text' => $vision->text,
             'sort_order' => $vision->sort_order,
+            'category_name' => $vision->category?->name,
         ])->toArray();
     }
 

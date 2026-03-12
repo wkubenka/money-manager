@@ -7,6 +7,7 @@ use App\Models\ExpenseAccount;
 use App\Models\NetWorthAccount;
 use App\Models\Profile;
 use App\Models\RichLifeVision;
+use App\Models\RichLifeVisionCategory;
 use App\Models\SpendingPlan;
 use App\Models\SpendingPlanItem;
 use Livewire\Livewire;
@@ -367,7 +368,7 @@ test('vision list is locked by default and hides editing controls', function () 
     Livewire::test('pages::dashboard')
         ->assertSet('visionEditing', false)
         ->assertSee('My vision')
-        ->assertDontSeeHtml('wire:click="addVision"')
+        ->assertDontSeeHtml('wire:click="addVision(null)"')
         ->assertDontSeeHtml('wire:click="editVision');
 });
 
@@ -379,7 +380,7 @@ test('unlocking vision list shows editing controls', function () {
     Livewire::test('pages::dashboard')
         ->toggle('visionEditing')
         ->assertSet('visionEditing', true)
-        ->assertSeeHtml('wire:click="addVision"')
+        ->assertSeeHtml('wire:click="addVision(null)"')
         ->assertSeeHtml('wire:click="editVision');
 });
 
@@ -544,4 +545,109 @@ test('dashboard excludes expenses from other months', function () {
         ->assertSee('Spent: $0')
         ->assertSee('$2,500')
         ->assertSee('left');
+});
+
+// Vision Category tests
+
+test('user can add a vision category', function () {
+    Livewire::test('pages::dashboard')
+        ->set('newCategoryName', 'Health & Wellness')
+        ->call('addCategory')
+        ->assertHasNoErrors()
+        ->assertSet('newCategoryName', '');
+
+    $category = RichLifeVisionCategory::first();
+    expect($category)->not->toBeNull();
+    expect($category->name)->toBe('Health & Wellness');
+});
+
+test('category name is required', function () {
+    Livewire::test('pages::dashboard')
+        ->set('newCategoryName', '')
+        ->call('addCategory')
+        ->assertHasErrors(['newCategoryName' => 'required']);
+});
+
+test('user can edit a vision category', function () {
+    $category = RichLifeVisionCategory::factory()->create(['name' => 'Old Name']);
+
+    Livewire::test('pages::dashboard')
+        ->call('editCategory', $category->id)
+        ->set('editingCategoryName', 'New Name')
+        ->call('updateCategory')
+        ->assertHasNoErrors();
+
+    expect($category->refresh()->name)->toBe('New Name');
+});
+
+test('user can remove a vision category and visions become uncategorized', function () {
+    $category = RichLifeVisionCategory::factory()->create();
+    $vision = RichLifeVision::factory()->inCategory($category)->create();
+
+    Livewire::test('pages::dashboard')
+        ->call('removeCategory', $category->id)
+        ->assertHasNoErrors();
+
+    expect(RichLifeVisionCategory::find($category->id))->toBeNull();
+    expect($vision->refresh()->rich_life_vision_category_id)->toBeNull();
+});
+
+test('user can reorder vision categories', function () {
+    $a = RichLifeVisionCategory::factory()->create(['name' => 'First', 'sort_order' => 0]);
+    $b = RichLifeVisionCategory::factory()->create(['name' => 'Second', 'sort_order' => 1]);
+    $c = RichLifeVisionCategory::factory()->create(['name' => 'Third', 'sort_order' => 2]);
+
+    Livewire::test('pages::dashboard')
+        ->call('reorderCategories', [$c->id, $a->id, $b->id])
+        ->assertHasNoErrors();
+
+    expect($c->refresh()->sort_order)->toBe(0);
+    expect($a->refresh()->sort_order)->toBe(1);
+    expect($b->refresh()->sort_order)->toBe(2);
+});
+
+test('user can add a vision to a specific category', function () {
+    $category = RichLifeVisionCategory::factory()->create();
+
+    Livewire::test('pages::dashboard')
+        ->set('newVisionText', 'Stay active')
+        ->call('addVision', $category->id)
+        ->assertHasNoErrors();
+
+    $vision = RichLifeVision::first();
+    expect($vision->text)->toBe('Stay active');
+    expect($vision->rich_life_vision_category_id)->toBe($category->id);
+});
+
+test('user can add an uncategorized vision', function () {
+    Livewire::test('pages::dashboard')
+        ->set('newVisionText', 'Free spirit')
+        ->call('addVision', null)
+        ->assertHasNoErrors();
+
+    $vision = RichLifeVision::first();
+    expect($vision->text)->toBe('Free spirit');
+    expect($vision->rich_life_vision_category_id)->toBeNull();
+});
+
+test('visions are grouped by category on display', function () {
+    $cat = RichLifeVisionCategory::factory()->create(['name' => 'Travel & Experiences']);
+    RichLifeVision::factory()->inCategory($cat)->create(['text' => 'Visit Japan']);
+    RichLifeVision::factory()->create(['text' => 'Uncategorized vision']);
+
+    Livewire::test('pages::dashboard')
+        ->assertSee('Travel & Experiences')
+        ->assertSee('Visit Japan')
+        ->assertSee('Uncategorized vision');
+});
+
+test('deleting a category uncategorizes its visions', function () {
+    $category = RichLifeVisionCategory::factory()->create();
+    $v1 = RichLifeVision::factory()->inCategory($category)->create();
+    $v2 = RichLifeVision::factory()->inCategory($category)->create();
+
+    $category->delete();
+
+    expect($v1->refresh()->rich_life_vision_category_id)->toBeNull();
+    expect($v2->refresh()->rich_life_vision_category_id)->toBeNull();
 });
