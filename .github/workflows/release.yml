@@ -48,6 +48,8 @@ jobs:
           cp .env.example .env
           php artisan key:generate
           echo "NATIVEPHP_APP_VERSION=${GITHUB_REF_NAME#v}" >> .env
+          echo "NATIVEPHP_UPDATER_ENABLED=true" >> .env
+          echo "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> .env
 
       - name: Build frontend assets
         run: npm run build
@@ -55,6 +57,7 @@ jobs:
       - name: Build and publish native app
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NATIVEPHP_UPDATER_ENABLED: 'true'
         run: php artisan native:build mac --publish --no-interaction
 
   build-windows:
@@ -89,6 +92,8 @@ jobs:
           cp .env.example .env
           php artisan key:generate
           echo "NATIVEPHP_APP_VERSION=${GITHUB_REF_NAME#v}" >> .env
+          echo "NATIVEPHP_UPDATER_ENABLED=true" >> .env
+          echo "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> .env
 
       - name: Build frontend assets
         run: npm run build
@@ -96,4 +101,5 @@ jobs:
       - name: Build and publish native app
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NATIVEPHP_UPDATER_ENABLED: 'true'
         run: php artisan native:build win --publish --no-interaction
