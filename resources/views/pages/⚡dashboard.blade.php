@@ -283,7 +283,7 @@ new class extends Component {
     <div class="contents lg:block lg:space-y-6">
         {{-- Rich Life Vision --}}
         <div class="order-0 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
-            <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center justify-between mb-2">
                 <flux:heading>{{ __('Rich Life Vision') }}</flux:heading>
                 <flux:button
                     size="sm"
@@ -294,7 +294,7 @@ new class extends Component {
                 />
             </div>
 
-            <div class="space-y-4" data-sortable-categories>
+            <div class="space-y-2" data-sortable-categories>
                 @foreach ($this->visionCategories as $cat)
                     <div class="category-item" data-category-id="{{ $cat->id }}" wire:key="category-{{ $cat->id }}">
                         {{-- Category heading --}}
@@ -323,7 +323,7 @@ new class extends Component {
                         @if ($cat->visions->isNotEmpty() || $visionEditing)
                             <ul class="space-y-1" data-sortable-visions data-category-id="{{ $cat->id }}">
                                 @foreach ($cat->visions as $vision)
-                                    <li class="flex items-center gap-2 py-1.5 group" data-vision-id="{{ $vision->id }}" wire:key="vision-{{ $vision->id }}">
+                                    <li class="flex items-center gap-2 py-0.5 group" data-vision-id="{{ $vision->id }}" wire:key="vision-{{ $vision->id }}">
                                         @if ($visionEditing && $editingVisionId === $vision->id)
                                             <div class="flex-1 flex items-center gap-2">
                                                 <flux:input wire:model="editingVisionText" size="sm" wire:keydown.enter="updateVision" />
@@ -349,24 +349,31 @@ new class extends Component {
 
                         {{-- Per-category add vision input --}}
                         @if ($visionEditing)
-                            <div class="flex items-center gap-2 mt-1">
-                                <div class="flex-1">
-                                    <flux:input
-                                        wire:model="newVisionText"
+                            @if ($addVisionToCategoryId === $cat->id)
+                                <div class="flex items-center gap-2 mt-1">
+                                    <div class="flex-1">
+                                        <flux:input
+                                            wire:model="newVisionText"
+                                            size="sm"
+                                            :placeholder="__('Add a vision...')"
+                                            wire:keydown.enter="addVision({{ $cat->id }})"
+                                            wire:keydown.escape="$set('addVisionToCategoryId', null)"
+                                        />
+                                    </div>
+                                    <flux:button
                                         size="sm"
-                                        :placeholder="__('Add a vision...')"
-                                        wire:keydown.enter="addVision({{ $cat->id }})"
-                                        wire:focus="$set('addVisionToCategoryId', {{ $cat->id }})"
+                                        variant="ghost"
+                                        icon="plus"
+                                        wire:click="addVision({{ $cat->id }})"
+                                        aria-label="{{ __('Add vision') }}"
                                     />
                                 </div>
-                                <flux:button
-                                    size="sm"
-                                    variant="ghost"
-                                    icon="plus"
-                                    wire:click="addVision({{ $cat->id }})"
-                                    aria-label="{{ __('Add vision') }}"
-                                />
-                            </div>
+                            @else
+                                <button
+                                    wire:click="$set('addVisionToCategoryId', {{ $cat->id }})"
+                                    class="mt-1 w-full text-left text-sm text-zinc-400 hover:text-zinc-500 dark:text-zinc-500 dark:hover:text-zinc-400 py-1"
+                                >+ {{ __('Add a vision...') }}</button>
+                            @endif
                         @endif
                     </div>
                 @endforeach
@@ -374,7 +381,7 @@ new class extends Component {
 
             {{-- Uncategorized visions --}}
             @if ($this->uncategorizedVisions->isNotEmpty() || $visionEditing)
-                <div class="{{ $this->visionCategories->isNotEmpty() ? 'mt-4' : '' }}">
+                <div class="{{ $this->visionCategories->isNotEmpty() ? 'mt-2' : '' }}">
                     @if ($this->uncategorizedVisions->isNotEmpty())
                         @if ($this->visionCategories->isNotEmpty())
                             <div class="flex items-center gap-2 mb-1">
@@ -383,7 +390,7 @@ new class extends Component {
                         @endif
                         <ul class="space-y-1" data-sortable-visions data-category-id="uncategorized">
                             @foreach ($this->uncategorizedVisions as $vision)
-                                <li class="flex items-center gap-2 py-1.5 group" data-vision-id="{{ $vision->id }}" wire:key="vision-{{ $vision->id }}">
+                                <li class="flex items-center gap-2 py-0.5 group" data-vision-id="{{ $vision->id }}" wire:key="vision-{{ $vision->id }}">
                                     @if ($visionEditing && $editingVisionId === $vision->id)
                                         <div class="flex-1 flex items-center gap-2">
                                             <flux:input wire:model="editingVisionText" size="sm" wire:keydown.enter="updateVision" />
@@ -409,24 +416,31 @@ new class extends Component {
 
                     {{-- Add uncategorized vision input --}}
                     @if ($visionEditing)
-                        <div class="flex items-center gap-2 mt-1">
-                            <div class="flex-1">
-                                <flux:input
-                                    wire:model="newVisionText"
+                        @if ($addVisionToCategoryId === 0)
+                            <div class="flex items-center gap-2 mt-1">
+                                <div class="flex-1">
+                                    <flux:input
+                                        wire:model="newVisionText"
+                                        size="sm"
+                                        :placeholder="__('Add a vision...')"
+                                        wire:keydown.enter="addVision(null)"
+                                        wire:keydown.escape="$set('addVisionToCategoryId', null)"
+                                    />
+                                </div>
+                                <flux:button
                                     size="sm"
-                                    :placeholder="__('Add a vision...')"
-                                    wire:keydown.enter="addVision(null)"
-                                    wire:focus="$set('addVisionToCategoryId', null)"
+                                    variant="ghost"
+                                    icon="plus"
+                                    wire:click="addVision(null)"
+                                    aria-label="{{ __('Add vision') }}"
                                 />
                             </div>
-                            <flux:button
-                                size="sm"
-                                variant="ghost"
-                                icon="plus"
-                                wire:click="addVision(null)"
-                                aria-label="{{ __('Add vision') }}"
-                            />
-                        </div>
+                        @else
+                            <button
+                                wire:click="$set('addVisionToCategoryId', 0)"
+                                class="mt-1 w-full text-left text-sm text-zinc-400 hover:text-zinc-500 dark:text-zinc-500 dark:hover:text-zinc-400 py-1"
+                            >+ {{ __('Add a vision...') }}</button>
+                        @endif
                     @endif
                 </div>
             @endif
