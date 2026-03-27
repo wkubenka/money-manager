@@ -187,3 +187,64 @@ test('inputs are cleared after adding an account', function () {
         ->assertSet('newAccountNames.debt', '')
         ->assertSet('newAccountBalances.debt', '');
 });
+
+test('user can add a debt account with minimum payment and interest rate', function () {
+    Livewire::test('pages::net-worth.index')
+        ->set('newAccountNames.debt', 'Credit Card')
+        ->set('newAccountBalances.debt', '5000.00')
+        ->set('newAccountMinPayments.debt', '150.00')
+        ->set('newAccountInterestRates.debt', '24.99')
+        ->call('addAccount', 'debt')
+        ->assertHasNoErrors();
+
+    $account = NetWorthAccount::where('name', 'Credit Card')->first();
+    expect($account)->not->toBeNull();
+    expect($account->category)->toBe(AccountCategory::Debt);
+    expect($account->balance)->toBe(500000);
+    expect($account->minimum_payment)->toBe(15000);
+    expect($account->interest_rate)->toBe('24.99');
+});
+
+test('user can edit debt account minimum payment and interest rate', function () {
+    $account = NetWorthAccount::factory()->debt()->create([
+        'name' => 'Student Loan',
+        'balance' => 2000000,
+        'minimum_payment' => 20000,
+        'interest_rate' => 6.50,
+    ]);
+
+    Livewire::test('pages::net-worth.index')
+        ->call('editAccount', $account->id)
+        ->assertSet('editingMinPayment', '200.00')
+        ->assertSet('editingInterestRate', '6.50')
+        ->set('editingMinPayment', '250.00')
+        ->set('editingInterestRate', '5.25')
+        ->call('updateAccount')
+        ->assertHasNoErrors();
+
+    $account->refresh();
+    expect($account->minimum_payment)->toBe(25000);
+    expect($account->interest_rate)->toBe('5.25');
+});
+
+test('interest rate must be between 0 and 100', function () {
+    Livewire::test('pages::net-worth.index')
+        ->set('newAccountNames.debt', 'Bad Loan')
+        ->set('newAccountBalances.debt', '1000.00')
+        ->set('newAccountInterestRates.debt', '150')
+        ->call('addAccount', 'debt')
+        ->assertHasErrors(['newAccountInterestRates.debt' => 'max']);
+});
+
+test('debt fields are optional when adding a debt account', function () {
+    Livewire::test('pages::net-worth.index')
+        ->set('newAccountNames.debt', 'Mortgage')
+        ->set('newAccountBalances.debt', '200000.00')
+        ->call('addAccount', 'debt')
+        ->assertHasNoErrors();
+
+    $account = NetWorthAccount::where('name', 'Mortgage')->first();
+    expect($account)->not->toBeNull();
+    expect($account->minimum_payment)->toBeNull();
+    expect($account->interest_rate)->toBeNull();
+});

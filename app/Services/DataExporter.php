@@ -81,6 +81,8 @@ class DataExporter
             'balance' => $account->balance,
             'sort_order' => $account->sort_order,
             'is_emergency_fund' => $account->is_emergency_fund,
+            'minimum_payment' => $account->minimum_payment,
+            'interest_rate' => $account->interest_rate,
         ])->toArray();
     }
 

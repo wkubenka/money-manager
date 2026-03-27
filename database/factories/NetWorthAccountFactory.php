@@ -30,6 +30,15 @@ class NetWorthAccountFactory extends Factory
         ]);
     }
 
+    public function debt(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'category' => AccountCategory::Debt,
+            'minimum_payment' => fake()->numberBetween(2500, 50000),
+            'interest_rate' => fake()->randomFloat(2, 3, 29.99),
+        ]);
+    }
+
     public function emergencyFund(): static
     {
         return $this->state(fn (array $attributes) => [

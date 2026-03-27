@@ -1,0 +1,116 @@
+<h2>Debt Payoff Page Structure</h2>
+<p class="subtitle">How should the page be organized? Your debts are already managed on the Net Worth page — this page is purely for payoff analysis and hypotheticals.</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Single Scrolling Page</h3>
+      <p>Summary stats at top (payoff date, total interest, monthly payment), then charts section, then a hypothetical builder at the bottom. Clean and simple — everything visible in one scroll.</p>
+      <div class="mockup" style="margin-top: 12px;">
+        <div class="mockup-body" style="font-size: 13px;">
+          <div style="display:flex; gap:12px; margin-bottom:16px;">
+            <div style="flex:1; background:var(--card-bg); border:1px solid var(--border); border-radius:8px; padding:12px; text-align:center;">
+              <div style="font-size:11px; color:var(--text-muted);">Debt-Free Date</div>
+              <div style="font-size:18px; font-weight:bold; margin-top:4px;">Mar 2028</div>
+            </div>
+            <div style="flex:1; background:var(--card-bg); border:1px solid var(--border); border-radius:8px; padding:12px; text-align:center;">
+              <div style="font-size:11px; color:var(--text-muted);">Total Interest</div>
+              <div style="font-size:18px; font-weight:bold; margin-top:4px;">$4,230</div>
+            </div>
+            <div style="flex:1; background:var(--card-bg); border:1px solid var(--border); border-radius:8px; padding:12px; text-align:center;">
+              <div style="font-size:11px; color:var(--text-muted);">Monthly Payment</div>
+              <div style="font-size:18px; font-weight:bold; margin-top:4px;">$850</div>
+            </div>
+          </div>
+          <div class="placeholder" style="height:80px; margin-bottom:16px;">Balance Over Time Chart</div>
+          <div style="display:flex; gap:12px; margin-bottom:16px;">
+            <div class="placeholder" style="flex:1; height:60px;">Payoff Waterfall</div>
+            <div class="placeholder" style="flex:1; height:60px;">Interest Comparison</div>
+          </div>
+          <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:8px; padding:12px;">
+            <div style="font-weight:bold; margin-bottom:8px;">What If...?</div>
+            <div style="display:flex; gap:8px;">
+              <div class="mock-input" style="flex:1;">Extra $200/mo</div>
+              <div class="mock-input" style="flex:1;">$5,000 lump sum</div>
+              <div class="mock-button">Compare</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Tabbed Layout</h3>
+      <p>Summary stats always visible at top. Tabs below: <strong>Overview</strong> (charts for current plan), <strong>What If</strong> (hypothetical builder with side-by-side comparison charts). Keeps analysis separate from exploration.</p>
+      <div class="mockup" style="margin-top: 12px;">
+        <div class="mockup-body" style="font-size: 13px;">
+          <div style="display:flex; gap:12px; margin-bottom:16px;">
+            <div style="flex:1; background:var(--card-bg); border:1px solid var(--border); border-radius:8px; padding:12px; text-align:center;">
+              <div style="font-size:11px; color:var(--text-muted);">Debt-Free Date</div>
+              <div style="font-size:18px; font-weight:bold; margin-top:4px;">Mar 2028</div>
+            </div>
+            <div style="flex:1; background:var(--card-bg); border:1px solid var(--border); border-radius:8px; padding:12px; text-align:center;">
+              <div style="font-size:11px; color:var(--text-muted);">Total Interest</div>
+              <div style="font-size:18px; font-weight:bold; margin-top:4px;">$4,230</div>
+            </div>
+            <div style="flex:1; background:var(--card-bg); border:1px solid var(--border); border-radius:8px; padding:12px; text-align:center;">
+              <div style="font-size:11px; color:var(--text-muted);">Monthly Payment</div>
+              <div style="font-size:18px; font-weight:bold; margin-top:4px;">$850</div>
+            </div>
+          </div>
+          <div style="display:flex; gap:0; margin-bottom:16px; border-bottom: 2px solid var(--border);">
+            <div style="padding:8px 16px; font-weight:bold; border-bottom:2px solid var(--accent, #3b82f6); margin-bottom:-2px;">Overview</div>
+            <div style="padding:8px 16px; color:var(--text-muted);">What If...?</div>
+          </div>
+          <div class="placeholder" style="height:80px; margin-bottom:12px;">Balance Over Time Chart</div>
+          <div style="display:flex; gap:12px;">
+            <div class="placeholder" style="flex:1; height:60px;">Payoff Waterfall</div>
+            <div class="placeholder" style="flex:1; height:60px;">Interest Saved</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Scenario-First</h3>
+      <p>The page IS the hypothetical builder. Your current plan is just "Scenario 1" (baseline). Add scenarios with different parameters. All charts always show all active scenarios overlaid for direct comparison.</p>
+      <div class="mockup" style="margin-top: 12px;">
+        <div class="mockup-body" style="font-size: 13px;">
+          <div style="display:flex; gap:8px; margin-bottom:12px; align-items:center;">
+            <div style="background:var(--card-bg); border:2px solid var(--accent, #3b82f6); border-radius:8px; padding:8px 12px; font-size:12px;">
+              <div style="font-weight:bold;">Current Plan</div>
+              <div style="color:var(--text-muted); font-size:11px;">$850/mo &bull; Avalanche</div>
+            </div>
+            <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:8px; padding:8px 12px; font-size:12px;">
+              <div style="font-weight:bold;">+$200/mo</div>
+              <div style="color:var(--text-muted); font-size:11px;">$1,050/mo &bull; Avalanche</div>
+            </div>
+            <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:8px; padding:8px 12px; font-size:12px;">
+              <div style="font-weight:bold;">Snowball</div>
+              <div style="color:var(--text-muted); font-size:11px;">$850/mo &bull; Snowball</div>
+            </div>
+            <div class="mock-button" style="font-size:12px;">+ Scenario</div>
+          </div>
+          <div class="placeholder" style="height:80px; margin-bottom:12px;">Balance Over Time — all scenarios overlaid</div>
+          <div style="display:flex; gap:12px;">
+            <div class="placeholder" style="flex:1; height:60px;">Payoff Waterfall — color-coded</div>
+            <div class="placeholder" style="flex:1; height:60px;">Interest Comparison — grouped bars</div>
+          </div>
+          <div style="margin-top:12px; display:flex; gap:12px; font-size:12px;">
+            <div style="flex:1; background:var(--card-bg); border:1px solid var(--border); border-radius:8px; padding:10px;">
+              <div style="font-weight:bold; margin-bottom:4px;">Summary</div>
+              <div style="color:var(--text-muted);">+$200/mo saves $1,840 in interest and pays off 14 months earlier</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

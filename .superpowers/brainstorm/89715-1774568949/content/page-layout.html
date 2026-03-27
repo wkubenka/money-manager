@@ -1,0 +1,136 @@
+<h2>Debt Payoff Page Layout</h2>
+<p class="subtitle">Full page mockup showing how the sections fit together</p>
+
+<div class="mockup">
+  <div class="mockup-header">Debt Payoff Page</div>
+  <div class="mockup-body" style="font-size: 13px;">
+
+    <!-- Page heading -->
+    <div style="margin-bottom: 16px;">
+      <div style="font-size: 18px; font-weight: bold;">Debt Payoff</div>
+      <div style="font-size: 12px; color: var(--text-muted);">Plan your path to debt freedom</div>
+    </div>
+
+    <!-- Scenario pills row -->
+    <div style="display: flex; gap: 8px; margin-bottom: 16px; align-items: center; flex-wrap: wrap;">
+      <div style="background: var(--card-bg); border: 2px solid #3b82f6; border-radius: 8px; padding: 8px 12px; font-size: 12px; position: relative;">
+        <div style="font-weight: bold; color: #3b82f6;">Current Plan</div>
+        <div style="color: var(--text-muted); font-size: 11px;">$850/mo &bull; Avalanche &bull; Payoff: Mar 2028</div>
+      </div>
+      <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 12px; position: relative;">
+        <div style="font-weight: bold;">+$200/mo</div>
+        <div style="color: var(--text-muted); font-size: 11px;">$1,050/mo &bull; Avalanche &bull; Payoff: Jan 2027</div>
+        <div style="position: absolute; top: -6px; right: -6px; background: var(--bg); border: 1px solid var(--border); border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; font-size: 10px; cursor: pointer;">&times;</div>
+      </div>
+      <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 12px; position: relative;">
+        <div style="font-weight: bold;">Snowball</div>
+        <div style="color: var(--text-muted); font-size: 11px;">$850/mo &bull; Snowball &bull; Payoff: May 2028</div>
+        <div style="position: absolute; top: -6px; right: -6px; background: var(--bg); border: 1px solid var(--border); border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; font-size: 10px; cursor: pointer;">&times;</div>
+      </div>
+      <div class="mock-button" style="font-size: 12px; padding: 8px 12px;">+ Scenario</div>
+    </div>
+
+    <!-- Summary comparison cards -->
+    <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+      <div style="flex: 1; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; text-align: center;">
+        <div style="font-size: 11px; color: var(--text-muted);">Earliest Debt-Free</div>
+        <div style="font-size: 20px; font-weight: bold; margin-top: 4px; color: #22c55e;">Jan 2027</div>
+        <div style="font-size: 11px; color: var(--text-muted);">+$200/mo scenario</div>
+      </div>
+      <div style="flex: 1; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; text-align: center;">
+        <div style="font-size: 11px; color: var(--text-muted);">Most Interest Saved</div>
+        <div style="font-size: 20px; font-weight: bold; margin-top: 4px; color: #22c55e;">$1,840</div>
+        <div style="font-size: 11px; color: var(--text-muted);">vs current plan</div>
+      </div>
+      <div style="flex: 1; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; text-align: center;">
+        <div style="font-size: 11px; color: var(--text-muted);">Total Debt</div>
+        <div style="font-size: 20px; font-weight: bold; margin-top: 4px;">$24,500</div>
+        <div style="font-size: 11px; color: var(--text-muted);">across 3 accounts</div>
+      </div>
+    </div>
+
+    <!-- Balance Over Time Chart -->
+    <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+      <div style="font-weight: bold; margin-bottom: 4px;">Balance Over Time</div>
+      <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">Total remaining debt by scenario</div>
+      <div style="height: 120px; position: relative; border-left: 1px solid var(--border); border-bottom: 1px solid var(--border); margin: 0 8px;">
+        <!-- Simulated line chart -->
+        <svg viewBox="0 0 400 120" style="width: 100%; height: 100%;" preserveAspectRatio="none">
+          <!-- Current Plan - blue -->
+          <polyline points="0,10 50,25 100,38 150,50 200,62 250,74 300,86 350,95 400,110" fill="none" stroke="#3b82f6" stroke-width="2"/>
+          <!-- +$200/mo - green -->
+          <polyline points="0,10 50,30 100,50 150,70 200,90 250,105 280,120" fill="none" stroke="#22c55e" stroke-width="2"/>
+          <!-- Snowball - orange -->
+          <polyline points="0,10 50,24 100,37 150,49 200,61 250,73 300,85 360,98 400,112" fill="none" stroke="#f59e0b" stroke-width="2"/>
+        </svg>
+      </div>
+      <div style="display: flex; gap: 16px; justify-content: center; margin-top: 8px; font-size: 11px;">
+        <div><span style="color: #3b82f6;">&mdash;</span> Current Plan</div>
+        <div><span style="color: #22c55e;">&mdash;</span> +$200/mo</div>
+        <div><span style="color: #f59e0b;">&mdash;</span> Snowball</div>
+      </div>
+    </div>
+
+    <!-- Bottom row: Waterfall + Interest -->
+    <div style="display: flex; gap: 16px;">
+      <!-- Payoff Waterfall -->
+      <div style="flex: 1; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
+        <div style="font-weight: bold; margin-bottom: 4px;">Payoff Order</div>
+        <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">When each debt gets eliminated (current plan)</div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="font-size: 11px; width: 80px; color: var(--text-muted);">Credit Card</div>
+            <div style="flex: 1; background: var(--border); border-radius: 4px; height: 20px; position: relative;">
+              <div style="background: #3b82f6; border-radius: 4px; height: 100%; width: 35%;"></div>
+            </div>
+            <div style="font-size: 11px; width: 60px;">Month 8</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="font-size: 11px; width: 80px; color: var(--text-muted);">Car Loan</div>
+            <div style="flex: 1; background: var(--border); border-radius: 4px; height: 20px; position: relative;">
+              <div style="background: #8b5cf6; border-radius: 4px; height: 100%; width: 70%;"></div>
+            </div>
+            <div style="font-size: 11px; width: 60px;">Month 16</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="font-size: 11px; width: 80px; color: var(--text-muted);">Student Loan</div>
+            <div style="flex: 1; background: var(--border); border-radius: 4px; height: 20px; position: relative;">
+              <div style="background: #ec4899; border-radius: 4px; height: 100%; width: 100%;"></div>
+            </div>
+            <div style="font-size: 11px; width: 60px;">Month 24</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Interest Comparison -->
+      <div style="flex: 1; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
+        <div style="font-weight: bold; margin-bottom: 4px;">Total Interest Paid</div>
+        <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">Comparison across scenarios</div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="font-size: 11px; width: 70px; color: var(--text-muted);">Current</div>
+            <div style="flex: 1; background: var(--border); border-radius: 4px; height: 20px; position: relative;">
+              <div style="background: #3b82f6; border-radius: 4px; height: 100%; width: 100%;"></div>
+            </div>
+            <div style="font-size: 11px; width: 50px;">$4,230</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="font-size: 11px; width: 70px; color: var(--text-muted);">+$200/mo</div>
+            <div style="flex: 1; background: var(--border); border-radius: 4px; height: 20px; position: relative;">
+              <div style="background: #22c55e; border-radius: 4px; height: 100%; width: 56%;"></div>
+            </div>
+            <div style="font-size: 11px; width: 50px;">$2,390</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="font-size: 11px; width: 70px; color: var(--text-muted);">Snowball</div>
+            <div style="flex: 1; background: var(--border); border-radius: 4px; height: 20px; position: relative;">
+              <div style="background: #f59e0b; border-radius: 4px; height: 100%; width: 108%; max-width: 100%;"></div>
+            </div>
+            <div style="font-size: 11px; width: 50px;">$4,580</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>

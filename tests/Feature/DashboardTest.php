@@ -651,3 +651,66 @@ test('deleting a category uncategorizes its visions', function () {
     expect($v1->refresh()->rich_life_vision_category_id)->toBeNull();
     expect($v2->refresh()->rich_life_vision_category_id)->toBeNull();
 });
+
+// Debt Payoff tests
+
+test('dashboard shows debt payoff card when debts and plan item exist', function () {
+    NetWorthAccount::factory()->debt()->create([
+        'name' => 'Credit Card',
+        'balance' => 500000, // $5,000
+        'minimum_payment' => 15000, // $150
+        'interest_rate' => 20.0,
+    ]);
+
+    $plan = SpendingPlan::factory()->current()->create([
+        'monthly_income' => 500000,
+        'fixed_costs_misc_percent' => 0,
+    ]);
+    SpendingPlanItem::factory()->create([
+        'spending_plan_id' => $plan->id,
+        'category' => SpendingCategory::FixedCosts,
+        'name' => 'Debt Payments',
+        'amount' => 50000, // $500/mo
+    ]);
+
+    Livewire::test('pages::dashboard')
+        ->assertSee('Debt Payoff')
+        ->assertSee('Total debt')
+        ->assertSee('$5,000')
+        ->assertSee('Monthly payment')
+        ->assertSee('Months remaining');
+});
+
+test('dashboard hides debt payoff card when no debts', function () {
+    Livewire::test('pages::dashboard')
+        ->assertDontSee('Debt Payoff');
+});
+
+test('dashboard shows prompt when debts exist but no plan item', function () {
+    NetWorthAccount::factory()->debt()->create([
+        'name' => 'Student Loan',
+        'balance' => 2000000,
+        'minimum_payment' => 20000,
+        'interest_rate' => 6.5,
+    ]);
+
+    $plan = SpendingPlan::factory()->current()->create([
+        'monthly_income' => 500000,
+    ]);
+
+    Livewire::test('pages::dashboard')
+        ->assertSee('Debt Payoff')
+        ->assertSee('Debt Payments');
+});
+
+test('dashboard hides debt payoff when debt accounts lack interest rate', function () {
+    NetWorthAccount::factory()->create([
+        'category' => AccountCategory::Debt,
+        'balance' => 500000,
+        'minimum_payment' => null,
+        'interest_rate' => null,
+    ]);
+
+    Livewire::test('pages::dashboard')
+        ->assertDontSee('Debt Payoff');
+});

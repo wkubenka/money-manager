@@ -8,6 +8,7 @@ use App\Models\Profile;
 use App\Models\RichLifeVision;
 use App\Models\RichLifeVisionCategory;
 use App\Models\SpendingPlan;
+use App\Services\DebtPayoffCalculator;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
@@ -244,6 +245,48 @@ new class extends Component {
     public function uncategorizedExpenseCount(): int
     {
         return Expense::query()->whereNull('category')->count();
+    }
+
+    #[Computed]
+    public function debtPayoff(): ?array
+    {
+        $debtAccounts = $this->accounts
+            ->where('category', AccountCategory::Debt)
+            ->where('balance', '>', 0)
+            ->filter(fn ($account) => $account->minimum_payment !== null && $account->interest_rate !== null);
+
+        if ($debtAccounts->isEmpty()) {
+            return null;
+        }
+
+        $plan = $this->currentPlan;
+
+        $debtPaymentItem = $plan?->items
+            ->where('category', SpendingCategory::FixedCosts)
+            ->firstWhere('name', 'Debt Payments');
+
+        $totalMonthlyPayment = $debtPaymentItem?->amount ?? 0;
+
+        if ($totalMonthlyPayment <= 0) {
+            return ['needs_plan_item' => true];
+        }
+
+        $debts = $debtAccounts->map(fn ($account) => [
+            'balance' => $account->balance,
+            'interest_rate' => (float) $account->interest_rate,
+            'minimum_payment' => $account->minimum_payment,
+        ]);
+
+        $result = app(DebtPayoffCalculator::class)->calculate($debts, $totalMonthlyPayment);
+
+        if ($result === null) {
+            return null;
+        }
+
+        $result['total_debt'] = (int) $debtAccounts->sum('balance');
+        $result['monthly_payment'] = $totalMonthlyPayment;
+
+        return $result;
     }
 
     public function saveRetirementSettings(): void
@@ -554,6 +597,48 @@ new class extends Component {
                     <flux:text class="text-sm text-zinc-500 dark:text-zinc-400">
                         {{ __('Set a current spending plan to see coverage months.') }}
                     </flux:text>
+                @endif
+            </div>
+        @endif
+
+        {{-- Debt Payoff --}}
+        @if ($this->debtPayoff)
+            <div class="order-5 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <flux:subheading>{{ __('Debt Payoff') }}</flux:subheading>
+                        @if (! ($this->debtPayoff['needs_plan_item'] ?? false))
+                            <div class="mt-1 text-3xl font-bold text-zinc-900 dark:text-zinc-100">
+                                {{ $this->debtPayoff['payoff_date']->format('M Y') }}
+                            </div>
+                        @endif
+                    </div>
+                    <flux:button variant="subtle" size="sm" icon="cog-6-tooth" :href="route('net-worth.index')" wire:navigate aria-label="{{ __('Manage debt accounts') }}" />
+                </div>
+
+                @if ($this->debtPayoff['needs_plan_item'] ?? false)
+                    <flux:text class="text-sm text-zinc-500 dark:text-zinc-400">
+                        {{ __('Add a "Debt Payments" item to your spending plan\'s Fixed Costs to see your payoff timeline.') }}
+                    </flux:text>
+                @else
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Total debt') }}</span>
+                            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ format_cents($this->debtPayoff['total_debt']) }}</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Monthly payment') }}</span>
+                            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ format_cents($this->debtPayoff['monthly_payment']) }}</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Months remaining') }}</span>
+                            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $this->debtPayoff['months_to_payoff'] }}</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Total interest') }}</span>
+                            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ format_cents($this->debtPayoff['total_interest_paid']) }}</span>
+                        </div>
+                    </div>
                 @endif
             </div>
         @endif

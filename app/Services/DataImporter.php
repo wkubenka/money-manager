@@ -54,6 +54,8 @@ class DataImporter
             'net_worth_accounts.*.balance' => 'required|integer',
             'net_worth_accounts.*.sort_order' => 'required|integer|min:0',
             'net_worth_accounts.*.is_emergency_fund' => 'sometimes|boolean',
+            'net_worth_accounts.*.minimum_payment' => 'sometimes|nullable|integer|min:0',
+            'net_worth_accounts.*.interest_rate' => 'sometimes|nullable|numeric|min:0|max:100',
 
             'rich_life_vision_categories' => 'sometimes|array',
             'rich_life_vision_categories.*.name' => 'required|string|max:255',

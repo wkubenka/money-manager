@@ -17,6 +17,8 @@ class NetWorthAccount extends Model
         'balance',
         'sort_order',
         'is_emergency_fund',
+        'minimum_payment',
+        'interest_rate',
     ];
 
     protected function casts(): array
@@ -26,6 +28,8 @@ class NetWorthAccount extends Model
             'balance' => 'integer',
             'sort_order' => 'integer',
             'is_emergency_fund' => 'boolean',
+            'minimum_payment' => 'integer',
+            'interest_rate' => 'decimal:2',
         ];
     }
 }
