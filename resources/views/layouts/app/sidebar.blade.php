@@ -21,6 +21,11 @@
                     <flux:sidebar.item icon="credit-card" :href="route('expenses.index')" :current="request()->routeIs('expenses.*')" wire:navigate>
                         {{ __('Expenses') }}
                     </flux:sidebar.item>
+                    @if (\App\Models\NetWorthAccount::where('category', 'debt')->exists())
+                        <flux:sidebar.item icon="calculator" :href="route('debt-payoff.index')" :current="request()->routeIs('debt-payoff.*')" wire:navigate>
+                            {{ __('Debt Payoff') }}
+                        </flux:sidebar.item>
+                    @endif
                 </flux:sidebar.group>
             </flux:sidebar.nav>
 
