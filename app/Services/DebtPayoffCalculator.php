@@ -17,7 +17,7 @@ class DebtPayoffCalculator
      * @param  string  $strategy  Payoff strategy: 'avalanche' (highest rate first) or 'snowball' (smallest balance first)
      * @param  int  $lumpSumCents  One-time extra payment amount (cents)
      * @param  int  $lumpSumMonth  Month number in which to apply the lump sum
-     * @return array{payoff_date: Carbon, months_to_payoff: int, total_interest_paid: int}|null
+     * @return array{payoff_date: Carbon, months_to_payoff: int, total_interest_paid: int, timeline: array, payoff_order: array}|null
      */
     public function calculate(Collection $debts, int $totalMonthlyPaymentCents, string $strategy = 'avalanche', int $lumpSumCents = 0, int $lumpSumMonth = 1): ?array
     {
@@ -43,6 +43,9 @@ class DebtPayoffCalculator
 
         $totalInterestPaid = 0;
         $months = 0;
+        $timeline = [];
+        $payoffOrder = [];
+        $paidOff = [];
 
         while ($months < self::MAX_MONTHS) {
             // Check if all debts are paid off
@@ -115,12 +118,33 @@ class DebtPayoffCalculator
                 $surplus -= $extraPayment;
             }
             unset($debt);
+
+            // Step 6: Record timeline data
+            $monthBalances = [];
+            foreach ($working as $debt) {
+                $monthBalances[$debt['name']] = max(0, (int) round($debt['balance']));
+            }
+
+            foreach ($working as $debt) {
+                if ($debt['balance'] <= 0 && ! isset($paidOff[$debt['name']])) {
+                    $paidOff[$debt['name']] = true;
+                    $payoffOrder[] = ['name' => $debt['name'], 'paid_off_month' => $months];
+                }
+            }
+
+            $timeline[] = [
+                'month' => $months,
+                'balances' => $monthBalances,
+                'interest' => (int) round($totalInterestPaid),
+            ];
         }
 
         return [
             'payoff_date' => Carbon::now()->addMonthsNoOverflow($months),
             'months_to_payoff' => $months,
             'total_interest_paid' => (int) round($totalInterestPaid),
+            'timeline' => $timeline,
+            'payoff_order' => $payoffOrder,
         ];
     }
 }

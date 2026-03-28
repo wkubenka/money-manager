@@ -123,3 +123,58 @@ test('caps at maximum months to prevent infinite loop', function () {
     expect($result)->not->toBeNull();
     expect($result['months_to_payoff'])->toBe(DebtPayoffCalculator::MAX_MONTHS);
 });
+
+test('returns monthly timeline data', function () {
+    $calculator = new DebtPayoffCalculator;
+
+    $debts = collect([
+        ['name' => 'Credit Card', 'balance' => 500000, 'interest_rate' => 20.0, 'minimum_payment' => 20000],
+    ]);
+
+    $result = $calculator->calculate($debts, 20000);
+
+    expect($result)->toHaveKey('timeline');
+    expect($result['timeline'])->toBeArray();
+    expect($result['timeline'])->not->toBeEmpty();
+
+    $firstMonth = $result['timeline'][0];
+    expect($firstMonth)->toHaveKeys(['month', 'balances', 'interest']);
+    expect($firstMonth['month'])->toBe(1);
+    expect($firstMonth['balances'])->toHaveKey('Credit Card');
+    expect($firstMonth['balances']['Credit Card'])->toBeLessThan(500000);
+    expect($firstMonth['interest'])->toBeGreaterThan(0);
+});
+
+test('returns payoff order tracking', function () {
+    $calculator = new DebtPayoffCalculator;
+
+    $debts = collect([
+        ['name' => 'Small Debt', 'balance' => 100000, 'interest_rate' => 10.0, 'minimum_payment' => 10000],
+        ['name' => 'Big Debt', 'balance' => 500000, 'interest_rate' => 15.0, 'minimum_payment' => 10000],
+    ]);
+
+    $result = $calculator->calculate($debts, 50000);
+
+    expect($result)->toHaveKey('payoff_order');
+    expect($result['payoff_order'])->toHaveCount(2);
+
+    $first = $result['payoff_order'][0];
+    expect($first)->toHaveKeys(['name', 'paid_off_month']);
+    expect($first['paid_off_month'])->toBeGreaterThan(0);
+
+    expect($result['payoff_order'][0]['paid_off_month'])
+        ->toBeLessThan($result['payoff_order'][1]['paid_off_month']);
+});
+
+test('timeline balances reach zero at payoff', function () {
+    $calculator = new DebtPayoffCalculator;
+
+    $debts = collect([
+        ['name' => 'Loan', 'balance' => 500000, 'interest_rate' => 10.0, 'minimum_payment' => 20000],
+    ]);
+
+    $result = $calculator->calculate($debts, 20000);
+    $lastMonth = end($result['timeline']);
+
+    expect($lastMonth['balances']['Loan'])->toBe(0);
+});
