@@ -306,3 +306,75 @@ test('user can add snowball scenario', function () {
         ->assertSee('Try Snowball')
         ->assertSee('Snowball');
 });
+
+test('empty state links to net worth page', function () {
+    Livewire::test('pages::debt-payoff.index')
+        ->assertSee('No debt accounts found')
+        ->assertSeeHtml(route('net-worth.index'));
+});
+
+test('interest saved card shows dash with only baseline scenario', function () {
+    NetWorthAccount::factory()->create([
+        'category' => AccountCategory::Debt,
+        'name' => 'Loan',
+        'balance' => 500000,
+        'interest_rate' => 10.0,
+        'minimum_payment' => 20000,
+    ]);
+
+    Livewire::test('pages::debt-payoff.index')
+        ->assertSee('Most Interest Saved')
+        ->assertSeeHtml('&mdash;');
+});
+
+test('removing scenario at invalid index does not crash', function () {
+    NetWorthAccount::factory()->create([
+        'category' => AccountCategory::Debt,
+        'name' => 'Loan',
+        'balance' => 500000,
+        'interest_rate' => 10.0,
+        'minimum_payment' => 20000,
+    ]);
+
+    Livewire::test('pages::debt-payoff.index')
+        ->call('removeScenario', 99)
+        ->assertSee('Current Plan');
+});
+
+test('extra payment cannot be negative', function () {
+    NetWorthAccount::factory()->create([
+        'category' => AccountCategory::Debt,
+        'name' => 'Loan',
+        'balance' => 500000,
+        'interest_rate' => 10.0,
+        'minimum_payment' => 20000,
+    ]);
+
+    Livewire::test('pages::debt-payoff.index')
+        ->set('newScenario.name', 'Negative Extra')
+        ->set('newScenario.strategy', 'avalanche')
+        ->set('newScenario.extra_payment', '-100')
+        ->set('newScenario.lump_sum', '0')
+        ->set('newScenario.lump_sum_month', '1')
+        ->call('addScenario')
+        ->assertHasErrors(['newScenario.extra_payment']);
+});
+
+test('lump sum cannot be negative', function () {
+    NetWorthAccount::factory()->create([
+        'category' => AccountCategory::Debt,
+        'name' => 'Loan',
+        'balance' => 500000,
+        'interest_rate' => 10.0,
+        'minimum_payment' => 20000,
+    ]);
+
+    Livewire::test('pages::debt-payoff.index')
+        ->set('newScenario.name', 'Negative Lump')
+        ->set('newScenario.strategy', 'avalanche')
+        ->set('newScenario.extra_payment', '0')
+        ->set('newScenario.lump_sum', '-500')
+        ->set('newScenario.lump_sum_month', '1')
+        ->call('addScenario')
+        ->assertHasErrors(['newScenario.lump_sum']);
+});

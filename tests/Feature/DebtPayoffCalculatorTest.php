@@ -302,3 +302,41 @@ test('debts with same interest rate are both paid off', function () {
     expect($lastMonth['balances']['Loan A'])->toBe(0);
     expect($lastMonth['balances']['Loan B'])->toBe(0);
 });
+
+test('timeline length matches months to payoff', function () {
+    $calculator = new DebtPayoffCalculator;
+
+    $debts = collect([
+        ['name' => 'Loan', 'balance' => 500000, 'interest_rate' => 10.0, 'minimum_payment' => 20000],
+    ]);
+
+    $result = $calculator->calculate($debts, 20000);
+
+    expect(count($result['timeline']))->toBe($result['months_to_payoff']);
+});
+
+test('lump sum larger than total debt pays off immediately', function () {
+    $calculator = new DebtPayoffCalculator;
+
+    $debts = collect([
+        ['name' => 'Small Debt', 'balance' => 500000, 'interest_rate' => 10.0, 'minimum_payment' => 10000],
+    ]);
+
+    // $50,000 lump sum on a $5,000 debt
+    $result = $calculator->calculate($debts, 10000, lumpSumCents: 5000000, lumpSumMonth: 1);
+
+    expect($result['months_to_payoff'])->toBe(1);
+});
+
+test('single debt has one entry in payoff order', function () {
+    $calculator = new DebtPayoffCalculator;
+
+    $debts = collect([
+        ['name' => 'Only Debt', 'balance' => 300000, 'interest_rate' => 12.0, 'minimum_payment' => 15000],
+    ]);
+
+    $result = $calculator->calculate($debts, 15000);
+
+    expect($result['payoff_order'])->toHaveCount(1);
+    expect($result['payoff_order'][0]['name'])->toBe('Only Debt');
+});
