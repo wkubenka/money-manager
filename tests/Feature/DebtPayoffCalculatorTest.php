@@ -178,3 +178,36 @@ test('timeline balances reach zero at payoff', function () {
 
     expect($lastMonth['balances']['Loan'])->toBe(0);
 });
+
+test('lump sum payment reduces payoff time', function () {
+    $calculator = new DebtPayoffCalculator;
+
+    $debts = collect([
+        ['name' => 'Car Loan', 'balance' => 1000000, 'interest_rate' => 10.0, 'minimum_payment' => 20000],
+    ]);
+
+    $withoutLump = $calculator->calculate($debts, 30000);
+    $withLump = $calculator->calculate($debts, 30000, lumpSumCents: 500000, lumpSumMonth: 1);
+
+    expect($withLump['months_to_payoff'])->toBeLessThan($withoutLump['months_to_payoff']);
+    expect($withLump['total_interest_paid'])->toBeLessThan($withoutLump['total_interest_paid']);
+});
+
+test('lump sum applied in correct month', function () {
+    $calculator = new DebtPayoffCalculator;
+
+    $debts = collect([
+        ['name' => 'Loan', 'balance' => 1000000, 'interest_rate' => 10.0, 'minimum_payment' => 20000],
+    ]);
+
+    // Lump sum in month 3
+    $result = $calculator->calculate($debts, 20000, lumpSumCents: 500000, lumpSumMonth: 3);
+
+    // Balance should drop significantly between month 2 and month 3
+    $month2Balance = $result['timeline'][1]['balances']['Loan'];
+    $month3Balance = $result['timeline'][2]['balances']['Loan'];
+    $drop = $month2Balance - $month3Balance;
+
+    // The drop should be much larger than a normal payment (~$200 min + interest)
+    expect($drop)->toBeGreaterThan(400000);
+});
