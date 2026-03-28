@@ -92,6 +92,24 @@ test('handles zero interest rate debt', function () {
     expect($result['total_interest_paid'])->toBe(0);
 });
 
+test('snowball method pays smallest balance first', function () {
+    $calculator = new DebtPayoffCalculator;
+
+    // Small balance ($2,000 at 5%) and large balance ($8,000 at 25%)
+    // Snowball targets the $2,000 first despite lower rate
+    $debts = collect([
+        ['name' => 'Big Loan', 'balance' => 800000, 'interest_rate' => 25.0, 'minimum_payment' => 10000],
+        ['name' => 'Small Loan', 'balance' => 200000, 'interest_rate' => 5.0, 'minimum_payment' => 10000],
+    ]);
+
+    $result = $calculator->calculate($debts, 60000, strategy: 'snowball');
+
+    expect($result)->not->toBeNull();
+    // Snowball pays more total interest than avalanche
+    $avalancheResult = $calculator->calculate($debts, 60000, strategy: 'avalanche');
+    expect($result['total_interest_paid'])->toBeGreaterThan($avalancheResult['total_interest_paid']);
+});
+
 test('caps at maximum months to prevent infinite loop', function () {
     $calculator = new DebtPayoffCalculator;
 

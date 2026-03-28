@@ -10,29 +10,36 @@ class DebtPayoffCalculator
     public const MAX_MONTHS = 360;
 
     /**
-     * Calculate debt payoff timeline using the avalanche method.
+     * Calculate debt payoff timeline using the specified strategy.
      *
-     * @param  Collection<int, array{balance: int, interest_rate: float, minimum_payment: int}>  $debts
+     * @param  Collection<int, array{name?: string, balance: int, interest_rate: float, minimum_payment: int}>  $debts
      * @param  int  $totalMonthlyPaymentCents  Total monthly debt budget from spending plan (cents)
+     * @param  string  $strategy  Payoff strategy: 'avalanche' (highest rate first) or 'snowball' (smallest balance first)
+     * @param  int  $lumpSumCents  One-time extra payment amount (cents)
+     * @param  int  $lumpSumMonth  Month number in which to apply the lump sum
      * @return array{payoff_date: Carbon, months_to_payoff: int, total_interest_paid: int}|null
      */
-    public function calculate(Collection $debts, int $totalMonthlyPaymentCents): ?array
+    public function calculate(Collection $debts, int $totalMonthlyPaymentCents, string $strategy = 'avalanche', int $lumpSumCents = 0, int $lumpSumMonth = 1): ?array
     {
         if ($debts->isEmpty() || $totalMonthlyPaymentCents <= 0) {
             return null;
         }
 
-        // Build working array sorted by interest rate descending (avalanche order)
+        // Build working array with strategy-based sorting
         $working = $debts
             ->map(fn (array $debt) => [
+                'name' => $debt['name'] ?? 'Debt',
                 'balance' => (float) $debt['balance'],
                 'interest_rate' => (float) $debt['interest_rate'],
                 'minimum_payment' => (int) $debt['minimum_payment'],
                 'monthly_rate' => ((float) $debt['interest_rate']) / 100 / 12,
-            ])
-            ->sortByDesc('interest_rate')
-            ->values()
-            ->all();
+            ]);
+
+        // Sort by strategy: avalanche = highest interest first, snowball = smallest balance first
+        $working = match ($strategy) {
+            'snowball' => $working->sortBy('balance')->values()->all(),
+            default => $working->sortByDesc('interest_rate')->values()->all(),
+        };
 
         $totalInterestPaid = 0;
         $months = 0;
@@ -58,7 +65,22 @@ class DebtPayoffCalculator
             }
             unset($debt);
 
-            // Step 2: Calculate surplus (total budget minus sum of active minimums)
+            // Step 2: Apply lump sum in the specified month
+            if ($lumpSumCents > 0 && $months === $lumpSumMonth) {
+                $remainingLumpSum = $lumpSumCents;
+                foreach ($working as &$debt) {
+                    if ($debt['balance'] <= 0 || $remainingLumpSum <= 0) {
+                        continue;
+                    }
+
+                    $extraPayment = min($remainingLumpSum, $debt['balance']);
+                    $debt['balance'] -= $extraPayment;
+                    $remainingLumpSum -= $extraPayment;
+                }
+                unset($debt);
+            }
+
+            // Step 3: Calculate surplus (total budget minus sum of active minimums)
             $activeMinimums = 0;
             foreach ($working as &$debt) {
                 if ($debt['balance'] <= 0) {
@@ -71,7 +93,7 @@ class DebtPayoffCalculator
 
             $surplus = max(0, $totalMonthlyPaymentCents - $activeMinimums);
 
-            // Step 3: Apply minimum payments
+            // Step 4: Apply minimum payments
             foreach ($working as &$debt) {
                 if ($debt['balance'] <= 0) {
                     continue;
@@ -82,7 +104,7 @@ class DebtPayoffCalculator
             }
             unset($debt);
 
-            // Step 4: Apply surplus to highest-rate debt (already sorted)
+            // Step 5: Apply surplus to target debt (first in sorted order)
             foreach ($working as &$debt) {
                 if ($debt['balance'] <= 0 || $surplus <= 0) {
                     continue;
