@@ -174,6 +174,10 @@ new class extends Component {
     }
 }; ?>
 
+@assets
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+@endassets
+
 <section class="w-full">
     <x-page-heading title="Debt Payoff" subtitle="Plan your path to debt freedom" />
 
@@ -304,10 +308,41 @@ new class extends Component {
             </div>
         </div>
 
-        {{-- Charts placeholder — implemented in Task 7 --}}
-        <div id="charts-section" class="space-y-6">
+        {{-- Charts --}}
+        <div
+            id="charts-section"
+            class="space-y-6"
+            x-data="debtCharts()"
+            x-effect="updateCharts($wire.scenarioResults)"
+        >
+            {{-- Balance Over Time --}}
             <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-5">
-                <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Charts loading...') }}</p>
+                <flux:heading>{{ __('Balance Over Time') }}</flux:heading>
+                <flux:subheading class="mb-4">{{ __('Total remaining debt by scenario') }}</flux:subheading>
+                <div class="relative" style="height: 300px;">
+                    <canvas x-ref="balanceChart"></canvas>
+                </div>
+            </div>
+
+            {{-- Bottom row --}}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {{-- Payoff Order --}}
+                <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-5">
+                    <flux:heading>{{ __('Payoff Order') }}</flux:heading>
+                    <flux:subheading class="mb-4">{{ __('When each debt gets eliminated') }}</flux:subheading>
+                    <div class="relative" style="height: 200px;">
+                        <canvas x-ref="payoffChart"></canvas>
+                    </div>
+                </div>
+
+                {{-- Interest Comparison --}}
+                <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-5">
+                    <flux:heading>{{ __('Total Interest Paid') }}</flux:heading>
+                    <flux:subheading class="mb-4">{{ __('Comparison across scenarios') }}</flux:subheading>
+                    <div class="relative" style="height: 200px;">
+                        <canvas x-ref="interestChart"></canvas>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -344,4 +379,167 @@ new class extends Component {
             </div>
         </flux:modal>
     @endif
+
+    <script>
+    function debtCharts() {
+        const colors = ['#3b82f6', '#22c55e', '#f59e0b', '#ec4899', '#8b5cf6'];
+
+        function monthLabel(monthOffset) {
+            const d = new Date();
+            d.setMonth(d.getMonth() + monthOffset);
+            return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        }
+
+        return {
+            balanceChart: null,
+            payoffChart: null,
+            interestChart: null,
+
+            updateCharts(scenarioResults) {
+                if (!scenarioResults || scenarioResults.length === 0) return;
+
+                this.$nextTick(() => {
+                    this.renderBalanceChart(scenarioResults);
+                    this.renderPayoffChart(scenarioResults);
+                    this.renderInterestChart(scenarioResults);
+                });
+            },
+
+            renderBalanceChart(scenarioResults) {
+                const ctx = this.$refs.balanceChart;
+                if (!ctx) return;
+
+                if (this.balanceChart) this.balanceChart.destroy();
+
+                const maxMonths = Math.max(...scenarioResults.map(s => s.result?.months_to_payoff ?? 0));
+                const labels = Array.from({ length: maxMonths }, (_, i) => monthLabel(i + 1));
+
+                const datasets = scenarioResults.map((sr, i) => ({
+                    label: sr.scenario.name,
+                    data: (sr.result?.timeline ?? []).map(t => {
+                        const total = Object.values(t.balances).reduce((sum, b) => sum + b, 0);
+                        return Math.round(total / 100);
+                    }),
+                    borderColor: colors[i % colors.length],
+                    backgroundColor: 'transparent',
+                    tension: 0.3,
+                    pointRadius: 0,
+                    borderWidth: 2,
+                }));
+
+                this.balanceChart = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels, datasets },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { intersect: false, mode: 'index' },
+                        scales: {
+                            x: {
+                                ticks: { maxTicksLimit: 12 },
+                                grid: { display: false },
+                            },
+                            y: {
+                                ticks: {
+                                    callback: v => '$' + v.toLocaleString(),
+                                },
+                            },
+                        },
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: ctx => ctx.dataset.label + ': $' + ctx.parsed.y.toLocaleString(),
+                                },
+                            },
+                        },
+                    },
+                });
+            },
+
+            renderPayoffChart(scenarioResults) {
+                const ctx = this.$refs.payoffChart;
+                if (!ctx) return;
+
+                if (this.payoffChart) this.payoffChart.destroy();
+
+                const baseline = scenarioResults.find(s => s.scenario.is_baseline) ?? scenarioResults[0];
+                const payoffOrder = baseline.result?.payoff_order ?? [];
+
+                const debtColors = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#22c55e'];
+
+                this.payoffChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: payoffOrder.map(d => d.name),
+                        datasets: [{
+                            data: payoffOrder.map(d => d.paid_off_month),
+                            backgroundColor: payoffOrder.map((_, i) => debtColors[i % debtColors.length]),
+                            borderRadius: 4,
+                        }],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        indexAxis: 'y',
+                        scales: {
+                            x: {
+                                ticks: {
+                                    callback: v => monthLabel(v),
+                                    maxTicksLimit: 6,
+                                },
+                            },
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: ctx => monthLabel(ctx.parsed.x),
+                                },
+                            },
+                        },
+                    },
+                });
+            },
+
+            renderInterestChart(scenarioResults) {
+                const ctx = this.$refs.interestChart;
+                if (!ctx) return;
+
+                if (this.interestChart) this.interestChart.destroy();
+
+                this.interestChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: scenarioResults.map(s => s.scenario.name),
+                        datasets: [{
+                            data: scenarioResults.map(s => Math.round((s.result?.total_interest_paid ?? 0) / 100)),
+                            backgroundColor: scenarioResults.map((_, i) => colors[i % colors.length]),
+                            borderRadius: 4,
+                        }],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        indexAxis: 'y',
+                        scales: {
+                            x: {
+                                ticks: {
+                                    callback: v => '$' + v.toLocaleString(),
+                                },
+                            },
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: ctx => '$' + ctx.parsed.x.toLocaleString(),
+                                },
+                            },
+                        },
+                    },
+                });
+            },
+        };
+    }
+    </script>
 </section>
