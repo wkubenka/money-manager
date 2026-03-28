@@ -165,3 +165,144 @@ test('shows warning when budget is less than minimums', function () {
     Livewire::test('pages::debt-payoff.index')
         ->assertSee("doesn't cover all minimum payments");
 });
+
+test('cannot remove baseline scenario', function () {
+    NetWorthAccount::factory()->create([
+        'category' => AccountCategory::Debt,
+        'name' => 'Loan',
+        'balance' => 500000,
+        'interest_rate' => 10.0,
+        'minimum_payment' => 20000,
+    ]);
+
+    Livewire::test('pages::debt-payoff.index')
+        ->call('removeScenario', 0)
+        ->assertSee('Current Plan');
+});
+
+test('scenario name is required', function () {
+    NetWorthAccount::factory()->create([
+        'category' => AccountCategory::Debt,
+        'name' => 'Loan',
+        'balance' => 500000,
+        'interest_rate' => 10.0,
+        'minimum_payment' => 20000,
+    ]);
+
+    Livewire::test('pages::debt-payoff.index')
+        ->set('newScenario.name', '')
+        ->set('newScenario.strategy', 'avalanche')
+        ->set('newScenario.extra_payment', '100')
+        ->set('newScenario.lump_sum', '0')
+        ->set('newScenario.lump_sum_month', '1')
+        ->call('addScenario')
+        ->assertHasErrors(['newScenario.name' => 'required']);
+});
+
+test('scenario strategy must be valid', function () {
+    NetWorthAccount::factory()->create([
+        'category' => AccountCategory::Debt,
+        'name' => 'Loan',
+        'balance' => 500000,
+        'interest_rate' => 10.0,
+        'minimum_payment' => 20000,
+    ]);
+
+    Livewire::test('pages::debt-payoff.index')
+        ->set('newScenario.name', 'Bad Strategy')
+        ->set('newScenario.strategy', 'invalid')
+        ->set('newScenario.extra_payment', '100')
+        ->set('newScenario.lump_sum', '0')
+        ->set('newScenario.lump_sum_month', '1')
+        ->call('addScenario')
+        ->assertHasErrors(['newScenario.strategy' => 'in']);
+});
+
+test('shows spending plan tip when no spending plan exists', function () {
+    NetWorthAccount::factory()->create([
+        'category' => AccountCategory::Debt,
+        'name' => 'Loan',
+        'balance' => 500000,
+        'interest_rate' => 10.0,
+        'minimum_payment' => 20000,
+    ]);
+
+    Livewire::test('pages::debt-payoff.index')
+        ->assertSee('Tip: Add a Spending Plan');
+});
+
+test('hides spending plan tip when spending plan has debt payments', function () {
+    $plan = SpendingPlan::factory()->current()->create();
+    SpendingPlanItem::factory()->for($plan)->create([
+        'category' => SpendingCategory::FixedCosts,
+        'name' => 'Debt Payments',
+        'amount' => 50000,
+    ]);
+
+    NetWorthAccount::factory()->create([
+        'category' => AccountCategory::Debt,
+        'name' => 'Loan',
+        'balance' => 500000,
+        'interest_rate' => 10.0,
+        'minimum_payment' => 20000,
+    ]);
+
+    Livewire::test('pages::debt-payoff.index')
+        ->assertDontSee('Tip: Add a Spending Plan');
+});
+
+test('summary cards show total debt', function () {
+    NetWorthAccount::factory()->create([
+        'category' => AccountCategory::Debt,
+        'name' => 'Card',
+        'balance' => 500000,
+        'interest_rate' => 15.0,
+        'minimum_payment' => 10000,
+    ]);
+    NetWorthAccount::factory()->create([
+        'category' => AccountCategory::Debt,
+        'name' => 'Car Loan',
+        'balance' => 1000000,
+        'interest_rate' => 7.0,
+        'minimum_payment' => 20000,
+    ]);
+
+    Livewire::test('pages::debt-payoff.index')
+        ->assertSee('Total Debt')
+        ->assertSee('$15,000')
+        ->assertSee('2 accounts');
+});
+
+test('handles debts with null interest rate and minimum payment', function () {
+    NetWorthAccount::factory()->create([
+        'category' => AccountCategory::Debt,
+        'name' => 'IOU',
+        'balance' => 200000,
+        'interest_rate' => null,
+        'minimum_payment' => null,
+    ]);
+
+    Livewire::test('pages::debt-payoff.index')
+        ->assertSee('Current Plan')
+        ->assertSee('IOU');
+});
+
+test('user can add snowball scenario', function () {
+    NetWorthAccount::factory()->create([
+        'category' => AccountCategory::Debt,
+        'name' => 'Loan',
+        'balance' => 500000,
+        'interest_rate' => 10.0,
+        'minimum_payment' => 20000,
+    ]);
+
+    Livewire::test('pages::debt-payoff.index')
+        ->set('newScenario.name', 'Try Snowball')
+        ->set('newScenario.strategy', 'snowball')
+        ->set('newScenario.extra_payment', '0')
+        ->set('newScenario.lump_sum', '0')
+        ->set('newScenario.lump_sum_month', '1')
+        ->call('addScenario')
+        ->assertSee('Try Snowball')
+        ->assertSee('Snowball');
+});

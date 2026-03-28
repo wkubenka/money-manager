@@ -211,3 +211,94 @@ test('lump sum applied in correct month', function () {
     // The drop should be much larger than a normal payment (~$200 min + interest)
     expect($drop)->toBeGreaterThan(400000);
 });
+
+test('handles debt with zero minimum payment', function () {
+    $calculator = new DebtPayoffCalculator;
+
+    // Debt with no minimum — all payment comes from surplus
+    $debts = collect([
+        ['name' => 'Interest-Free Loan', 'balance' => 500000, 'interest_rate' => 0.0, 'minimum_payment' => 0],
+    ]);
+
+    $result = $calculator->calculate($debts, 25000);
+
+    expect($result)->not->toBeNull();
+    expect($result['months_to_payoff'])->toBe(20); // $5,000 / $250 = 20 months
+    expect($result['total_interest_paid'])->toBe(0);
+});
+
+test('handles debt with zero interest rate and zero minimum payment', function () {
+    $calculator = new DebtPayoffCalculator;
+
+    $debts = collect([
+        ['name' => 'Family Loan', 'balance' => 100000, 'interest_rate' => 0.0, 'minimum_payment' => 0],
+    ]);
+
+    $result = $calculator->calculate($debts, 50000);
+
+    expect($result)->not->toBeNull();
+    expect($result['months_to_payoff'])->toBe(2);
+    expect($result['total_interest_paid'])->toBe(0);
+});
+
+test('snowball payoff order targets smallest balance first', function () {
+    $calculator = new DebtPayoffCalculator;
+
+    // Three debts: snowball should pay off Small first, then Medium, then Large
+    // despite Large having the highest interest rate
+    $debts = collect([
+        ['name' => 'Large', 'balance' => 1000000, 'interest_rate' => 25.0, 'minimum_payment' => 10000],
+        ['name' => 'Small', 'balance' => 100000, 'interest_rate' => 5.0, 'minimum_payment' => 5000],
+        ['name' => 'Medium', 'balance' => 300000, 'interest_rate' => 15.0, 'minimum_payment' => 10000],
+    ]);
+
+    $result = $calculator->calculate($debts, 80000, strategy: 'snowball');
+
+    expect($result['payoff_order'][0]['name'])->toBe('Small');
+    expect($result['payoff_order'][1]['name'])->toBe('Medium');
+    expect($result['payoff_order'][2]['name'])->toBe('Large');
+});
+
+test('lump sum works with snowball strategy', function () {
+    $calculator = new DebtPayoffCalculator;
+
+    $debts = collect([
+        ['name' => 'Big Debt', 'balance' => 800000, 'interest_rate' => 20.0, 'minimum_payment' => 10000],
+        ['name' => 'Small Debt', 'balance' => 200000, 'interest_rate' => 5.0, 'minimum_payment' => 10000],
+    ]);
+
+    $withoutLump = $calculator->calculate($debts, 50000, strategy: 'snowball');
+    $withLump = $calculator->calculate($debts, 50000, strategy: 'snowball', lumpSumCents: 300000, lumpSumMonth: 1);
+
+    expect($withLump['months_to_payoff'])->toBeLessThan($withoutLump['months_to_payoff']);
+    expect($withLump['total_interest_paid'])->toBeLessThan($withoutLump['total_interest_paid']);
+});
+
+test('returns null when monthly payment is negative', function () {
+    $calculator = new DebtPayoffCalculator;
+
+    $debts = collect([
+        ['name' => 'Loan', 'balance' => 500000, 'interest_rate' => 10.0, 'minimum_payment' => 10000],
+    ]);
+
+    $result = $calculator->calculate($debts, -100);
+
+    expect($result)->toBeNull();
+});
+
+test('debts with same interest rate are both paid off', function () {
+    $calculator = new DebtPayoffCalculator;
+
+    // Two debts at the same rate — both should eventually be paid off
+    $debts = collect([
+        ['name' => 'Loan A', 'balance' => 300000, 'interest_rate' => 15.0, 'minimum_payment' => 10000],
+        ['name' => 'Loan B', 'balance' => 500000, 'interest_rate' => 15.0, 'minimum_payment' => 10000],
+    ]);
+
+    $result = $calculator->calculate($debts, 50000);
+
+    expect($result['payoff_order'])->toHaveCount(2);
+    $lastMonth = end($result['timeline']);
+    expect($lastMonth['balances']['Loan A'])->toBe(0);
+    expect($lastMonth['balances']['Loan B'])->toBe(0);
+});
