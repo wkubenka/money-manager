@@ -162,6 +162,14 @@ new class extends Component {
         }
     }
 
+    public function getChartData(): array
+    {
+        return collect($this->scenarioResults)->map(fn ($sr) => [
+            'scenario' => $sr['scenario'],
+            'result' => $sr['result'] ? collect($sr['result'])->except('payoff_date')->all() : null,
+        ])->values()->all();
+    }
+
     private function resetNewScenario(): void
     {
         $this->newScenario = [
@@ -309,18 +317,13 @@ new class extends Component {
         </div>
 
         {{-- Charts --}}
-        <div
-            id="charts-section"
-            class="space-y-6"
-            x-data="debtCharts"
-            x-effect="updateCharts($wire.scenarioResults)"
-        >
+        <div id="charts-section" class="space-y-6">
             {{-- Balance Over Time --}}
             <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-5">
                 <flux:heading>{{ __('Balance Over Time') }}</flux:heading>
                 <flux:subheading class="mb-4">{{ __('Total remaining debt by scenario') }}</flux:subheading>
                 <div class="relative" style="height: 300px;">
-                    <canvas x-ref="balanceChart"></canvas>
+                    <canvas id="debt-balance-chart"></canvas>
                 </div>
             </div>
 
@@ -331,7 +334,7 @@ new class extends Component {
                     <flux:heading>{{ __('Payoff Order') }}</flux:heading>
                     <flux:subheading class="mb-4">{{ __('When each debt gets eliminated') }}</flux:subheading>
                     <div class="relative" style="height: 200px;">
-                        <canvas x-ref="payoffChart"></canvas>
+                        <canvas id="debt-payoff-chart"></canvas>
                     </div>
                 </div>
 
@@ -340,7 +343,7 @@ new class extends Component {
                     <flux:heading>{{ __('Total Interest Paid') }}</flux:heading>
                     <flux:subheading class="mb-4">{{ __('Comparison across scenarios') }}</flux:subheading>
                     <div class="relative" style="height: 200px;">
-                        <canvas x-ref="interestChart"></canvas>
+                        <canvas id="debt-interest-chart"></canvas>
                     </div>
                 </div>
             </div>
@@ -382,8 +385,8 @@ new class extends Component {
 
     @script
     <script>
-    Alpine.data('debtCharts', () => {
         const colors = ['#3b82f6', '#22c55e', '#f59e0b', '#ec4899', '#8b5cf6'];
+        let balanceChart = null, payoffChart = null, interestChart = null;
 
         function monthLabel(monthOffset) {
             const d = new Date();
@@ -391,33 +394,20 @@ new class extends Component {
             return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
         }
 
-        return {
-            balanceChart: null,
-            payoffChart: null,
-            interestChart: null,
+        function renderCharts(data) {
+            if (!data || !data.length) return;
 
-            updateCharts(scenarioResults) {
-                if (!scenarioResults || scenarioResults.length === 0) return;
+            // Balance Over Time
+            const balanceCtx = document.getElementById('debt-balance-chart');
+            if (balanceCtx) {
+                if (balanceChart) balanceChart.destroy();
 
-                this.$nextTick(() => {
-                    this.renderBalanceChart(scenarioResults);
-                    this.renderPayoffChart(scenarioResults);
-                    this.renderInterestChart(scenarioResults);
-                });
-            },
-
-            renderBalanceChart(scenarioResults) {
-                const ctx = this.$refs.balanceChart;
-                if (!ctx) return;
-
-                if (this.balanceChart) this.balanceChart.destroy();
-
-                const maxMonths = Math.max(...scenarioResults.map(s => s.result?.months_to_payoff ?? 0));
+                const maxMonths = Math.max(...data.map(s => s.result ? s.result.months_to_payoff : 0));
                 const labels = Array.from({ length: maxMonths }, (_, i) => monthLabel(i + 1));
 
-                const datasets = scenarioResults.map((sr, i) => ({
+                const datasets = data.map((sr, i) => ({
                     label: sr.scenario.name,
-                    data: (sr.result?.timeline ?? []).map(t => {
+                    data: (sr.result ? sr.result.timeline : []).map(t => {
                         const total = Object.values(t.balances).reduce((sum, b) => sum + b, 0);
                         return Math.round(total / 100);
                     }),
@@ -428,7 +418,7 @@ new class extends Component {
                     borderWidth: 2,
                 }));
 
-                this.balanceChart = new Chart(ctx, {
+                balanceChart = new Chart(balanceCtx, {
                     type: 'line',
                     data: { labels, datasets },
                     options: {
@@ -436,112 +426,70 @@ new class extends Component {
                         maintainAspectRatio: false,
                         interaction: { intersect: false, mode: 'index' },
                         scales: {
-                            x: {
-                                ticks: { maxTicksLimit: 12 },
-                                grid: { display: false },
-                            },
-                            y: {
-                                ticks: {
-                                    callback: v => '$' + v.toLocaleString(),
-                                },
-                            },
+                            x: { ticks: { maxTicksLimit: 12 }, grid: { display: false } },
+                            y: { ticks: { callback: v => '$' + v.toLocaleString() } },
                         },
                         plugins: {
-                            tooltip: {
-                                callbacks: {
-                                    label: ctx => ctx.dataset.label + ': $' + ctx.parsed.y.toLocaleString(),
-                                },
-                            },
+                            tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': $' + ctx.parsed.y.toLocaleString() } },
                         },
                     },
                 });
-            },
+            }
 
-            renderPayoffChart(scenarioResults) {
-                const ctx = this.$refs.payoffChart;
-                if (!ctx) return;
+            // Payoff Order
+            const payoffCtx = document.getElementById('debt-payoff-chart');
+            if (payoffCtx) {
+                if (payoffChart) payoffChart.destroy();
 
-                if (this.payoffChart) this.payoffChart.destroy();
-
-                const baseline = scenarioResults.find(s => s.scenario.is_baseline) ?? scenarioResults[0];
-                const payoffOrder = baseline.result?.payoff_order ?? [];
-
+                const baseline = data.find(s => s.scenario.is_baseline) || data[0];
+                const payoffOrder = baseline.result ? baseline.result.payoff_order : [];
                 const debtColors = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#22c55e'];
 
-                this.payoffChart = new Chart(ctx, {
+                payoffChart = new Chart(payoffCtx, {
                     type: 'bar',
                     data: {
                         labels: payoffOrder.map(d => d.name),
-                        datasets: [{
-                            data: payoffOrder.map(d => d.paid_off_month),
-                            backgroundColor: payoffOrder.map((_, i) => debtColors[i % debtColors.length]),
-                            borderRadius: 4,
-                        }],
+                        datasets: [{ data: payoffOrder.map(d => d.paid_off_month), backgroundColor: payoffOrder.map((_, i) => debtColors[i % debtColors.length]), borderRadius: 4 }],
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
                         indexAxis: 'y',
-                        scales: {
-                            x: {
-                                ticks: {
-                                    callback: v => monthLabel(v),
-                                    maxTicksLimit: 6,
-                                },
-                            },
-                        },
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                callbacks: {
-                                    label: ctx => monthLabel(ctx.parsed.x),
-                                },
-                            },
-                        },
+                        scales: { x: { ticks: { callback: v => monthLabel(v), maxTicksLimit: 6 } } },
+                        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => monthLabel(ctx.parsed.x) } } },
                     },
                 });
-            },
+            }
 
-            renderInterestChart(scenarioResults) {
-                const ctx = this.$refs.interestChart;
-                if (!ctx) return;
+            // Interest Comparison
+            const interestCtx = document.getElementById('debt-interest-chart');
+            if (interestCtx) {
+                if (interestChart) interestChart.destroy();
 
-                if (this.interestChart) this.interestChart.destroy();
-
-                this.interestChart = new Chart(ctx, {
+                interestChart = new Chart(interestCtx, {
                     type: 'bar',
                     data: {
-                        labels: scenarioResults.map(s => s.scenario.name),
-                        datasets: [{
-                            data: scenarioResults.map(s => Math.round((s.result?.total_interest_paid ?? 0) / 100)),
-                            backgroundColor: scenarioResults.map((_, i) => colors[i % colors.length]),
-                            borderRadius: 4,
-                        }],
+                        labels: data.map(s => s.scenario.name),
+                        datasets: [{ data: data.map(s => Math.round((s.result ? s.result.total_interest_paid : 0) / 100)), backgroundColor: data.map((_, i) => colors[i % colors.length]), borderRadius: 4 }],
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
                         indexAxis: 'y',
-                        scales: {
-                            x: {
-                                ticks: {
-                                    callback: v => '$' + v.toLocaleString(),
-                                },
-                            },
-                        },
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                callbacks: {
-                                    label: ctx => '$' + ctx.parsed.x.toLocaleString(),
-                                },
-                            },
-                        },
+                        scales: { x: { ticks: { callback: v => '$' + v.toLocaleString() } } },
+                        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => '$' + ctx.parsed.x.toLocaleString() } } },
                     },
                 });
-            },
-        };
-    });
+            }
+        }
+
+        // Initial render
+        $wire.getChartData().then(data => renderCharts(data));
+
+        // Re-render when scenarios change
+        $wire.$watch('scenarios', () => {
+            $wire.getChartData().then(data => renderCharts(data));
+        });
     </script>
     @endscript
 </section>
