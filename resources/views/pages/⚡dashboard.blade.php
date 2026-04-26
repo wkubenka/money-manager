@@ -322,10 +322,149 @@ new class extends Component {
     @endif
 
     <div class="grid gap-6 lg:grid-cols-2">
-    {{-- Left column: block on desktop, flattened on mobile via contents --}}
+    {{-- Left column: Net Worth + Spending Plan --}}
+    <div class="contents lg:block lg:space-y-6">
+        {{-- Net Worth --}}
+        <div class="order-0 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <flux:subheading>{{ __('Net Worth') }}</flux:subheading>
+                    <div class="mt-1 text-3xl font-bold {{ $this->netWorthSummary['net_worth'] < 0 ? 'text-red-600 dark:text-red-300' : 'text-zinc-900 dark:text-zinc-100' }}">
+                        {{ $this->netWorthSummary['net_worth'] < 0 ? '-' : '' }}${{ format_cents(abs($this->netWorthSummary['net_worth'])) }}
+                    </div>
+                </div>
+                <flux:button variant="subtle" size="sm" icon="pencil-square" :href="route('net-worth.index')" wire:navigate aria-label="{{ __('Manage accounts') }}" />
+            </div>
+
+            <div class="space-y-2">
+                @foreach (AccountCategory::cases() as $category)
+                    @php $total = $this->netWorthSummary['categories'][$category->value]; @endphp
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="size-3 rounded-full {{ $category->color() }}"></div>
+                            <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ $category->label() }}</span>
+                        </div>
+                        <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ format_cents($total) }}</span>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+
+        {{-- Current Spending Plan --}}
+        @if ($this->currentPlan)
+            @php $plan = $this->currentPlan; @endphp
+            <div class="order-1 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
+                <div class="flex items-center justify-between mb-5">
+                    <div>
+                        <flux:subheading>{{ __('Current Spending Plan') }}</flux:subheading>
+                        <div class="mt-1 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+                            ${{ format_cents($plan->monthly_income) }}/mo
+                        </div>
+                        @if ($plan->gross_monthly_income)
+                            <div class="text-sm text-zinc-500 dark:text-zinc-400">
+                                ${{ format_cents($plan->gross_monthly_income * 12) }}/yr {{ __('gross') }}
+                            </div>
+                        @endif
+                    </div>
+                    <flux:button variant="subtle" size="sm" icon="pencil-square" :href="route('spending-plans.edit', $plan)" wire:navigate aria-label="{{ __('Edit plan') }}" />
+                </div>
+
+                @php
+                    $gfPercent = $plan->categoryPercent(SpendingCategory::GuiltFree);
+                    $gfHealthy = SpendingCategory::GuiltFree->isWithinIdeal($gfPercent);
+                @endphp
+                <div class="space-y-5">
+                    @foreach (SpendingCategory::spendingCases() as $category)
+                        @php
+                            $total = $plan->categoryTotal($category);
+                            $percent = $plan->categoryPercent($category);
+                            [$min, $max] = $category->idealRange();
+                            $withinIdeal = $category->isWithinIdeal($percent, $gfHealthy);
+                            $items = $category !== SpendingCategory::GuiltFree
+                                ? $plan->items->where('category', $category)
+                                : collect();
+                        @endphp
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <div class="flex items-center gap-2">
+                                    <div class="size-3 rounded-full {{ $category->color() }}"></div>
+                                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $category->label() }}</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    @if ($category !== SpendingCategory::GuiltFree)
+                                        <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ format_cents($total) }}</span>
+                                    @else
+                                        <span class="text-sm font-medium {{ $total < 0 ? 'text-red-600 dark:text-red-300' : 'text-zinc-900 dark:text-zinc-100' }}">
+                                            {{ $total < 0 ? '-' : '' }}${{ format_cents(abs($total)) }}
+                                        </span>
+                                    @endif
+                                    <flux:badge size="sm" color="{{ $percent < 0 ? 'red' : ($withinIdeal ? 'green' : 'amber') }}" class="w-10 justify-center">
+                                        {{ round($percent) }}%
+                                    </flux:badge>
+                                </div>
+                            </div>
+
+                            @php
+                                $actualSpent = $this->monthlyExpenseTotals[$category->value] ?? 0;
+                                $remaining = $total - $actualSpent;
+                                $spentPercent = $total > 0 ? min(($actualSpent / $total) * 100, 100) : 0;
+                            @endphp
+                            <div class="mt-1 h-2 rounded-full bg-zinc-100 dark:bg-zinc-700 overflow-hidden">
+                                <div class="h-full rounded-full {{ $total > 0 && $actualSpent > $total ? 'bg-red-500' : $category->color() }}" style="width: {{ $total > 0 ? $spentPercent : min(max($percent, 0), 100) }}%"></div>
+                            </div>
+                            @if ($total > 0)
+                                <div class="mt-1.5 flex items-center justify-between text-xs">
+                                    <span class="text-zinc-500 dark:text-zinc-400">
+                                        {{ __('Spent') }}: ${{ format_cents($actualSpent) }}
+                                    </span>
+                                    <span class="{{ $remaining < 0 ? 'text-red-600 dark:text-red-300' : 'text-emerald-600 dark:text-emerald-400' }}">
+                                        ${{ format_cents(abs($remaining)) }}
+                                        {{ $remaining >= 0 ? __('left') : __('over') }}
+                                    </span>
+                                </div>
+                            @endif
+
+                            @if ($items->isNotEmpty() || ($category === SpendingCategory::FixedCosts && $plan->fixed_costs_misc_percent > 0))
+                                <div class="mt-2 space-y-0.5">
+                                    @foreach ($items as $item)
+                                        <div class="flex items-center justify-between text-sm">
+                                            <span class="text-zinc-500 dark:text-zinc-400">{{ $item->name }}</span>
+                                            <span class="text-zinc-600 dark:text-zinc-300">${{ format_cents($item->amount) }}</span>
+                                        </div>
+                                    @endforeach
+                                    @if ($category === SpendingCategory::FixedCosts && $plan->fixed_costs_misc_percent > 0)
+                                        <div class="flex items-center justify-between text-sm italic text-zinc-500 dark:text-zinc-400">
+                                            <span>{{ __('Miscellaneous') }} ({{ $plan->fixed_costs_misc_percent }}%)</span>
+                                            <span class="text-zinc-600 dark:text-zinc-300">${{ format_cents($plan->fixedCostsMiscellaneous()) }}</span>
+                                        </div>
+                                    @endif
+                                </div>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @else
+            <div class="order-1 rounded-xl border border-dashed border-zinc-300 dark:border-zinc-600 p-6 text-center">
+                @if (\App\Models\SpendingPlan::exists())
+                    <flux:subheading class="mb-2">{{ __('No current spending plan') }}</flux:subheading>
+                    <flux:button variant="subtle" size="sm" :href="route('spending-plans.dashboard')" wire:navigate>
+                        {{ __('Choose a Plan') }}
+                    </flux:button>
+                @else
+                    <flux:subheading class="mb-2">{{ __('Create your spending plan') }}</flux:subheading>
+                    <flux:button variant="primary" size="sm" :href="route('spending-plans.create')" wire:navigate>
+                        {{ __('Get Started') }}
+                    </flux:button>
+                @endif
+            </div>
+        @endif
+    </div>
+
+    {{-- Right column: Vision + Emergency Fund + Debt Payoff + Retirement --}}
     <div class="contents lg:block lg:space-y-6">
         {{-- Rich Life Vision --}}
-        <div class="order-0 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
+        <div class="order-2 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
             <div class="flex items-center justify-between mb-2">
                 <flux:heading>{{ __('Rich Life Vision') }}</flux:heading>
                 <flux:button
@@ -510,32 +649,6 @@ new class extends Component {
             @endif
         </div>
 
-        {{-- Net Worth --}}
-        <div class="order-1 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
-            <div class="flex items-center justify-between mb-4">
-                <div>
-                    <flux:subheading>{{ __('Net Worth') }}</flux:subheading>
-                    <div class="mt-1 text-3xl font-bold {{ $this->netWorthSummary['net_worth'] < 0 ? 'text-red-600 dark:text-red-300' : 'text-zinc-900 dark:text-zinc-100' }}">
-                        {{ $this->netWorthSummary['net_worth'] < 0 ? '-' : '' }}${{ format_cents(abs($this->netWorthSummary['net_worth'])) }}
-                    </div>
-                </div>
-                <flux:button variant="subtle" size="sm" icon="pencil-square" :href="route('net-worth.index')" wire:navigate aria-label="{{ __('Manage accounts') }}" />
-            </div>
-
-            <div class="space-y-2">
-                @foreach (AccountCategory::cases() as $category)
-                    @php $total = $this->netWorthSummary['categories'][$category->value]; @endphp
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-2">
-                            <div class="size-3 rounded-full {{ $category->color() }}"></div>
-                            <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ $category->label() }}</span>
-                        </div>
-                        <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ format_cents($total) }}</span>
-                    </div>
-                @endforeach
-            </div>
-        </div>
-
         {{-- Emergency Fund --}}
         @if ($this->emergencyFund)
             @php
@@ -603,7 +716,7 @@ new class extends Component {
 
         {{-- Debt Payoff --}}
         @if ($this->debtPayoff)
-            <div class="order-5 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
+            <div class="order-4 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
                 <div class="flex items-center justify-between mb-4">
                     <div>
                         <flux:subheading>{{ __('Debt Payoff') }}</flux:subheading>
@@ -642,122 +755,9 @@ new class extends Component {
                 @endif
             </div>
         @endif
-    </div>
-
-    {{-- Right column --}}
-    <div class="contents lg:block lg:space-y-6">
-        {{-- Current Spending Plan --}}
-        @if ($this->currentPlan)
-            @php $plan = $this->currentPlan; @endphp
-            <div class="order-2 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
-                <div class="flex items-center justify-between mb-5">
-                    <div>
-                        <flux:subheading>{{ __('Current Spending Plan') }}</flux:subheading>
-                        <div class="mt-1 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
-                            ${{ format_cents($plan->monthly_income) }}/mo
-                        </div>
-                        @if ($plan->gross_monthly_income)
-                            <div class="text-sm text-zinc-500 dark:text-zinc-400">
-                                ${{ format_cents($plan->gross_monthly_income * 12) }}/yr {{ __('gross') }}
-                            </div>
-                        @endif
-                    </div>
-                    <flux:button variant="subtle" size="sm" icon="pencil-square" :href="route('spending-plans.edit', $plan)" wire:navigate aria-label="{{ __('Edit plan') }}" />
-                </div>
-
-                @php
-                    $gfPercent = $plan->categoryPercent(SpendingCategory::GuiltFree);
-                    $gfHealthy = SpendingCategory::GuiltFree->isWithinIdeal($gfPercent);
-                @endphp
-                <div class="space-y-5">
-                    @foreach (SpendingCategory::spendingCases() as $category)
-                        @php
-                            $total = $plan->categoryTotal($category);
-                            $percent = $plan->categoryPercent($category);
-                            [$min, $max] = $category->idealRange();
-                            $withinIdeal = $category->isWithinIdeal($percent, $gfHealthy);
-                            $items = $category !== SpendingCategory::GuiltFree
-                                ? $plan->items->where('category', $category)
-                                : collect();
-                        @endphp
-                        <div>
-                            <div class="flex items-center justify-between mb-1">
-                                <div class="flex items-center gap-2">
-                                    <div class="size-3 rounded-full {{ $category->color() }}"></div>
-                                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $category->label() }}</span>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    @if ($category !== SpendingCategory::GuiltFree)
-                                        <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ format_cents($total) }}</span>
-                                    @else
-                                        <span class="text-sm font-medium {{ $total < 0 ? 'text-red-600 dark:text-red-300' : 'text-zinc-900 dark:text-zinc-100' }}">
-                                            {{ $total < 0 ? '-' : '' }}${{ format_cents(abs($total)) }}
-                                        </span>
-                                    @endif
-                                    <flux:badge size="sm" color="{{ $percent < 0 ? 'red' : ($withinIdeal ? 'green' : 'amber') }}" class="w-10 justify-center">
-                                        {{ round($percent) }}%
-                                    </flux:badge>
-                                </div>
-                            </div>
-
-                            @php
-                                $actualSpent = $this->monthlyExpenseTotals[$category->value] ?? 0;
-                                $remaining = $total - $actualSpent;
-                                $spentPercent = $total > 0 ? min(($actualSpent / $total) * 100, 100) : 0;
-                            @endphp
-                            <div class="mt-1 h-2 rounded-full bg-zinc-100 dark:bg-zinc-700 overflow-hidden">
-                                <div class="h-full rounded-full {{ $total > 0 && $actualSpent > $total ? 'bg-red-500' : $category->color() }}" style="width: {{ $total > 0 ? $spentPercent : min(max($percent, 0), 100) }}%"></div>
-                            </div>
-                            @if ($total > 0)
-                                <div class="mt-1.5 flex items-center justify-between text-xs">
-                                    <span class="text-zinc-500 dark:text-zinc-400">
-                                        {{ __('Spent') }}: ${{ format_cents($actualSpent) }}
-                                    </span>
-                                    <span class="{{ $remaining < 0 ? 'text-red-600 dark:text-red-300' : 'text-emerald-600 dark:text-emerald-400' }}">
-                                        ${{ format_cents(abs($remaining)) }}
-                                        {{ $remaining >= 0 ? __('left') : __('over') }}
-                                    </span>
-                                </div>
-                            @endif
-
-                            @if ($items->isNotEmpty() || ($category === SpendingCategory::FixedCosts && $plan->fixed_costs_misc_percent > 0))
-                                <div class="mt-2 space-y-0.5">
-                                    @foreach ($items as $item)
-                                        <div class="flex items-center justify-between text-sm">
-                                            <span class="text-zinc-500 dark:text-zinc-400">{{ $item->name }}</span>
-                                            <span class="text-zinc-600 dark:text-zinc-300">${{ format_cents($item->amount) }}</span>
-                                        </div>
-                                    @endforeach
-                                    @if ($category === SpendingCategory::FixedCosts && $plan->fixed_costs_misc_percent > 0)
-                                        <div class="flex items-center justify-between text-sm italic text-zinc-500 dark:text-zinc-400">
-                                            <span>{{ __('Miscellaneous') }} ({{ $plan->fixed_costs_misc_percent }}%)</span>
-                                            <span class="text-zinc-600 dark:text-zinc-300">${{ format_cents($plan->fixedCostsMiscellaneous()) }}</span>
-                                        </div>
-                                    @endif
-                                </div>
-                            @endif
-                        </div>
-                    @endforeach
-                </div>
-            </div>
-        @else
-            <div class="order-2 rounded-xl border border-dashed border-zinc-300 dark:border-zinc-600 p-6 text-center">
-                @if (\App\Models\SpendingPlan::exists())
-                    <flux:subheading class="mb-2">{{ __('No current spending plan') }}</flux:subheading>
-                    <flux:button variant="subtle" size="sm" :href="route('spending-plans.dashboard')" wire:navigate>
-                        {{ __('Choose a Plan') }}
-                    </flux:button>
-                @else
-                    <flux:subheading class="mb-2">{{ __('Create your spending plan') }}</flux:subheading>
-                    <flux:button variant="primary" size="sm" :href="route('spending-plans.create')" wire:navigate>
-                        {{ __('Get Started') }}
-                    </flux:button>
-                @endif
-            </div>
-        @endif
 
         {{-- Investments at Retirement --}}
-        <div class="order-4 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
+        <div class="order-5 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
             @php
                 $investmentBalance = $this->netWorthSummary['categories'][AccountCategory::Investments->value];
                 $plan = $this->currentPlan;
