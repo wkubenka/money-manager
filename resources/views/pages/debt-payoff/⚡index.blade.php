@@ -312,7 +312,7 @@ new class extends Component {
         <div
             id="charts-section"
             class="space-y-6"
-            x-data="debtCharts()"
+            x-data="debtCharts"
             x-effect="updateCharts($wire.scenarioResults)"
         >
             {{-- Balance Over Time --}}
@@ -380,8 +380,9 @@ new class extends Component {
         </flux:modal>
     @endif
 
+    @script
     <script>
-    function debtCharts() {
+    Alpine.data('debtCharts', () => {
         const colors = ['#3b82f6', '#22c55e', '#f59e0b', '#ec4899', '#8b5cf6'];
 
         function monthLabel(monthOffset) {
@@ -540,6 +541,7 @@ new class extends Component {
                 });
             },
         };
-    }
+    });
     </script>
+    @endscript
 </section>
