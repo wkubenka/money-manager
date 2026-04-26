@@ -35,11 +35,13 @@ class DebtPayoffCalculator
                 'monthly_rate' => ((float) $debt['interest_rate']) / 100 / 12,
             ]);
 
-        // Sort by strategy: avalanche = highest interest first, snowball = smallest balance first
-        $working = match ($strategy) {
-            'snowball' => $working->sortBy('balance')->values()->all(),
-            default => $working->sortByDesc('interest_rate')->values()->all(),
-        };
+        // Sort by strategy with tiebreaker:
+        // Avalanche: highest interest first, then smallest balance
+        // Snowball: smallest balance first, then highest interest
+        $working = $working->sort(fn (array $a, array $b) => match ($strategy) {
+            'snowball' => $a['balance'] <=> $b['balance'] ?: $b['interest_rate'] <=> $a['interest_rate'],
+            default => $b['interest_rate'] <=> $a['interest_rate'] ?: $a['balance'] <=> $b['balance'],
+        })->values()->all();
 
         $totalInterestPaid = 0;
         $months = 0;
