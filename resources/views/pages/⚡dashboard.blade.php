@@ -519,7 +519,7 @@ new class extends Component {
                         {{ $this->netWorthSummary['net_worth'] < 0 ? '-' : '' }}${{ format_cents(abs($this->netWorthSummary['net_worth'])) }}
                     </div>
                 </div>
-                <flux:button variant="subtle" size="sm" icon="cog-6-tooth" :href="route('net-worth.index')" wire:navigate aria-label="{{ __('Manage accounts') }}" />
+                <flux:button variant="subtle" size="sm" icon="pencil-square" :href="route('net-worth.index')" wire:navigate aria-label="{{ __('Manage accounts') }}" />
             </div>
 
             <div class="space-y-2">
