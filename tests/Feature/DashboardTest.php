@@ -380,7 +380,7 @@ test('unlocking vision list shows editing controls', function () {
     Livewire::test('pages::dashboard')
         ->toggle('visionEditing')
         ->assertSet('visionEditing', true)
-        ->assertSeeHtml('wire:click="addVision(null)"')
+        ->assertSeeHtml('wire:click="$set(\'addVisionToCategoryId\', 0)"')
         ->assertSeeHtml('wire:click="editVision');
 });
 
