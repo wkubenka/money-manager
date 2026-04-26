@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Install &amp; Usage Guide — Astute Money</title>
+    <meta name="description" content="How to install and use Astute Money on macOS and Windows. Conscious spending plans, net worth tracking, expense management, and more.">
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <meta name="theme-color" content="#10b981">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+                    },
+                },
+            },
+        }
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-neutral-950 to-neutral-900 text-white antialiased">
+
+    <!-- Nav -->
+    <nav class="mx-auto flex max-w-5xl items-center justify-between px-6 py-6">
+        <a href="/" class="flex items-center gap-2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" class="h-8 w-8">
+                <ellipse cx="20" cy="32" rx="14" ry="5" fill="#10b981" opacity="0.3"/>
+                <ellipse cx="20" cy="27" rx="14" ry="5" fill="#10b981" opacity="0.5"/>
+                <ellipse cx="20" cy="22" rx="14" ry="5" fill="#10b981" opacity="0.7"/>
+                <ellipse cx="20" cy="17" rx="14" ry="5" fill="#10b981"/>
+                <path d="M20 10v-6M16 5.5l4-3.5 4 3.5" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="text-lg font-semibold">Astute Money</span>
+        </a>
+
+        <div class="flex items-center gap-6">
+            <a href="/" class="text-sm text-zinc-400 hover:text-white transition">Home</a>
+            <a href="/privacy.html" class="text-sm text-zinc-400 hover:text-white transition">Privacy</a>
+            <a href="https://github.com/wkubenka/money-manager/releases/latest"
+               class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-400 transition">
+                Download
+            </a>
+        </div>
+    </nav>
+
+    <!-- Content -->
+    <div class="mx-auto max-w-3xl px-6 py-12">
+
+        <!-- Page header -->
+        <div class="mb-12">
+            <h1 class="text-3xl font-bold tracking-tight sm:text-4xl">Install &amp; Usage Guide</h1>
+            <p class="mt-3 text-zinc-400">Everything you need to get started with Astute Money.</p>
+        </div>
+
+        <!-- Table of contents -->
+        <div class="mb-12 rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
+            <h2 class="mb-3 text-sm font-semibold uppercase tracking-wider text-zinc-400">On this page</h2>
+            <ul class="space-y-2 text-sm">
+                <li><a href="#installation" class="text-emerald-400 hover:text-emerald-300 transition">Installation</a></li>
+                <li><a href="#spending-plans" class="text-emerald-400 hover:text-emerald-300 transition">Conscious Spending Plans</a></li>
+                <li><a href="#net-worth" class="text-emerald-400 hover:text-emerald-300 transition">Net Worth Tracking</a></li>
+                <li><a href="#expenses" class="text-emerald-400 hover:text-emerald-300 transition">Expense Tracking</a></li>
+                <li><a href="#debt-payoff" class="text-emerald-400 hover:text-emerald-300 transition">Debt Payoff</a></li>
+                <li><a href="#rich-life" class="text-emerald-400 hover:text-emerald-300 transition">Rich Life Vision</a></li>
+                <li><a href="#data" class="text-emerald-400 hover:text-emerald-300 transition">Your Data</a></li>
+            </ul>
+        </div>
+
+        <div class="space-y-16 text-sm leading-relaxed text-zinc-300">
+
+            <!-- Installation -->
+            <section id="installation">
+                <h2 class="mb-6 text-2xl font-bold text-white">Installation</h2>
+
+                <div class="mb-6">
+                    <a href="https://github.com/wkubenka/money-manager/releases/latest"
+                       class="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-emerald-400 transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Download Latest Release
+                    </a>
+                </div>
+
+                <div class="space-y-8">
+                    <!-- macOS -->
+                    <div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
+                        <h3 class="mb-3 text-lg font-semibold text-white">macOS</h3>
+                        <ol class="list-decimal space-y-2 pl-5">
+                            <li>Download the <code class="rounded bg-zinc-800 px-1.5 py-0.5 text-emerald-400">.dmg</code> file from the latest release.</li>
+                            <li>Open the <code class="rounded bg-zinc-800 px-1.5 py-0.5 text-emerald-400">.dmg</code> and drag Astute Money to your Applications folder.</li>
+                            <li>
+                                On first launch, macOS may show <em>&ldquo;Astute Money can&rsquo;t be opened because it is from an unidentified developer.&rdquo;</em>
+                                <br>To fix this: open <strong>System Settings &rarr; Privacy &amp; Security</strong>, scroll down, and click <strong>&ldquo;Open Anyway&rdquo;</strong>.
+                            </li>
+                            <li>The app will launch and create a local database automatically.</li>
+                        </ol>
+                    </div>
+
+                    <!-- Windows -->
+                    <div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
+                        <h3 class="mb-3 text-lg font-semibold text-white">Windows</h3>
+                        <ol class="list-decimal space-y-2 pl-5">
+                            <li>Download the <code class="rounded bg-zinc-800 px-1.5 py-0.5 text-emerald-400">.exe</code> installer from the latest release.</li>
+                            <li>Run the installer. Windows SmartScreen may show a warning &mdash; click <strong>&ldquo;More info&rdquo;</strong> then <strong>&ldquo;Run anyway&rdquo;</strong>.</li>
+                            <li>Follow the installer prompts. Astute Money will be added to your Start menu.</li>
+                            <li>Launch the app &mdash; it will create a local database automatically.</li>
+                        </ol>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Spending Plans -->
+            <section id="spending-plans">
+                <h2 class="mb-4 text-2xl font-bold text-white">Conscious Spending Plans</h2>
+                <p class="mb-4">
+                    A conscious spending plan divides your take-home pay into four categories, following Ramit Sethi&rsquo;s recommended ranges:
+                </p>
+                <div class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <div class="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 text-center">
+                        <div class="text-xs text-zinc-400">Fixed Costs</div>
+                        <div class="mt-1 text-lg font-bold text-emerald-400">50&ndash;60%</div>
+                    </div>
+                    <div class="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 text-center">
+                        <div class="text-xs text-zinc-400">Investments</div>
+                        <div class="mt-1 text-lg font-bold text-emerald-400">10%</div>
+                    </div>
+                    <div class="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 text-center">
+                        <div class="text-xs text-zinc-400">Savings</div>
+                        <div class="mt-1 text-lg font-bold text-emerald-400">5&ndash;10%</div>
+                    </div>
+                    <div class="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 text-center">
+                        <div class="text-xs text-zinc-400">Guilt-Free</div>
+                        <div class="mt-1 text-lg font-bold text-emerald-400">20&ndash;35%</div>
+                    </div>
+                </div>
+
+                <h3 class="mb-2 text-base font-semibold text-white">Getting started</h3>
+                <ol class="list-decimal space-y-2 pl-5">
+                    <li>Navigate to <strong>Spending Plans</strong> in the sidebar and click <strong>Create New Plan</strong>.</li>
+                    <li>Enter your monthly take-home income (and optionally your gross income and pre-tax investment contributions like 401k).</li>
+                    <li>Add line items to Fixed Costs, Investments, and Savings. Guilt-Free is calculated automatically as whatever&rsquo;s left over.</li>
+                    <li>Color-coded badges show whether each category is within the ideal range.</li>
+                    <li>Mark a plan as <strong>Current</strong> to have it appear on your dashboard and track spending against it.</li>
+                </ol>
+
+                <h3 class="mb-2 mt-6 text-base font-semibold text-white">Tips</h3>
+                <ul class="list-disc space-y-1 pl-5 text-zinc-400">
+                    <li>Use the <strong>Miscellaneous %</strong> field on Fixed Costs for irregular expenses you can&rsquo;t itemize.</li>
+                    <li>Create multiple plans to compare scenarios (e.g., &ldquo;After Raise&rdquo; or &ldquo;If I Move Cities&rdquo;).</li>
+                    <li>Copy an existing plan to use it as a starting point.</li>
+                </ul>
+            </section>
+
+            <!-- Net Worth -->
+            <section id="net-worth">
+                <h2 class="mb-4 text-2xl font-bold text-white">Net Worth Tracking</h2>
+                <p class="mb-4">
+                    Track your complete financial picture across four account categories:
+                    <strong class="text-white">Assets</strong> (home, car),
+                    <strong class="text-white">Investments</strong> (401k, brokerage),
+                    <strong class="text-white">Savings</strong> (emergency fund, vacation),
+                    and <strong class="text-white">Debt</strong> (credit cards, loans).
+                </p>
+                <p class="mb-4">
+                    Net Worth = Assets + Investments + Savings &minus; Debt.
+                </p>
+
+                <h3 class="mb-2 text-base font-semibold text-white">Adding accounts</h3>
+                <ol class="list-decimal space-y-2 pl-5">
+                    <li>Go to <strong>Net Worth</strong> in the sidebar.</li>
+                    <li>Click the <strong>+</strong> button next to the category you want.</li>
+                    <li>Enter the account name and current balance.</li>
+                    <li>For debt accounts, you can also enter the interest rate and minimum payment &mdash; these are used by the Debt Payoff calculator.</li>
+                </ol>
+
+                <h3 class="mb-2 mt-6 text-base font-semibold text-white">Emergency fund</h3>
+                <p class="text-zinc-400">
+                    Mark one savings account as your emergency fund. The dashboard will show how many months of expenses it covers based on your current spending plan.
+                </p>
+            </section>
+
+            <!-- Expenses -->
+            <section id="expenses">
+                <h2 class="mb-4 text-2xl font-bold text-white">Expense Tracking</h2>
+                <p class="mb-4">
+                    Track what you actually spend and compare it against your conscious spending plan.
+                </p>
+
+                <h3 class="mb-2 text-base font-semibold text-white">Expense accounts</h3>
+                <p class="mb-4 text-zinc-400">
+                    Create an account for each source of spending (e.g., &ldquo;Chase Sapphire&rdquo;, &ldquo;Checking Account&rdquo;). Each account has its own tab on the Expenses page.
+                </p>
+
+                <h3 class="mb-2 text-base font-semibold text-white">Adding expenses</h3>
+                <ol class="list-decimal space-y-2 pl-5">
+                    <li>Go to <strong>Expenses</strong> and select the account tab.</li>
+                    <li>Click <strong>Add Expense</strong> and enter the merchant, amount, date, and category.</li>
+                    <li>Once you categorize a merchant, the app remembers it &mdash; next time you enter that merchant, the category is filled in automatically.</li>
+                </ol>
+
+                <h3 class="mb-2 mt-6 text-base font-semibold text-white">CSV import</h3>
+                <p class="mb-4 text-zinc-400">
+                    Import bank or credit card statements as CSV files. The importer automatically detects columns, prevents duplicates, and lets you categorize in bulk by merchant.
+                </p>
+                <ol class="list-decimal space-y-2 pl-5">
+                    <li>Download a CSV from your bank or credit card provider.</li>
+                    <li>Click <strong>Import CSV</strong> on the expense account tab.</li>
+                    <li>Map the columns (date, merchant, amount) and import.</li>
+                    <li>Use the <strong>Uncategorized</strong> tab to quickly categorize imported transactions.</li>
+                </ol>
+
+                <h3 class="mb-2 mt-6 text-base font-semibold text-white">Dashboard tracking</h3>
+                <p class="text-zinc-400">
+                    When you have a current spending plan, the dashboard shows progress bars for each category &mdash; how much you&rsquo;ve spent vs. how much you planned, with the remaining amount highlighted.
+                </p>
+            </section>
+
+            <!-- Debt Payoff -->
+            <section id="debt-payoff">
+                <h2 class="mb-4 text-2xl font-bold text-white">Debt Payoff</h2>
+                <p class="mb-4">
+                    Model different strategies to pay off your debts faster. Requires debt accounts with interest rates and minimum payments set on the Net Worth page, and a &ldquo;Debt Payments&rdquo; line item in your spending plan&rsquo;s Fixed Costs.
+                </p>
+
+                <h3 class="mb-2 text-base font-semibold text-white">Strategies</h3>
+                <div class="mb-4 space-y-3">
+                    <div class="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+                        <div class="font-semibold text-white">Avalanche</div>
+                        <p class="mt-1 text-zinc-400">Pay minimums on everything, then throw extra money at the highest interest rate debt first. Saves the most money overall.</p>
+                    </div>
+                    <div class="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+                        <div class="font-semibold text-white">Snowball</div>
+                        <p class="mt-1 text-zinc-400">Pay minimums on everything, then throw extra money at the smallest balance first. Gives faster psychological wins.</p>
+                    </div>
+                </div>
+
+                <h3 class="mb-2 text-base font-semibold text-white">Scenarios</h3>
+                <p class="text-zinc-400">
+                    Add scenarios to compare strategies side by side. Try adding extra monthly payments or a one-time lump sum to see how it changes your payoff date and total interest paid. Charts show the balance over time, payoff order, and interest comparison.
+                </p>
+            </section>
+
+            <!-- Rich Life Vision -->
+            <section id="rich-life">
+                <h2 class="mb-4 text-2xl font-bold text-white">Rich Life Vision</h2>
+                <p class="mb-4">
+                    Define what a &ldquo;rich life&rdquo; means to you. This is the qualitative side of personal finance &mdash; not just numbers, but what you want your money to make possible.
+                </p>
+                <ul class="list-disc space-y-1 pl-5 text-zinc-400">
+                    <li>Add vision items to your dashboard (&ldquo;Travel to Japan every year&rdquo;, &ldquo;Never stress about a restaurant bill&rdquo;).</li>
+                    <li>Organize them into categories and drag to reorder.</li>
+                    <li>Use the lock icon to toggle between viewing and editing mode.</li>
+                </ul>
+            </section>
+
+            <!-- Data -->
+            <section id="data">
+                <h2 class="mb-4 text-2xl font-bold text-white">Your Data</h2>
+                <p class="mb-4">
+                    All data is stored locally in a SQLite database on your computer. Nothing is sent to any server.
+                </p>
+
+                <h3 class="mb-2 text-base font-semibold text-white">Export &amp; import</h3>
+                <p class="mb-4 text-zinc-400">
+                    Go to <strong>Settings &rarr; Data</strong> to export your data as a JSON file or import a previously exported backup. This is useful for migrating to a new computer.
+                </p>
+
+                <h3 class="mb-2 text-base font-semibold text-white">Updating</h3>
+                <p class="text-zinc-400">
+                    Download the latest release from GitHub and install it over your existing installation. Your data will be preserved.
+                </p>
+            </section>
+
+        </div>
+
+        <div class="mt-12">
+            <a href="/" class="text-sm text-zinc-400 hover:text-white transition">&larr; Back to home</a>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="border-t border-zinc-800 py-8">
+        <div class="mx-auto flex max-w-5xl items-center justify-between px-6">
+            <p class="text-sm text-zinc-500">&copy; 2026 Astute Money</p>
+            <div class="flex gap-6">
+                <a href="/privacy.html" class="text-sm text-zinc-500 hover:text-zinc-300 transition">Privacy</a>
+                <a href="https://github.com/wkubenka/money-manager" class="text-sm text-zinc-500 hover:text-zinc-300 transition">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>
