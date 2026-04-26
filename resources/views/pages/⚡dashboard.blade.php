@@ -505,7 +505,7 @@ new class extends Component {
                         @if ($cat->visions->isNotEmpty() || $visionEditing)
                             <ul class="space-y-1" data-sortable-visions data-category-id="{{ $cat->id }}">
                                 @foreach ($cat->visions as $vision)
-                                    <li class="flex items-center gap-2 py-0.5 group" data-vision-id="{{ $vision->id }}" wire:key="vision-{{ $vision->id }}">
+                                    <li class="flex items-center gap-2 group" data-vision-id="{{ $vision->id }}" wire:key="vision-{{ $vision->id }}">
                                         @if ($visionEditing && $editingVisionId === $vision->id)
                                             <div class="flex-1 flex items-center gap-2">
                                                 <flux:input wire:model="editingVisionText" size="sm" wire:keydown.enter="updateVision" />
@@ -572,7 +572,7 @@ new class extends Component {
                         @endif
                         <ul class="space-y-1" data-sortable-visions data-category-id="uncategorized">
                             @foreach ($this->uncategorizedVisions as $vision)
-                                <li class="flex items-center gap-2 py-0.5 group" data-vision-id="{{ $vision->id }}" wire:key="vision-{{ $vision->id }}">
+                                <li class="flex items-center gap-2 group" data-vision-id="{{ $vision->id }}" wire:key="vision-{{ $vision->id }}">
                                     @if ($visionEditing && $editingVisionId === $vision->id)
                                         <div class="flex-1 flex items-center gap-2">
                                             <flux:input wire:model="editingVisionText" size="sm" wire:keydown.enter="updateVision" />
