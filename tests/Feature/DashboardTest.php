@@ -10,6 +10,7 @@ use App\Models\RichLifeVision;
 use App\Models\RichLifeVisionCategory;
 use App\Models\SpendingPlan;
 use App\Models\SpendingPlanItem;
+use App\Models\WindfallPlan;
 use Livewire\Livewire;
 
 uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
@@ -713,4 +714,113 @@ test('dashboard hides debt payoff when debt accounts lack interest rate', functi
 
     Livewire::test('pages::dashboard')
         ->assertDontSee('Debt Payoff');
+});
+
+// Windfall Plan tests
+
+test('windfall plan instance creates a single row with defaults', function () {
+    $plan = WindfallPlan::instance();
+
+    expect($plan->savings_percent)->toBe(30);
+    expect($plan->investments_percent)->toBe(50);
+    expect($plan->guilt_free_percent)->toBe(10);
+    expect($plan->debt_percent)->toBe(10);
+    expect(WindfallPlan::count())->toBe(1);
+
+    WindfallPlan::instance();
+    expect(WindfallPlan::count())->toBe(1);
+});
+
+test('dashboard shows windfall plan card with defaults', function () {
+    Livewire::test('pages::dashboard')
+        ->assertSee('Windfall Plan')
+        ->assertSee('How to split unexpected income')
+        ->assertSet('windfallSavings', 30)
+        ->assertSet('windfallInvestments', 50)
+        ->assertSet('windfallGuiltFree', 10)
+        ->assertSet('windfallDebt', 10)
+        ->assertSee('30%')
+        ->assertSee('50%');
+});
+
+test('dashboard hydrates windfall properties from saved plan', function () {
+    WindfallPlan::instance()->update([
+        'savings_percent' => 25,
+        'investments_percent' => 40,
+        'guilt_free_percent' => 20,
+        'debt_percent' => 15,
+    ]);
+
+    Livewire::test('pages::dashboard')
+        ->assertSet('windfallSavings', 25)
+        ->assertSet('windfallInvestments', 40)
+        ->assertSet('windfallGuiltFree', 20)
+        ->assertSet('windfallDebt', 15);
+});
+
+test('user can save valid windfall plan splits', function () {
+    Livewire::test('pages::dashboard')
+        ->set('windfallEditing', true)
+        ->set('windfallSavings', 20)
+        ->set('windfallInvestments', 60)
+        ->set('windfallGuiltFree', 15)
+        ->set('windfallDebt', 5)
+        ->call('saveWindfallPlan')
+        ->assertHasNoErrors()
+        ->assertSet('windfallEditing', false)
+        ->assertDispatched('windfall-saved');
+
+    $plan = WindfallPlan::instance();
+    expect($plan->savings_percent)->toBe(20);
+    expect($plan->investments_percent)->toBe(60);
+    expect($plan->guilt_free_percent)->toBe(15);
+    expect($plan->debt_percent)->toBe(5);
+});
+
+test('windfall splits must add up to 100', function () {
+    Livewire::test('pages::dashboard')
+        ->set('windfallEditing', true)
+        ->set('windfallSavings', 30)
+        ->set('windfallInvestments', 30)
+        ->set('windfallGuiltFree', 30)
+        ->set('windfallDebt', 30)
+        ->call('saveWindfallPlan')
+        ->assertHasErrors('windfallSavings')
+        ->assertSet('windfallEditing', true);
+
+    expect(WindfallPlan::instance()->savings_percent)->toBe(30);
+});
+
+test('windfall split values must be between 0 and 100', function (string $field) {
+    Livewire::test('pages::dashboard')
+        ->set($field, 150)
+        ->call('saveWindfallPlan')
+        ->assertHasErrors([$field => 'max']);
+})->with([
+    'savings' => 'windfallSavings',
+    'investments' => 'windfallInvestments',
+    'guilt-free' => 'windfallGuiltFree',
+    'debt' => 'windfallDebt',
+]);
+
+test('cancelling windfall edit reverts properties to saved values', function () {
+    WindfallPlan::instance()->update([
+        'savings_percent' => 25,
+        'investments_percent' => 40,
+        'guilt_free_percent' => 20,
+        'debt_percent' => 15,
+    ]);
+
+    Livewire::test('pages::dashboard')
+        ->set('windfallEditing', true)
+        ->set('windfallSavings', 99)
+        ->set('windfallInvestments', 1)
+        ->set('windfallGuiltFree', 0)
+        ->set('windfallDebt', 0)
+        ->call('cancelWindfall')
+        ->assertSet('windfallEditing', false)
+        ->assertSet('windfallSavings', 25)
+        ->assertSet('windfallInvestments', 40)
+        ->assertSet('windfallGuiltFree', 20)
+        ->assertSet('windfallDebt', 15);
 });
