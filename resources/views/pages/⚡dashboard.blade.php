@@ -8,6 +8,7 @@ use App\Models\Profile;
 use App\Models\RichLifeVision;
 use App\Models\RichLifeVisionCategory;
 use App\Models\SpendingPlan;
+use App\Models\WindfallPlan;
 use App\Services\DebtPayoffCalculator;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
@@ -29,6 +30,12 @@ new class extends Component {
     public ?float $withdrawalRate = null;
     public bool $retirementEditing = false;
 
+    public bool $windfallEditing = false;
+    public int $windfallSavings = 0;
+    public int $windfallInvestments = 0;
+    public int $windfallGuiltFree = 0;
+    public int $windfallDebt = 0;
+
     public function mount(): void
     {
         $profile = Profile::instance();
@@ -36,6 +43,12 @@ new class extends Component {
         $this->retirementAge = $profile->retirement_age;
         $this->expectedReturn = (float) $profile->expected_return;
         $this->withdrawalRate = (float) $profile->withdrawal_rate;
+
+        $windfall = WindfallPlan::instance();
+        $this->windfallSavings = $windfall->savings_percent;
+        $this->windfallInvestments = $windfall->investments_percent;
+        $this->windfallGuiltFree = $windfall->guilt_free_percent;
+        $this->windfallDebt = $windfall->debt_percent;
     }
 
     #[Computed]
@@ -304,6 +317,46 @@ new class extends Component {
             'expected_return' => $this->expectedReturn,
             'withdrawal_rate' => $this->withdrawalRate,
         ]);
+    }
+
+    public function saveWindfallPlan(): void
+    {
+        $this->validate([
+            'windfallSavings' => ['required', 'integer', 'min:0', 'max:100'],
+            'windfallInvestments' => ['required', 'integer', 'min:0', 'max:100'],
+            'windfallGuiltFree' => ['required', 'integer', 'min:0', 'max:100'],
+            'windfallDebt' => ['required', 'integer', 'min:0', 'max:100'],
+        ]);
+
+        $total = $this->windfallSavings
+               + $this->windfallInvestments
+               + $this->windfallGuiltFree
+               + $this->windfallDebt;
+
+        if ($total !== 100) {
+            $this->addError('windfallSavings', 'Splits must add up to 100%.');
+            return;
+        }
+
+        WindfallPlan::instance()->update([
+            'savings_percent' => $this->windfallSavings,
+            'investments_percent' => $this->windfallInvestments,
+            'guilt_free_percent' => $this->windfallGuiltFree,
+            'debt_percent' => $this->windfallDebt,
+        ]);
+
+        $this->windfallEditing = false;
+        $this->dispatch('windfall-saved');
+    }
+
+    public function cancelWindfall(): void
+    {
+        $plan = WindfallPlan::instance();
+        $this->windfallSavings = $plan->savings_percent;
+        $this->windfallInvestments = $plan->investments_percent;
+        $this->windfallGuiltFree = $plan->guilt_free_percent;
+        $this->windfallDebt = $plan->debt_percent;
+        $this->windfallEditing = false;
     }
 }; ?>
 
@@ -843,6 +896,8 @@ new class extends Component {
                 @endif
             </div>
         </div>
+
+        @include('partials.windfall-plan')
     </div>
     </div>
 </div>
