@@ -57,6 +57,10 @@ new class extends Component {
     public string $bulkCategorizeCategory = '';
     public int $bulkCategorizeCount = 0;
 
+    // Delete confirmations
+    public ?int $confirmingDeleteExpenseId = null;
+    public bool $confirmingDeleteAccount = false;
+
     #[Computed]
     public function accounts()
     {
@@ -312,6 +316,17 @@ new class extends Component {
         $this->resetExpensesCaches();
     }
 
+    public function changeCategory(int $expenseId, string $category): void
+    {
+        if (! SpendingCategory::tryFrom($category)) {
+            return;
+        }
+
+        Expense::findOrFail($expenseId)->update(['category' => $category]);
+
+        $this->resetExpensesCaches();
+    }
+
     public function bulkCategorize(): void
     {
         if (! SpendingCategory::tryFrom($this->bulkCategorizeCategory)) {
@@ -335,11 +350,22 @@ new class extends Component {
         $this->bulkCategorizeCount = 0;
     }
 
+    public function confirmRemoveExpense(int $expenseId): void
+    {
+        $this->confirmingDeleteExpenseId = $expenseId;
+    }
+
+    public function cancelRemoveExpense(): void
+    {
+        $this->confirmingDeleteExpenseId = null;
+    }
+
     public function removeExpense(int $expenseId): void
     {
         $expense = Expense::findOrFail($expenseId);
 
         $expense->delete();
+        $this->confirmingDeleteExpenseId = null;
         $this->resetExpensesCaches();
     }
 
@@ -415,6 +441,20 @@ new class extends Component {
         $this->renamingAccountName = '';
     }
 
+    public function confirmRemoveAccount(): void
+    {
+        if ($this->selectedAccountId === 'all') {
+            return;
+        }
+
+        $this->confirmingDeleteAccount = true;
+    }
+
+    public function cancelRemoveAccount(): void
+    {
+        $this->confirmingDeleteAccount = false;
+    }
+
     public function removeAccount(): void
     {
         if ($this->selectedAccountId === 'all') {
@@ -425,6 +465,7 @@ new class extends Component {
 
         $account->delete();
         $this->selectedAccountId = 'all';
+        $this->confirmingDeleteAccount = false;
         unset($this->accounts);
         $this->resetExpensesCaches();
     }
@@ -518,21 +559,56 @@ new class extends Component {
 
 }; ?>
 
-<section class="w-full">
-    <x-page-heading title="Expenses" subtitle="Track where your money went" />
+<section class="w-full px-10 py-9 max-w-[1320px] mx-auto">
+    @php
+        $monthLabel = now()->format('F Y');
+        $activeCategory = str_starts_with($selectedAccountId, 'category:')
+            ? \App\Enums\SpendingCategory::tryFrom(substr($selectedAccountId, 9))
+            : null;
+    @endphp
+
+    <div class="flex items-start justify-between mb-6">
+        <x-page-heading eyebrow="Expenses" title="Track & categorize" />
+
+        @if (! $this->accounts->isEmpty())
+            <div class="flex items-center gap-2 pt-5" wire:key="account-actions-{{ $isRenamingAccount ? 'renaming' : 'idle' }}">
+                @if ($isRenamingAccount)
+                    <flux:input
+                        wire:model="renamingAccountName"
+                        size="sm"
+                        wire:keydown.enter="renameAccount"
+                        wire:keydown.escape="cancelRename"
+                        class="max-w-xs"
+                    />
+                    <flux:button size="sm" variant="primary" wire:click="renameAccount">{{ __('Save') }}</flux:button>
+                    <flux:button size="sm" variant="ghost" wire:click="cancelRename">{{ __('Cancel') }}</flux:button>
+                @elseif (is_numeric($selectedAccountId))
+                    <flux:button size="sm" variant="ghost" icon="arrow-up-tray" wire:click="openImportModal">
+                        {{ __('Import CSV') }}
+                    </flux:button>
+                    <flux:dropdown>
+                        <flux:button size="sm" variant="ghost" icon="ellipsis-horizontal" aria-label="{{ __('Account actions') }}" />
+                        <flux:menu>
+                            <flux:menu.item icon="pencil" wire:click="startRenamingAccount">{{ __('Rename account') }}</flux:menu.item>
+                            <flux:menu.item icon="trash" variant="danger" wire:click="confirmRemoveAccount">{{ __('Delete account') }}</flux:menu.item>
+                        </flux:menu>
+                    </flux:dropdown>
+                @endif
+            </div>
+        @endif
+    </div>
 
     @if ($this->accounts->isEmpty())
         {{-- First account setup --}}
-        <div class="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-600 p-8 text-center">
-            <flux:heading size="lg" class="mb-2">{{ __('Get started') }}</flux:heading>
-            <flux:text class="text-zinc-500 dark:text-zinc-400 mb-6">{{ __('Create your first expense account to start tracking spending.') }}</flux:text>
+        <div class="rounded-2xl border border-vault-card-bd bg-vault-card p-10 text-center">
+            <div class="font-display text-vault-text mb-2" style="font-size: 22px; font-weight: 300;">{{ __('Get started') }}</div>
+            <div class="text-vault-textsub mb-6" style="font-size: 13px;">{{ __('Create your first expense account to start tracking spending.') }}</div>
 
             <div class="flex items-end justify-center gap-2 max-w-sm mx-auto">
                 <div class="flex-1">
                     <flux:input
                         wire:model="firstAccountName"
                         size="sm"
-                        :label="__('Account name')"
                         :placeholder="__('e.g. Chase Checking')"
                         wire:keydown.enter="createFirstAccount"
                     />
@@ -540,59 +616,73 @@ new class extends Component {
                 <flux:button variant="primary" size="sm" wire:click="createFirstAccount">{{ __('Create') }}</flux:button>
             </div>
             @error('firstAccountName')
-                <flux:text class="text-sm text-red-600 mt-2">{{ $message }}</flux:text>
+                <div class="text-vault-red mt-2" style="font-size: 12px;">{{ $message }}</div>
             @enderror
         </div>
     @else
-    {{-- Monthly summary --}}
-    <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-5 mb-6">
-        <div class="flex items-center justify-between">
-            <flux:subheading>{{ __('This Month') }}</flux:subheading>
-            <span class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">${{ format_cents($this->monthlyTotal, 2) }}</span>
-        </div>
-        @if ($this->monthlyTotal > 0)
-            <div class="flex flex-wrap gap-2 mt-3">
-                @foreach (SpendingCategory::cases() as $cat)
-                    @php $catTotal = $this->categoryTotals[$cat->value] ?? 0; @endphp
-                    @if ($catTotal > 0)
-                        <flux:badge as="button" size="sm" color="{{ $cat->badgeColor() }}" variant="solid" wire:click="$set('selectedAccountId', 'category:{{ $cat->value }}')" class="cursor-pointer">
-                            {{ $cat->label() }}: ${{ format_cents($catTotal) }}
-                        </flux:badge>
-                    @endif
-                @endforeach
+
+    {{-- Monthly summary card --}}
+    <div class="rounded-2xl border border-vault-card-bd bg-vault-card mb-5" style="padding: 22px 26px;">
+        <div class="flex items-start justify-between flex-wrap gap-4">
+            <div>
+                <div class="eyebrow text-vault-muted">{{ $monthLabel }}</div>
+                <div class="font-display text-vault-text mt-1.5" style="font-size: 32px; font-weight: 300; line-height: 1;">
+                    ${{ format_cents($this->monthlyTotal, 2) }}
+                </div>
             </div>
-        @endif
+
+            @if ($this->monthlyTotal > 0)
+                <div class="flex flex-wrap gap-2.5 justify-end">
+                    @foreach (SpendingCategory::spendingCases() as $cat)
+                        @php $catTotal = $this->categoryTotals[$cat->value] ?? 0; @endphp
+                        @if ($catTotal > 0)
+                            @php $catColor = $cat->vaultColor(); @endphp
+                            <button
+                                wire:click="$set('selectedAccountId', 'category:{{ $cat->value }}')"
+                                class="text-center transition hover:brightness-110"
+                                style="background: color-mix(in srgb, {{ $catColor }} 12%, transparent); border: 1px solid color-mix(in srgb, {{ $catColor }} 28%, transparent); border-radius: 8px; padding: 8px 14px; min-width: 110px;"
+                            >
+                                <div style="font-size: 10px; font-weight: 600; color: {{ $catColor }}; letter-spacing: 0.04em;">{{ $cat->label() }}</div>
+                                <div class="font-display text-vault-text mt-0.5" style="font-size: 16px; font-weight: 300;">${{ format_cents($catTotal) }}</div>
+                            </button>
+                        @endif
+                    @endforeach
+                </div>
+            @endif
+        </div>
     </div>
 
     {{-- Previous months toggle --}}
     @if (count($this->monthlyHistory) > 0)
-        <div class="mb-6 -mt-4">
+        <div class="mb-5">
             <button
                 wire:click="$toggle('showMonthlyHistory')"
-                class="flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300 transition-colors"
+                class="flex items-center gap-1.5 text-vault-textsub hover:text-vault-text transition-colors"
+                style="font-size: 12px;"
             >
-                <flux:icon.chevron-right class="size-4 transition-transform {{ $showMonthlyHistory ? 'rotate-90' : '' }}" />
+                <flux:icon.chevron-right class="size-3.5 transition-transform {{ $showMonthlyHistory ? 'rotate-90' : '' }}" />
                 {{ __('Previous months') }}
             </button>
 
             @if ($showMonthlyHistory)
-                <div class="mt-3 space-y-2">
+                <div class="mt-3 flex flex-col gap-2.5">
                     @foreach ($this->monthlyHistory as $month)
-                        <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-4">
-                            <div class="flex items-center justify-between">
-                                <flux:subheading>{{ $month['label'] }}</flux:subheading>
-                                <span class="text-lg font-bold text-zinc-900 dark:text-zinc-100">${{ format_cents($month['total'], 2) }}</span>
-                            </div>
-                            @if (count($month['categories']) > 0)
-                                <div class="flex flex-wrap gap-2 mt-2">
-                                    @foreach ($month['categories'] as $catValue => $catTotal)
-                                        @php $cat = SpendingCategory::from($catValue); @endphp
-                                        <flux:badge size="sm" color="{{ $cat->badgeColor() }}" variant="solid">
-                                            {{ $cat->label() }}: ${{ format_cents($catTotal) }}
-                                        </flux:badge>
-                                    @endforeach
+                        <div class="rounded-2xl border border-vault-card-bd bg-vault-card" style="padding: 14px 22px;">
+                            <div class="flex items-center justify-between flex-wrap gap-3">
+                                <span class="text-vault-textsub" style="font-size: 13px;">{{ $month['label'] }}</span>
+                                <div class="flex items-center gap-3 flex-wrap">
+                                    <div class="flex flex-wrap gap-2">
+                                        @foreach ($month['categories'] as $catValue => $catTotal)
+                                            @php
+                                                $cat = SpendingCategory::from($catValue);
+                                                $cc = $cat->vaultColor();
+                                            @endphp
+                                            <span style="font-size: 10px; padding: 3px 8px; border-radius: 5px; background: color-mix(in srgb, {{ $cc }} 12%, transparent); color: {{ $cc }};">{{ $cat->label() }}: ${{ format_cents($catTotal) }}</span>
+                                        @endforeach
+                                    </div>
+                                    <span class="font-display text-vault-text" style="font-size: 16px; font-weight: 300;">${{ format_cents($month['total']) }}</span>
                                 </div>
-                            @endif
+                            </div>
                         </div>
                     @endforeach
                 </div>
@@ -601,131 +691,135 @@ new class extends Component {
     @endif
 
     {{-- Account tabs --}}
-    <div class="mb-4 flex flex-wrap items-center gap-1 border-b border-zinc-200 dark:border-zinc-700">
+    <div class="flex flex-wrap items-center mb-4 border-b border-vault-card-bd">
         <button
             wire:click="$set('selectedAccountId', 'all')"
-            class="px-3 py-2 text-sm font-medium border-b-2 transition-colors {{ $selectedAccountId === 'all' ? 'border-zinc-800 text-zinc-900 dark:border-zinc-200 dark:text-zinc-100' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300' }}"
+            class="transition-all"
+            style="padding: 8px 18px; font-size: 12px; font-weight: 500; border-bottom: 2px solid {{ $selectedAccountId === 'all' ? 'var(--color-vault-accent)' : 'transparent' }}; color: {{ $selectedAccountId === 'all' ? 'var(--color-vault-text)' : 'var(--color-vault-muted)' }};"
         >{{ __('All') }}</button>
-        @if ($this->uncategorizedCount > 0)
-            <button
-                wire:click="$set('selectedAccountId', 'uncategorized')"
-                class="px-3 py-2 text-sm font-medium border-b-2 transition-colors {{ $selectedAccountId === 'uncategorized' ? 'border-amber-600 text-amber-700 dark:border-amber-400 dark:text-amber-300' : 'border-transparent text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300' }}"
-            >{{ __('Uncategorized') }} ({{ $this->uncategorizedCount }})</button>
-        @endif
-        @if (str_starts_with($selectedAccountId, 'category:'))
-            @php $activeCategory = \App\Enums\SpendingCategory::tryFrom(substr($selectedAccountId, 9)); @endphp
-            @if ($activeCategory)
-                <button
-                    class="px-3 py-2 text-sm font-medium border-b-2 border-zinc-800 text-zinc-900 dark:border-zinc-200 dark:text-zinc-100 transition-colors"
-                >{{ $activeCategory->label() }}</button>
-            @endif
-        @endif
+
         @foreach ($this->accounts as $account)
+            @php $isActive = $selectedAccountId === (string) $account->id; @endphp
             <button
                 wire:click="$set('selectedAccountId', '{{ $account->id }}')"
                 wire:key="tab-{{ $account->id }}"
-                class="px-3 py-2 text-sm font-medium border-b-2 transition-colors {{ $selectedAccountId === (string) $account->id ? 'border-zinc-800 text-zinc-900 dark:border-zinc-200 dark:text-zinc-100' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300' }}"
+                class="transition-all"
+                style="padding: 8px 18px; font-size: 12px; font-weight: 500; border-bottom: 2px solid {{ $isActive ? 'var(--color-vault-accent)' : 'transparent' }}; color: {{ $isActive ? 'var(--color-vault-text)' : 'var(--color-vault-muted)' }};"
             >{{ $account->name }}</button>
         @endforeach
+
+        @if ($this->uncategorizedCount > 0)
+            @php $uncatActive = $selectedAccountId === 'uncategorized'; @endphp
+            <button
+                wire:click="$set('selectedAccountId', 'uncategorized')"
+                class="transition-all"
+                style="padding: 8px 18px; font-size: 12px; font-weight: 500; border-bottom: 2px solid {{ $uncatActive ? 'var(--color-vault-warm)' : 'transparent' }}; color: {{ $uncatActive ? 'var(--color-vault-warm)' : 'var(--color-vault-warm)' }};"
+            >{{ __('Uncategorized') }} ({{ $this->uncategorizedCount }})</button>
+        @endif
+
+        @if ($activeCategory)
+            <button
+                class="transition-all"
+                style="padding: 8px 18px; font-size: 12px; font-weight: 500; border-bottom: 2px solid {{ $activeCategory->vaultColor() }}; color: {{ $activeCategory->vaultColor() }};"
+            >{{ $activeCategory->label() }}</button>
+        @endif
+
         <button
             wire:click="addAccount"
-            class="px-3 py-2 text-sm font-medium border-b-2 border-transparent text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300 transition-colors"
+            class="ml-auto transition-colors hover:!text-vault-textsub"
+            style="padding: 8px 14px; font-size: 11px; color: var(--color-vault-muted);"
             aria-label="{{ __('Add account') }}"
-        >+ {{ __('New') }}</button>
+        >+ {{ __('New account') }}</button>
     </div>
 
     {{-- Uncategorized warning --}}
     @if ($this->uncategorizedCount > 0 && $selectedAccountId !== 'uncategorized')
-        <div class="mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 dark:border-amber-800 dark:bg-amber-950">
-            <flux:text class="text-sm text-amber-700 dark:text-amber-300">
+        <div class="mb-4 flex items-center gap-2 rounded-lg" style="padding: 8px 16px; background: color-mix(in srgb, var(--color-vault-warm) 8%, transparent); border: 1px solid color-mix(in srgb, var(--color-vault-warm) 25%, transparent);">
+            <span class="text-vault-warm" style="font-size: 12px;">
                 {{ trans_choice(':count expense needs categorizing|:count expenses need categorizing', $this->uncategorizedCount, ['count' => $this->uncategorizedCount]) }}
-            </flux:text>
+            </span>
             <button
                 wire:click="$set('selectedAccountId', 'uncategorized')"
-                class="text-sm font-medium text-amber-700 underline hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100"
+                class="text-vault-warm underline hover:brightness-110"
+                style="font-size: 12px; font-weight: 500;"
             >{{ __('Review') }}</button>
-        </div>
-    @endif
-
-    {{-- Account rename/delete bar --}}
-    @if (is_numeric($selectedAccountId))
-        <div class="mb-4 flex items-center gap-2" wire:key="account-bar-{{ $isRenamingAccount ? 'renaming' : 'actions' }}">
-            @if ($isRenamingAccount)
-                <flux:input
-                    wire:model="renamingAccountName"
-                    size="sm"
-                    wire:keydown.enter="renameAccount"
-                    wire:keydown.escape="cancelRename"
-                    class="max-w-xs"
-                />
-                <flux:button size="xs" variant="primary" wire:click="renameAccount">{{ __('Save') }}</flux:button>
-                <flux:button size="xs" variant="ghost" wire:click="cancelRename">{{ __('Cancel') }}</flux:button>
-            @else
-                <flux:button size="xs" variant="ghost" icon="pencil" wire:click="startRenamingAccount" aria-label="{{ __('Rename account') }}" />
-                <flux:button size="xs" variant="ghost" icon="trash" wire:click="removeAccount" wire:confirm="{{ __('Delete this account and all its expenses?') }}" aria-label="{{ __('Delete account') }}" />
-                <div class="flex-1"></div>
-                <flux:button size="xs" variant="ghost" icon="arrow-up-tray" wire:click="openImportModal" aria-label="{{ __('Import CSV') }}">
-                    {{ __('Import CSV') }}
-                </flux:button>
-            @endif
         </div>
     @endif
 
     {{-- Add expense form --}}
     @if ($selectedAccountId !== 'uncategorized')
-    <form wire:submit="addExpense" class="mb-6 grid grid-cols-2 sm:grid-cols-3 lg:flex lg:items-end gap-2" x-init="if (! $wire.newDate) { const d = new Date(); $wire.newDate = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }">
-        @if (! is_numeric($selectedAccountId))
+    <div class="rounded-2xl border border-vault-card-bd bg-vault-card mb-3" style="padding: 14px 18px;">
+        <div class="eyebrow text-vault-muted mb-2.5">{{ __('Add expense') }}</div>
+        <form wire:submit="addExpense" class="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:items-end gap-2" x-init="if (! $wire.newDate) { const d = new Date(); $wire.newDate = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }">
+            @if (! is_numeric($selectedAccountId))
+                <div class="min-w-0 lg:flex-1">
+                    <flux:select wire:model="newAccountId" size="sm">
+                        <option value="">{{ __('Account') }}</option>
+                        @foreach ($this->accounts as $account)
+                            <option value="{{ $account->id }}">{{ $account->name }}</option>
+                        @endforeach
+                    </flux:select>
+                </div>
+            @endif
+
             <div class="min-w-0 lg:flex-1">
-                <flux:select wire:model="newAccountId" size="sm">
-                    <option value="">{{ __('Account') }}</option>
-                    @foreach ($this->accounts as $account)
-                        <option value="{{ $account->id }}">{{ $account->name }}</option>
+                <flux:input wire:model="newDate" type="date" size="sm" />
+            </div>
+
+            <div class="min-w-0 lg:flex-[2]">
+                <flux:input wire:model.blur="newMerchant" :placeholder="__('Merchant')" size="sm" />
+            </div>
+
+            <div class="min-w-0 lg:flex-1">
+                <flux:select wire:model="newCategory" size="sm">
+                    <option value="">{{ __('Category') }}</option>
+                    @foreach (SpendingCategory::cases() as $cat)
+                        <option value="{{ $cat->value }}">{{ $cat->label() }}</option>
                     @endforeach
                 </flux:select>
             </div>
-        @endif
 
-        <div class="min-w-0 lg:flex-1">
-            <flux:input wire:model="newDate" type="date" size="sm" />
-        </div>
+            <div class="min-w-0 lg:flex-1">
+                <flux:input wire:model="newAmount" type="text" inputmode="decimal" :placeholder="__('0.00')" size="sm">
+                    <x-slot:prefix>$</x-slot:prefix>
+                </flux:input>
+            </div>
 
-        <div class="min-w-0 lg:flex-[2]">
-            <flux:input wire:model.blur="newMerchant" :placeholder="__('Merchant')" size="sm" />
-        </div>
-
-        <div class="min-w-0 lg:flex-1">
-            <flux:select wire:model="newCategory" size="sm">
-                <option value="">{{ __('Category') }}</option>
-                @foreach (SpendingCategory::cases() as $cat)
-                    <option value="{{ $cat->value }}">{{ $cat->label() }}</option>
-                @endforeach
-            </flux:select>
-        </div>
-
-        <div class="min-w-0 lg:flex-1">
-            <flux:input wire:model="newAmount" type="text" inputmode="decimal" :placeholder="__('0.00')" size="sm">
-                <x-slot:prefix>$</x-slot:prefix>
-            </flux:input>
-        </div>
-
-        <flux:button variant="primary" size="sm" type="submit" class="shrink-0">
-            {{ __('Add') }}
-        </flux:button>
-    </form>
+            <flux:button variant="primary" size="sm" type="submit" class="shrink-0">
+                {{ __('Add') }}
+            </flux:button>
+        </form>
+    </div>
     @endif
 
-    {{-- Expense list --}}
-    <div class="space-y-1">
-        @forelse ($this->expenses as $expense)
+    {{-- Expense list card --}}
+    <div class="rounded-2xl border border-vault-card-bd bg-vault-card overflow-hidden">
+        @if ($this->expenses->isNotEmpty())
+            {{-- Header row --}}
+            <div class="hidden lg:grid border-b border-vault-card-bd" style="grid-template-columns: 1fr 120px 130px 100px 70px; gap: 12px; padding: 12px 26px;">
+                <span class="eyebrow text-vault-muted">{{ __('Merchant') }}</span>
+                <span class="eyebrow text-vault-muted">{{ __('Account') }}</span>
+                <span class="eyebrow text-vault-muted">{{ __('Category') }}</span>
+                <span class="eyebrow text-vault-muted text-right">{{ __('Amount') }}</span>
+                <span></span>
+            </div>
+        @endif
+
+        @forelse ($this->expenses as $i => $expense)
+            @php
+                $catColor = $expense->category?->vaultColor() ?? '#9aad9e';
+                $firstLetter = mb_strtoupper(mb_substr($expense->merchant ?: '?', 0, 1));
+                $hasCategory = (bool) $expense->category;
+            @endphp
             <div
-                class="flex items-center gap-2 py-2 group border-b border-zinc-100 dark:border-zinc-800 transition-all duration-300"
-                :class="removing && 'opacity-0 max-h-0 !py-0 overflow-hidden !border-transparent'"
-                x-data="{ removing: false }"
                 wire:key="expense-{{ $expense->id }}-{{ $selectedAccountId === 'uncategorized' ? 'uncat' : 'display' }}"
+                x-data="{ removing: false }"
+                :class="removing && 'opacity-0 max-h-0 !py-0 overflow-hidden !border-transparent'"
+                class="group transition-all duration-300 {{ $i > 0 ? 'border-t border-vault-card-bd' : '' }}"
             >
                 @if ($editingExpenseId === $expense->id)
                     {{-- Inline edit mode --}}
-                    <div class="flex-1 grid grid-cols-2 sm:grid-cols-3 lg:flex lg:items-end gap-2">
+                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:items-end gap-2" style="padding: 12px 26px;">
                         <div class="min-w-0 lg:flex-1">
                             <flux:select wire:model="editingAccountId" size="sm">
                                 @foreach ($this->accounts as $account)
@@ -754,76 +848,130 @@ new class extends Component {
                         <flux:button size="sm" variant="primary" wire:click="updateExpense" class="shrink-0">{{ __('Save') }}</flux:button>
                         <flux:button size="sm" variant="ghost" wire:click="cancelEdit" class="shrink-0">{{ __('Cancel') }}</flux:button>
                     </div>
-                @elseif ($selectedAccountId === 'uncategorized')
-                    {{-- Categorization mode --}}
-                    <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2">
-                            <span class="text-sm text-zinc-700 dark:text-zinc-300 truncate">{{ $expense->merchant }}</span>
-                            <span class="hidden sm:inline text-xs text-zinc-400 dark:text-zinc-500 truncate max-w-32">{{ $expense->expenseAccount->name }}</span>
+                @elseif ($hasCategory)
+                    {{-- Categorized: grid layout matching header --}}
+                    <div class="grid items-center" style="grid-template-columns: 1fr 120px 130px 100px 70px; gap: 12px; padding: 11px 26px;">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <div class="flex items-center justify-center shrink-0" style="width: 32px; height: 32px; border-radius: 7px; background: color-mix(in srgb, {{ $catColor }} 14%, transparent);">
+                                <span style="font-size: 12px; font-weight: 600; color: {{ $catColor }};">{{ $firstLetter }}</span>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="text-vault-text truncate" style="font-size: 13px;">{{ $expense->merchant }}</div>
+                                <div class="text-vault-muted" style="font-size: 10px;">{{ $expense->date->format('M j, Y') }}</div>
+                            </div>
                         </div>
-                        <span class="text-xs text-zinc-500 dark:text-zinc-400">{{ $expense->date->format('M j, Y') }}</span>
+
+                        <span class="text-vault-textsub truncate" style="font-size: 11px;">{{ $expense->expenseAccount->name }}</span>
+
+                        <div class="min-w-0">
+                            <flux:dropdown>
+                                <button
+                                    type="button"
+                                    class="hover:brightness-110 transition cursor-pointer"
+                                    aria-label="{{ __('Change category') }}"
+                                    style="font-size: 10px; padding: 4px 9px; border-radius: 5px; background: color-mix(in srgb, {{ $catColor }} 14%, transparent); color: {{ $catColor }}; border: 1px solid color-mix(in srgb, {{ $catColor }} 28%, transparent);"
+                                >{{ $expense->category->label() }}</button>
+                                <flux:menu>
+                                    @foreach (SpendingCategory::cases() as $cat)
+                                        @if ($cat !== $expense->category)
+                                            <flux:menu.item wire:click="changeCategory({{ $expense->id }}, '{{ $cat->value }}')">
+                                                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: {{ $cat->vaultColor() }}; margin-right: 8px;"></span>
+                                                {{ $cat->label() }}
+                                            </flux:menu.item>
+                                        @endif
+                                    @endforeach
+                                </flux:menu>
+                            </flux:dropdown>
+                        </div>
+
+                        <span class="text-vault-text text-right" style="font-size: 13px; font-weight: 500;">${{ format_cents($expense->amount, 2) }}</span>
+
+                        <div class="flex items-center justify-end gap-0.5">
+                            <div class="opacity-0 group-hover:opacity-100 transition">
+                                <flux:button size="xs" variant="ghost" icon="pencil" wire:click="editExpense({{ $expense->id }})" aria-label="{{ __('Edit expense') }}" />
+                            </div>
+                            <div class="opacity-0 group-hover:opacity-100 transition">
+                                <flux:button size="xs" variant="ghost" icon="trash" wire:click="confirmRemoveExpense({{ $expense->id }})" aria-label="{{ __('Remove expense') }}" />
+                            </div>
+                        </div>
                     </div>
-                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100 shrink-0">${{ format_cents($expense->amount, 2) }}</span>
-                    <div class="flex gap-1 shrink-0">
-                        @foreach (SpendingCategory::cases() as $cat)
-                            <flux:button size="xs" variant="primary" color="{{ $cat->badgeColor() }}" x-on:click="removing = true; setTimeout(() => $wire.categorizeExpense({{ $expense->id }}, '{{ $cat->value }}'), 300)" aria-label="{{ __('Categorize as :category', ['category' => $cat->label()]) }}">{{ $cat->label() }}</flux:button>
-                        @endforeach
-                    </div>
-                    <flux:button size="xs" variant="ghost" icon="trash" wire:click="removeExpense({{ $expense->id }})" wire:confirm="{{ __('Remove this expense?') }}" aria-label="{{ __('Remove expense') }}" />
                 @else
-                    {{-- Display mode --}}
-                    <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2">
-                            <span class="text-sm text-zinc-700 dark:text-zinc-300 truncate">{{ $expense->merchant }}</span>
-                            @if (! is_numeric($selectedAccountId))
-                                <span class="hidden sm:inline text-xs text-zinc-400 dark:text-zinc-500 truncate max-w-32">{{ $expense->expenseAccount->name }}</span>
-                            @endif
+                    {{-- Uncategorized: flex layout with categorize buttons --}}
+                    <div class="flex items-center gap-3 flex-wrap" style="padding: 11px 26px;">
+                        <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                            <div class="flex items-center justify-center shrink-0" style="width: 32px; height: 32px; border-radius: 7px; background: color-mix(in srgb, var(--color-vault-warm) 14%, transparent);">
+                                <span class="text-vault-warm" style="font-size: 12px; font-weight: 600;">{{ $firstLetter }}</span>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-vault-text truncate" style="font-size: 13px;">{{ $expense->merchant }}</span>
+                                    <span class="text-vault-muted hidden sm:inline truncate" style="font-size: 10px;">{{ $expense->expenseAccount->name }}</span>
+                                </div>
+                                <div class="text-vault-muted" style="font-size: 10px;">{{ $expense->date->format('M j, Y') }}</div>
+                            </div>
                         </div>
-                        <div class="flex items-center gap-2 mt-0.5">
-                            <span class="text-xs text-zinc-500 dark:text-zinc-400">{{ $expense->date->format('M j, Y') }}</span>
-                            @if ($expense->category)
-                                <flux:badge size="sm" color="{{ $expense->category->badgeColor() }}" variant="solid">
-                                    {{ $expense->category->label() }}
-                                </flux:badge>
-                            @endif
-                        </div>
-                    </div>
-                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100 shrink-0">${{ format_cents($expense->amount, 2) }}</span>
-                    @if (! $expense->category)
-                        <div class="flex gap-1 shrink-0">
+
+                        <span class="text-vault-text shrink-0" style="font-size: 13px; font-weight: 500;">${{ format_cents($expense->amount, 2) }}</span>
+
+                        <div class="flex flex-wrap gap-1 shrink-0">
                             @foreach (SpendingCategory::cases() as $cat)
-                                <flux:button size="xs" variant="primary" color="{{ $cat->badgeColor() }}" wire:click="categorizeExpense({{ $expense->id }}, '{{ $cat->value }}')" aria-label="{{ __('Categorize as :category', ['category' => $cat->label()]) }}">{{ $cat->label() }}</flux:button>
+                                @php $cc = $cat->vaultColor(); @endphp
+                                <button
+                                    @if ($selectedAccountId === 'uncategorized')
+                                        x-on:click="removing = true; setTimeout(() => $wire.categorizeExpense({{ $expense->id }}, '{{ $cat->value }}'), 300)"
+                                    @else
+                                        wire:click="categorizeExpense({{ $expense->id }}, '{{ $cat->value }}')"
+                                    @endif
+                                    aria-label="{{ __('Categorize as :category', ['category' => $cat->label()]) }}"
+                                    class="hover:brightness-110 transition"
+                                    style="font-size: 10px; padding: 4px 9px; border-radius: 5px; background: color-mix(in srgb, {{ $cc }} 14%, transparent); color: {{ $cc }}; border: 1px solid color-mix(in srgb, {{ $cc }} 28%, transparent);"
+                                >{{ $cat->label() }}</button>
                             @endforeach
                         </div>
-                    @endif
-                    <div class="flex items-center gap-0.5 shrink-0">
-                        <flux:button size="xs" variant="ghost" icon="pencil" wire:click="editExpense({{ $expense->id }})" aria-label="{{ __('Edit expense') }}" />
-                        <flux:button size="xs" variant="ghost" icon="trash" wire:click="removeExpense({{ $expense->id }})" wire:confirm="{{ __('Remove this expense?') }}" aria-label="{{ __('Remove expense') }}" />
+
+                        <flux:button size="xs" variant="ghost" icon="trash" wire:click="confirmRemoveExpense({{ $expense->id }})" aria-label="{{ __('Remove expense') }}" />
                     </div>
                 @endif
             </div>
         @empty
-            <div class="py-8 text-center">
-                <flux:text class="text-zinc-500 dark:text-zinc-400">{{ __('No expenses yet. Add one above!') }}</flux:text>
+            <div class="flex flex-col items-center justify-center text-center" style="padding: 56px 26px; gap: 12px;">
+                <div class="flex items-center justify-center" style="width: 44px; height: 44px; border-radius: 10px; background: color-mix(in srgb, var(--color-vault-muted) 12%, transparent);">
+                    <flux:icon.banknotes class="size-5 text-vault-muted" />
+                </div>
+                <div>
+                    @if ($selectedAccountId === 'uncategorized')
+                        <div class="font-display text-vault-text" style="font-size: 18px; font-weight: 300;">{{ __('All caught up') }}</div>
+                        <div class="text-vault-textsub mt-1" style="font-size: 12px;">{{ __('No uncategorized expenses.') }}</div>
+                    @else
+                        <div class="font-display text-vault-text" style="font-size: 18px; font-weight: 300;">{{ __('No expenses yet') }}</div>
+                        <div class="text-vault-textsub mt-1" style="font-size: 12px;">{{ __('Add one above to start tracking.') }}</div>
+                    @endif
+                </div>
             </div>
         @endforelse
     </div>
 
     {{-- Infinite scroll sentinel --}}
     @if ($this->hasMore)
-        <div wire:intersect="loadMore" class="py-4 text-center">
-            <flux:text class="text-sm text-zinc-400">{{ __('Loading more...') }}</flux:text>
+        <div wire:intersect="loadMore" class="flex items-center justify-center gap-2 py-5">
+            <span class="inline-block size-2 rounded-full animate-pulse" style="background: var(--color-vault-accent); animation-delay: 0ms;"></span>
+            <span class="inline-block size-2 rounded-full animate-pulse" style="background: var(--color-vault-accent); animation-delay: 150ms;"></span>
+            <span class="inline-block size-2 rounded-full animate-pulse" style="background: var(--color-vault-accent); animation-delay: 300ms;"></span>
+            <span class="text-vault-muted ml-2" style="font-size: 11px; letter-spacing: 0.06em;">{{ __('Loading more') }}</span>
         </div>
     @endif
 
     {{-- CSV Import Modal --}}
     <flux:modal wire:model="showImportModal" class="max-w-2xl">
-        <div class="space-y-6">
-            <flux:heading size="lg">{{ __('Import Expenses from CSV') }}</flux:heading>
+        <div class="flex flex-col gap-5">
+            <div>
+                <div class="eyebrow text-vault-muted mb-2">{{ __('CSV import') }}</div>
+                <div class="font-display text-vault-text" style="font-size: 22px; font-weight: 300; line-height: 1.2;">{{ __('Import expenses') }}</div>
+            </div>
 
             @if (empty($parsedRows) && empty($matchedExpenses))
                 {{-- Phase 1: Upload --}}
-                <div class="space-y-4">
+                <div class="flex flex-col gap-4">
                     @if (! $importAccountId)
                         <flux:select wire:model="importAccountId" :label="__('Import into account')" size="sm">
                             <option value="">{{ __('Select account...') }}</option>
@@ -833,25 +981,37 @@ new class extends Component {
                         </flux:select>
                     @else
                         @php $importAccount = $this->accounts->firstWhere('id', $importAccountId); @endphp
-                        <flux:text>
-                            {{ __('Importing into:') }} <strong>{{ $importAccount?->name }}</strong>
-                        </flux:text>
+                        <div class="text-vault-textsub" style="font-size: 13px;">
+                            {{ __('Importing into') }} <span class="text-vault-text font-medium">{{ $importAccount?->name }}</span>
+                        </div>
                     @endif
 
                     <div>
-                        <flux:text class="text-sm text-zinc-500 mb-2">{{ __('Upload a CSV file with columns for Date, Description, and Amount.') }}</flux:text>
-                        <input type="file" wire:model="csvFile" accept=".csv,.txt" class="block w-full text-sm text-zinc-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-zinc-100 file:text-zinc-700 hover:file:bg-zinc-200 dark:file:bg-zinc-700 dark:file:text-zinc-300" />
-                        @error('csvFile') <span class="text-sm text-red-600">{{ $message }}</span> @enderror
+                        <div class="text-vault-textsub mb-2" style="font-size: 12px;">{{ __('Upload a CSV file with columns for Date, Description, and Amount.') }}</div>
+                        <label class="block rounded-xl cursor-pointer transition" style="border: 1px dashed var(--color-vault-input-bd); background: var(--color-vault-input); padding: 18px;">
+                            <input type="file" wire:model="csvFile" accept=".csv,.txt" class="hidden" />
+                            <div class="flex items-center gap-3">
+                                <flux:icon.arrow-up-tray class="size-5 text-vault-textsub" />
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-vault-text" style="font-size: 13px;">{{ __('Choose a CSV file') }}</div>
+                                    <div class="text-vault-muted truncate" style="font-size: 11px;">
+                                        {{ $csvFile?->getClientOriginalName() ?? __('Drag and drop or click to browse') }}
+                                    </div>
+                                </div>
+                                <span class="text-vault-accent" style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em;">{{ __('BROWSE') }}</span>
+                            </div>
+                        </label>
+                        @error('csvFile') <div class="text-vault-red mt-2" style="font-size: 12px;">{{ $message }}</div> @enderror
                     </div>
 
-                    <div wire:loading wire:target="csvFile" class="text-sm text-zinc-500">
+                    <div wire:loading wire:target="csvFile" class="text-vault-textsub" style="font-size: 12px;">
                         {{ __('Uploading and parsing...') }}
                     </div>
 
                     @if ($importFeedback)
-                        <div class="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 dark:border-amber-800 dark:bg-amber-950">
-                            <flux:icon.exclamation-triangle class="size-5 text-amber-600 dark:text-amber-400 shrink-0" />
-                            <flux:text class="text-sm text-amber-700 dark:text-amber-300">{{ $importFeedback }}</flux:text>
+                        <div class="flex items-center gap-2 rounded-lg" style="padding: 10px 14px; background: color-mix(in srgb, var(--color-vault-warm) 8%, transparent); border: 1px solid color-mix(in srgb, var(--color-vault-warm) 25%, transparent);">
+                            <flux:icon.exclamation-triangle class="size-4 text-vault-warm shrink-0" />
+                            <span class="text-vault-warm" style="font-size: 12px;">{{ $importFeedback }}</span>
                         </div>
                     @endif
 
@@ -863,7 +1023,7 @@ new class extends Component {
                 {{-- Phase 2: Preview & select --}}
                 @php $totalSelected = count($selectedRows) + count($selectedMatches); @endphp
 
-                <flux:text class="text-sm">
+                <div class="text-vault-textsub" style="font-size: 12px;">
                     @if (count($matchedExpenses) > 0 && count($parsedRows) > 0)
                         {{ __(':matchCount matched, :newCount new transactions found.', ['matchCount' => count($matchedExpenses), 'newCount' => count($parsedRows)]) }}
                     @elseif (count($matchedExpenses) > 0)
@@ -871,44 +1031,45 @@ new class extends Component {
                     @else
                         {{ __(':count new transactions found.', ['count' => count($parsedRows)]) }}
                     @endif
-                </flux:text>
+                </div>
 
                 {{-- Matched transactions section --}}
                 @if (count($matchedExpenses) > 0)
-                    <div class="space-y-2">
-                        <flux:heading size="sm">{{ __('Matched to your entries') }}</flux:heading>
+                    <div class="flex flex-col gap-2">
+                        <div class="eyebrow text-vault-muted">{{ __('Matched to your entries') }}</div>
 
-                        <div class="max-h-48 overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-lg">
-                            <table class="w-full text-sm">
-                                <thead class="bg-zinc-50 dark:bg-zinc-800 sticky top-0">
+                        <div class="max-h-48 overflow-y-auto rounded-xl border border-vault-card-bd">
+                            <table class="w-full">
+                                <thead class="sticky top-0" style="background: var(--color-vault-card-hov);">
                                     <tr>
-                                        <th class="p-2 w-8"></th>
-                                        <th class="p-2 text-left">{{ __('Your entry') }}</th>
-                                        <th class="p-2 w-6"></th>
-                                        <th class="p-2 text-left">{{ __('CSV transaction') }}</th>
-                                        <th class="p-2 text-right">{{ __('Amount') }}</th>
+                                        <th class="w-8" style="padding: 8px;"></th>
+                                        <th class="text-left eyebrow text-vault-muted" style="padding: 8px;">{{ __('Your entry') }}</th>
+                                        <th class="w-6" style="padding: 8px;"></th>
+                                        <th class="text-left eyebrow text-vault-muted" style="padding: 8px;">{{ __('CSV transaction') }}</th>
+                                        <th class="text-right eyebrow text-vault-muted" style="padding: 8px;">{{ __('Amount') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @foreach ($matchedExpenses as $index => $match)
-                                        <tr class="border-t border-zinc-100 dark:border-zinc-800 {{ in_array($index, $selectedMatches) ? '' : 'opacity-50' }}">
-                                            <td class="p-2">
+                                        <tr class="border-t border-vault-card-bd {{ in_array($index, $selectedMatches) ? '' : 'opacity-50' }}">
+                                            <td style="padding: 8px;">
                                                 <input type="checkbox"
                                                     value="{{ $index }}"
                                                     wire:model.live="selectedMatches"
-                                                    class="rounded border-zinc-300 dark:border-zinc-600"
+                                                    class="rounded"
+                                                    style="border-color: var(--color-vault-input-bd); background: var(--color-vault-input); accent-color: var(--color-vault-accent);"
                                                 />
                                             </td>
-                                            <td class="p-2 truncate max-w-32">
-                                                <span>{{ $match['expense_merchant'] }}</span>
-                                                <span class="text-xs text-zinc-400 ml-1">{{ $match['expense_date'] }}</span>
+                                            <td class="truncate max-w-32" style="padding: 8px;">
+                                                <span class="text-vault-text" style="font-size: 12px;">{{ $match['expense_merchant'] }}</span>
+                                                <span class="text-vault-muted ml-1" style="font-size: 10px;">{{ $match['expense_date'] }}</span>
                                             </td>
-                                            <td class="p-2 text-center"><flux:icon.arrow-right class="size-3 text-zinc-400" /></td>
-                                            <td class="p-2 truncate max-w-32">
-                                                <span>{{ $match['csv_merchant'] }}</span>
-                                                <span class="text-xs text-zinc-400 ml-1">{{ $match['csv_date'] }}</span>
+                                            <td class="text-center" style="padding: 8px;"><flux:icon.arrow-right class="size-3 text-vault-muted inline" /></td>
+                                            <td class="truncate max-w-32" style="padding: 8px;">
+                                                <span class="text-vault-text" style="font-size: 12px;">{{ $match['csv_merchant'] }}</span>
+                                                <span class="text-vault-muted ml-1" style="font-size: 10px;">{{ $match['csv_date'] }}</span>
                                             </td>
-                                            <td class="p-2 text-right">${{ format_cents($match['amount'], 2) }}</td>
+                                            <td class="text-right text-vault-text" style="padding: 8px; font-size: 12px; font-weight: 500;">${{ format_cents($match['amount'], 2) }}</td>
                                         </tr>
                                     @endforeach
                                 </tbody>
@@ -919,51 +1080,52 @@ new class extends Component {
 
                 {{-- New transactions table --}}
                 @if (count($parsedRows) > 0)
-                    <div class="space-y-2">
+                    <div class="flex flex-col gap-2">
                         @if (count($matchedExpenses) > 0)
-                            <flux:heading size="sm">{{ __('New transactions') }}</flux:heading>
+                            <div class="eyebrow text-vault-muted">{{ __('New transactions') }}</div>
                         @endif
 
-                        <div class="max-h-96 overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-lg">
-                            <table class="w-full text-sm">
-                                <thead class="bg-zinc-50 dark:bg-zinc-800 sticky top-0">
+                        <div class="max-h-96 overflow-y-auto rounded-xl border border-vault-card-bd">
+                            <table class="w-full">
+                                <thead class="sticky top-0" style="background: var(--color-vault-card-hov);">
                                     <tr>
-                                        <th class="p-2 text-left w-8">
+                                        <th class="w-8 text-left" style="padding: 8px;">
                                             <input type="checkbox"
                                                 {{ count($selectedRows) === count($parsedRows) ? 'checked' : '' }}
                                                 wire:click="$set('selectedRows', {{ count($selectedRows) === count($parsedRows) ? '[]' : json_encode(array_keys($parsedRows)) }})"
-                                                class="rounded border-zinc-300 dark:border-zinc-600"
+                                                class="rounded"
+                                                style="border-color: var(--color-vault-input-bd); background: var(--color-vault-input); accent-color: var(--color-vault-accent);"
                                             />
                                         </th>
-                                        <th class="p-2 text-left">{{ __('Date') }}</th>
-                                        <th class="p-2 text-left">{{ __('Merchant') }}</th>
-                                        <th class="p-2 text-right">{{ __('Amount') }}</th>
-                                        <th class="p-2 text-left">{{ __('Category') }}</th>
+                                        <th class="text-left eyebrow text-vault-muted" style="padding: 8px;">{{ __('Date') }}</th>
+                                        <th class="text-left eyebrow text-vault-muted" style="padding: 8px;">{{ __('Merchant') }}</th>
+                                        <th class="text-right eyebrow text-vault-muted" style="padding: 8px;">{{ __('Amount') }}</th>
+                                        <th class="text-left eyebrow text-vault-muted" style="padding: 8px;">{{ __('Category') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @foreach ($parsedRows as $index => $row)
-                                        <tr class="border-t border-zinc-100 dark:border-zinc-800 {{ in_array($index, $selectedRows) ? '' : 'opacity-50' }}">
-                                            <td class="p-2">
+                                        <tr class="border-t border-vault-card-bd {{ in_array($index, $selectedRows) ? '' : 'opacity-50' }}">
+                                            <td style="padding: 8px;">
                                                 <input type="checkbox"
                                                     value="{{ $index }}"
                                                     wire:model.live="selectedRows"
-                                                    class="rounded border-zinc-300 dark:border-zinc-600"
+                                                    class="rounded"
+                                                    style="border-color: var(--color-vault-input-bd); background: var(--color-vault-input); accent-color: var(--color-vault-accent);"
                                                 />
                                             </td>
-                                            <td class="p-2">{{ $row['date'] }}</td>
-                                            <td class="p-2 truncate max-w-48">{{ $row['merchant'] }}</td>
-                                            <td class="p-2 text-right">${{ format_cents($row['amount'], 2) }}</td>
-                                            <td class="p-2">
+                                            <td class="text-vault-textsub" style="padding: 8px; font-size: 12px;">{{ $row['date'] }}</td>
+                                            <td class="text-vault-text truncate max-w-48" style="padding: 8px; font-size: 12px;">{{ $row['merchant'] }}</td>
+                                            <td class="text-right text-vault-text" style="padding: 8px; font-size: 12px; font-weight: 500;">${{ format_cents($row['amount'], 2) }}</td>
+                                            <td style="padding: 8px;">
                                                 @if ($row['category'])
-                                                    @php $catEnum = SpendingCategory::from($row['category']); @endphp
-                                                    <flux:badge size="sm" color="{{ $catEnum->badgeColor() }}" variant="solid">
-                                                        {{ $catEnum->label() }}
-                                                    </flux:badge>
+                                                    @php
+                                                        $catEnum = SpendingCategory::from($row['category']);
+                                                        $cc = $catEnum->vaultColor();
+                                                    @endphp
+                                                    <span style="font-size: 10px; padding: 3px 8px; border-radius: 5px; background: color-mix(in srgb, {{ $cc }} 14%, transparent); color: {{ $cc }};">{{ $catEnum->label() }}</span>
                                                 @else
-                                                    <flux:badge size="sm" color="zinc">
-                                                        {{ __('Uncategorized') }}
-                                                    </flux:badge>
+                                                    <span class="text-vault-muted" style="font-size: 10px; padding: 3px 8px; border-radius: 5px; background: color-mix(in srgb, var(--color-vault-muted) 14%, transparent);">{{ __('Uncategorized') }}</span>
                                                 @endif
                                             </td>
                                         </tr>
@@ -987,25 +1149,67 @@ new class extends Component {
 
     {{-- Bulk Categorize Confirmation --}}
     <flux:modal wire:model.self="showBulkCategorizeModal" class="min-w-[22rem]">
-        <div class="space-y-6">
+        @php
+            $bulkCat = $bulkCategorizeCategory ? \App\Enums\SpendingCategory::tryFrom($bulkCategorizeCategory) : null;
+            $bulkColor = $bulkCat?->vaultColor() ?? '#9aad9e';
+        @endphp
+        <div class="flex flex-col gap-5">
             <div>
-                <flux:heading size="lg">{{ __('Categorize similar expenses?') }}</flux:heading>
-                <flux:text class="mt-2">
+                <div class="eyebrow text-vault-muted mb-2">{{ __('Bulk categorize') }}</div>
+                <div class="font-display text-vault-text" style="font-size: 22px; font-weight: 300; line-height: 1.2;">{{ __('Categorize similar expenses?') }}</div>
+                <div class="text-vault-textsub mt-3" style="font-size: 13px; line-height: 1.5;">
                     {{ trans_choice(
-                        ':count other expense from :merchant is also uncategorized. Would you like to categorize it as :category too?|:count other expenses from :merchant are also uncategorized. Would you like to categorize them all as :category?',
+                        ':count other expense from :merchant is also uncategorized. Categorize it as :category too?|:count other expenses from :merchant are also uncategorized. Categorize them all as :category?',
                         $bulkCategorizeCount,
                         [
                             'count' => $bulkCategorizeCount,
                             'merchant' => $bulkCategorizeMerchant,
-                            'category' => $bulkCategorizeCategory ? \App\Enums\SpendingCategory::tryFrom($bulkCategorizeCategory)?->label() : '',
+                            'category' => $bulkCat?->label() ?? '',
                         ]
                     ) }}
-                </flux:text>
+                </div>
+                @if ($bulkCat)
+                    <div class="mt-3 inline-flex items-center" style="gap: 6px; padding: 4px 10px; border-radius: 6px; background: color-mix(in srgb, {{ $bulkColor }} 14%, transparent); border: 1px solid color-mix(in srgb, {{ $bulkColor }} 28%, transparent);">
+                        <span class="rounded-sm" style="width: 8px; height: 8px; background: {{ $bulkColor }};"></span>
+                        <span style="font-size: 11px; color: {{ $bulkColor }}; font-weight: 500;">{{ $bulkCat->label() }}</span>
+                    </div>
+                @endif
             </div>
-            <div class="flex gap-2">
-                <flux:spacer />
+            <div class="flex justify-end gap-2">
                 <flux:button variant="ghost" wire:click="cancelBulkCategorize">{{ __('No thanks') }}</flux:button>
                 <flux:button variant="primary" wire:click="bulkCategorize">{{ __('Categorize all') }}</flux:button>
+            </div>
+        </div>
+    </flux:modal>
+
+    {{-- Delete Expense Confirmation --}}
+    <flux:modal wire:model.self="confirmingDeleteExpenseId" class="min-w-[22rem]">
+        <div class="flex flex-col gap-5">
+            <div>
+                <div class="eyebrow text-vault-muted mb-2">{{ __('Remove expense') }}</div>
+                <div class="font-display text-vault-text" style="font-size: 22px; font-weight: 300; line-height: 1.2;">{{ __('Remove this expense?') }}</div>
+                <div class="text-vault-textsub mt-3" style="font-size: 13px; line-height: 1.5;">{{ __('This action cannot be undone.') }}</div>
+            </div>
+            <div class="flex justify-end gap-2">
+                <flux:button variant="ghost" wire:click="cancelRemoveExpense">{{ __('Cancel') }}</flux:button>
+                @if ($confirmingDeleteExpenseId)
+                    <flux:button variant="danger" wire:click="removeExpense({{ $confirmingDeleteExpenseId }})">{{ __('Remove') }}</flux:button>
+                @endif
+            </div>
+        </div>
+    </flux:modal>
+
+    {{-- Delete Account Confirmation --}}
+    <flux:modal wire:model.self="confirmingDeleteAccount" class="min-w-[22rem]">
+        <div class="flex flex-col gap-5">
+            <div>
+                <div class="eyebrow text-vault-muted mb-2">{{ __('Delete account') }}</div>
+                <div class="font-display text-vault-text" style="font-size: 22px; font-weight: 300; line-height: 1.2;">{{ __('Delete this account and all its expenses?') }}</div>
+                <div class="text-vault-textsub mt-3" style="font-size: 13px; line-height: 1.5;">{{ __('This action cannot be undone.') }}</div>
+            </div>
+            <div class="flex justify-end gap-2">
+                <flux:button variant="ghost" wire:click="cancelRemoveAccount">{{ __('Cancel') }}</flux:button>
+                <flux:button variant="danger" wire:click="removeAccount">{{ __('Delete account') }}</flux:button>
             </div>
         </div>
     </flux:modal>

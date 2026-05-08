@@ -11,9 +11,10 @@ use App\Models\RichLifeVisionCategory;
 use App\Models\SpendingPlan;
 use App\Models\SpendingPlanItem;
 use App\Models\WindfallPlan;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
-uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
+uses(RefreshDatabase::class);
 
 test('dashboard is accessible', function () {
     $response = $this->get(route('dashboard'));
@@ -59,7 +60,7 @@ test('dashboard shows current spending plan', function () {
     ]);
 
     Livewire::test('pages::dashboard')
-        ->assertSee('Current Spending Plan')
+        ->assertSee('Spending Plan')
         ->assertSee('Fixed Costs');
 });
 
@@ -102,7 +103,7 @@ test('dashboard shows negative guilt-free spending in red', function () {
 
     Livewire::test('pages::dashboard')
         ->assertSee('Guilt-Free')
-        ->assertSeeHtml('text-red-600');
+        ->assertSeeHtml('text-vault-red');
 });
 
 test('dashboard renders with zero monthly income plan', function () {
@@ -112,7 +113,7 @@ test('dashboard renders with zero monthly income plan', function () {
 
     Livewire::test('pages::dashboard')
         ->assertOk()
-        ->assertSee('Current Spending Plan')
+        ->assertSee('Spending Plan')
         ->assertSee('0%');
 });
 
@@ -156,112 +157,61 @@ test('dashboard shows emergency fund card', function () {
 });
 
 test('dashboard shows emergency fund coverage months with current plan', function () {
-    $ef = NetWorthAccount::factory()->create([
-        'name' => 'Emergency Fund',
-        'category' => AccountCategory::Savings,
-        'is_emergency_fund' => true,
-        'balance' => 1500000, // $15,000
-    ]);
+    NetWorthAccount::where('is_emergency_fund', true)->update(['balance' => 1500000]);
 
-    $plan = SpendingPlan::factory()->current()->create([
+    SpendingPlan::factory()->current()->create([
         'monthly_income' => 500000, // $5,000
         'fixed_costs_misc_percent' => 0,
     ]);
-    SpendingPlanItem::factory()->create([
-        'spending_plan_id' => $plan->id,
-        'category' => SpendingCategory::FixedCosts,
-        'amount' => 250000, // $2,500
-    ]);
 
     Livewire::test('pages::dashboard')
-        ->assertSee('Months of total spending')
-        ->assertSee('3') // $15,000 / $5,000 = 3
-        ->assertSee('Months of fixed costs')
-        ->assertSee('6'); // $15,000 / $2,500 = 6
+        ->assertSee('Emergency Fund')
+        ->assertSee('3.0 of 6 months') // $15,000 / $5,000 = 3
+        ->assertSee('Goal: 6 months expenses');
 });
 
-test('dashboard shows months of fixed costs using all savings', function () {
-    $ef = NetWorthAccount::factory()->create([
-        'name' => 'Emergency Fund',
-        'category' => AccountCategory::Savings,
-        'is_emergency_fund' => true,
-        'balance' => 1500000, // $15,000
-    ]);
+test('dashboard emergency fund balance reflects only the dedicated fund', function () {
+    NetWorthAccount::where('is_emergency_fund', true)->update(['balance' => 1500000]);
 
-    // Add another savings account
+    // Other savings account that should NOT count toward the emergency fund card
     NetWorthAccount::factory()->create([
         'category' => AccountCategory::Savings,
-        'balance' => 500000, // $5,000
+        'balance' => 500000,
     ]);
 
-    $plan = SpendingPlan::factory()->current()->create([
-        'monthly_income' => 500000,
-        'fixed_costs_misc_percent' => 0,
-    ]);
-    SpendingPlanItem::factory()->create([
-        'spending_plan_id' => $plan->id,
-        'category' => SpendingCategory::FixedCosts,
-        'amount' => 250000, // $2,500
-    ]);
-
-    // Total savings: $15,000 + $5,000 = $20,000
-    // $20,000 / $5,000 monthly income = 4 months total spending
-    // $20,000 / $2,500 fixed costs = 8 months fixed costs
     Livewire::test('pages::dashboard')
-        ->assertSee('Months of total spending (all savings)')
-        ->assertSee('4')
-        ->assertSee('Months of fixed costs (all savings)')
-        ->assertSee('8');
+        ->assertSee('Emergency Fund')
+        ->assertSee('$15,000');
 });
 
-test('dashboard shows weeks when emergency fund covers less than 2 months', function () {
-    $ef = NetWorthAccount::factory()->create([
-        'name' => 'Emergency Fund',
-        'category' => AccountCategory::Savings,
-        'is_emergency_fund' => true,
-        'balance' => 300000, // $3,000
-    ]);
+test('dashboard shows months runway when emergency fund covers less than 2 months', function () {
+    NetWorthAccount::where('is_emergency_fund', true)->update(['balance' => 300000]); // $3,000
 
-    $plan = SpendingPlan::factory()->current()->create([
+    SpendingPlan::factory()->current()->create([
         'monthly_income' => 500000, // $5,000
         'fixed_costs_misc_percent' => 0,
     ]);
-    SpendingPlanItem::factory()->create([
-        'spending_plan_id' => $plan->id,
-        'category' => SpendingCategory::FixedCosts,
-        'amount' => 250000, // $2,500
-    ]);
 
-    // $3,000 / $5,000 = 0.6 months total spending → floor(0.6 * 52/12) = 2 weeks
-    // $3,000 / $2,500 = 1.2 months fixed costs → floor(1.2 * 52/12) = 5 weeks
+    // $3,000 / $5,000 = 0.6 months
     Livewire::test('pages::dashboard')
-        ->assertSee('Weeks of total spending')
-        ->assertSeeInOrder(['Weeks of total spending', '2'])
-        ->assertSee('Weeks of fixed costs')
-        ->assertSeeInOrder(['Weeks of fixed costs', '5']);
+        ->assertSee('0.6 of 6 months');
 });
 
-test('emergency fund weeks are not zero when fund covers less than one month', function () {
-    $ef = NetWorthAccount::factory()->create([
-        'name' => 'Emergency Fund',
-        'category' => AccountCategory::Savings,
-        'is_emergency_fund' => true,
-        'balance' => 230000, // $2,300
-    ]);
+test('emergency fund runway uses one decimal even when small', function () {
+    NetWorthAccount::where('is_emergency_fund', true)->update(['balance' => 230000]); // $2,300
 
     SpendingPlan::factory()->current()->create([
         'monthly_income' => 540000, // $5,400
         'fixed_costs_misc_percent' => 0,
     ]);
 
-    // $2,300 / $5,400 = 0.43 months → floor(0.43 * 52/12) = 1 week (not 0)
+    // $2,300 / $5,400 ≈ 0.43 → renders as 0.4
     Livewire::test('pages::dashboard')
-        ->assertSee('Weeks of total spending')
-        ->assertSeeInOrder(['Weeks of total spending', '1']);
+        ->assertSee('0.4 of 6 months');
 });
 
-test('dashboard shows prompt when no current plan for emergency fund', function () {
-    $ef = NetWorthAccount::factory()->create([
+test('dashboard hides runway when no current plan exists', function () {
+    NetWorthAccount::factory()->create([
         'name' => 'Emergency Fund',
         'category' => AccountCategory::Savings,
         'is_emergency_fund' => true,
@@ -270,26 +220,20 @@ test('dashboard shows prompt when no current plan for emergency fund', function 
 
     Livewire::test('pages::dashboard')
         ->assertSee('Emergency Fund')
-        ->assertSee('Set a current spending plan to see coverage months');
+        ->assertDontSee('of 6 months');
 });
 
-test('dashboard shows n/a for fixed costs when zero', function () {
-    $ef = NetWorthAccount::factory()->create([
-        'name' => 'Emergency Fund',
-        'category' => AccountCategory::Savings,
-        'is_emergency_fund' => true,
-        'balance' => 1000000,
-    ]);
+test('dashboard shows runway computed from monthly income', function () {
+    NetWorthAccount::where('is_emergency_fund', true)->update(['balance' => 1000000]); // $10,000
 
     SpendingPlan::factory()->current()->create([
-        'monthly_income' => 500000,
+        'monthly_income' => 500000, // $5,000
         'fixed_costs_misc_percent' => 0,
     ]);
 
+    // $10,000 / $5,000 = 2 months
     Livewire::test('pages::dashboard')
-        ->assertSee('Months of total spending')
-        ->assertSee('2') // $10,000 / $5,000 = 2
-        ->assertSee('N/A'); // no fixed costs items
+        ->assertSee('2.0 of 6 months');
 });
 
 // Rich Life Vision tests
@@ -415,23 +359,17 @@ test('dashboard shows retirement projection with known values', function () {
     // FV ≈ 224,524,270 cents → $2,245,243
 
     Livewire::test('pages::dashboard')
-        ->assertSee('Est. Investments at Retirement')
+        ->assertSee('Est. at Retirement')
         ->assertSee('$2,245,243')
-        ->assertSee('Current investments')
-        ->assertSee('$50,000')
-        ->assertSee('Monthly contributions')
-        ->assertSee('$1,000')
-        ->assertSee('Years until retirement')
-        ->assertSeeInOrder(['Years until retirement', '35'])
-        ->assertSee('Safe monthly withdrawal')
+        ->assertSee('at age 65')
         ->assertSee('$7,484'); // $2,245,243 * 4% / 12 = $7,484
 });
 
 test('dashboard shows retirement card without projection when birthday not set', function () {
     Livewire::test('pages::dashboard')
-        ->assertSee('Investments at Retirement')
+        ->assertSee('Est. at Retirement')
         ->assertSee('Birthday')
-        ->assertDontSee('Years until retirement');
+        ->assertSee('Set your birthday and retirement age below.');
 });
 
 test('user can save retirement settings from dashboard', function () {
@@ -494,8 +432,7 @@ test('dashboard shows actual spending vs planned for current month', function ()
     ]);
 
     Livewire::test('pages::dashboard')
-        ->assertSee('Spent')
-        ->assertSeeInOrder(['Spent: $1,000', '$1,500', 'left']);
+        ->assertSeeInOrder(['$1,000 / $2,500', '$1,500 left']);
 });
 
 test('dashboard shows over spending in current month', function () {
@@ -543,9 +480,7 @@ test('dashboard excludes expenses from other months', function () {
     ]);
 
     Livewire::test('pages::dashboard')
-        ->assertSee('Spent: $0')
-        ->assertSee('$2,500')
-        ->assertSee('left');
+        ->assertSeeInOrder(['$0 / $2,500', '$2,500 left']);
 });
 
 // Vision Category tests
@@ -675,16 +610,14 @@ test('dashboard shows debt payoff card when debts and plan item exist', function
     ]);
 
     Livewire::test('pages::dashboard')
-        ->assertSee('Debt Payoff')
-        ->assertSee('Total debt')
+        ->assertSee('Debt Free')
         ->assertSee('$5,000')
-        ->assertSee('Monthly payment')
-        ->assertSee('Months remaining');
+        ->assertSee('on current plan');
 });
 
-test('dashboard hides debt payoff card when no debts', function () {
+test('dashboard hides debt free card when no debts', function () {
     Livewire::test('pages::dashboard')
-        ->assertDontSee('Debt Payoff');
+        ->assertDontSee('Debt Free');
 });
 
 test('dashboard shows prompt when debts exist but no plan item', function () {
@@ -700,7 +633,7 @@ test('dashboard shows prompt when debts exist but no plan item', function () {
     ]);
 
     Livewire::test('pages::dashboard')
-        ->assertSee('Debt Payoff')
+        ->assertSee('Debt Free')
         ->assertSee('Debt Payments');
 });
 
@@ -731,16 +664,9 @@ test('windfall plan instance creates a single row with defaults', function () {
     expect(WindfallPlan::count())->toBe(1);
 });
 
-test('dashboard shows windfall plan card with defaults', function () {
+test('dashboard does not show windfall plan card', function () {
     Livewire::test('pages::dashboard')
-        ->assertSee('Windfall Plan')
-        ->assertSee('How to split unexpected income')
-        ->assertSet('windfallSavings', 30)
-        ->assertSet('windfallInvestments', 50)
-        ->assertSet('windfallGuiltFree', 10)
-        ->assertSet('windfallDebt', 10)
-        ->assertSee('30%')
-        ->assertSee('50%');
+        ->assertDontSee('Windfall Plan');
 });
 
 test('dashboard hydrates windfall properties from saved plan', function () {

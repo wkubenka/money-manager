@@ -3,9 +3,10 @@
 use App\Enums\SpendingCategory;
 use App\Models\SpendingPlan;
 use App\Models\SpendingPlanItem;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
-uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
+uses(RefreshDatabase::class);
 
 test('user can copy a plan from the dashboard', function () {
     $plan = SpendingPlan::factory()->create([
@@ -63,8 +64,8 @@ test('user can copy a plan from the show page', function () {
         'sort_order' => 0,
     ]);
 
-    Livewire::test('pages::spending-plans.show', ['spendingPlan' => $plan])
-        ->call('copyPlan');
+    Livewire::test('pages::spending-plans.dashboard')
+        ->call('copyPlan', $plan->id);
 
     $copy = SpendingPlan::where('name', 'Copy of Original')->first();
     expect($copy)->not->toBeNull();
@@ -102,16 +103,6 @@ test('user cannot copy plan when at max limit from dashboard', function () {
 
     Livewire::test('pages::spending-plans.dashboard')
         ->call('copyPlan', $plans->first()->id)
-        ->assertStatus(422);
-
-    expect(SpendingPlan::count())->toBe(SpendingPlan::MAX_PER_USER);
-});
-
-test('user cannot copy plan when at max limit from show page', function () {
-    $plans = SpendingPlan::factory()->count(SpendingPlan::MAX_PER_USER)->create();
-
-    Livewire::test('pages::spending-plans.show', ['spendingPlan' => $plans->first()])
-        ->call('copyPlan')
         ->assertStatus(422);
 
     expect(SpendingPlan::count())->toBe(SpendingPlan::MAX_PER_USER);

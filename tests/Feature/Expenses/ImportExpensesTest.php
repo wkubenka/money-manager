@@ -3,12 +3,14 @@
 use App\Enums\SpendingCategory;
 use App\Models\Expense;
 use App\Models\ExpenseAccount;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Testing\File;
 use Illuminate\Http\UploadedFile;
 use Livewire\Livewire;
 
-uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
+uses(RefreshDatabase::class);
 
-function createCsvFile(array $headers, array $rows): \Illuminate\Http\Testing\File
+function createCsvFile(array $headers, array $rows): File
 {
     $handle = fopen('php://temp', 'r+');
     fputcsv($handle, $headers);
@@ -930,10 +932,9 @@ test('uncategorized tab category buttons do not have wire:confirm after switchin
         expect($html)->toContain("categorizeExpense({$expense->id}, '{$cat->value}')");
     }
 
-    // wire:confirm should only appear on the delete button, not on category buttons
-    preg_match_all('/wire:confirm/', $html, $matches);
-    expect($matches[0])->toHaveCount(1);
+    // No native wire:confirm dialogs — confirmation is handled via Flux modals
+    expect($html)->not->toContain('wire:confirm');
 
-    // The single wire:confirm should be on the removeExpense action
-    expect($html)->toContain("removeExpense({$expense->id})");
+    // Delete button still wires up to the confirm flow
+    expect($html)->toContain("confirmRemoveExpense({$expense->id})");
 });

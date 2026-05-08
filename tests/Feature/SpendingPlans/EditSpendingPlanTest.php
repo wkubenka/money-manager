@@ -3,9 +3,10 @@
 use App\Enums\SpendingCategory;
 use App\Models\SpendingPlan;
 use App\Models\SpendingPlanItem;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
-uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
+uses(RefreshDatabase::class);
 
 test('edit page is accessible', function () {
     $plan = SpendingPlan::factory()->create();
@@ -277,11 +278,12 @@ test('user cannot add more than max items per category', function () {
     expect($plan->items()->where('category', 'fixed_costs')->count())->toBe(SpendingPlan::MAX_ITEMS_PER_CATEGORY);
 });
 
-test('user can delete a plan from show page', function () {
+test('user can delete a plan from dashboard', function () {
     $plan = SpendingPlan::factory()->create();
     SpendingPlan::factory()->current()->create();
 
-    Livewire::test('pages::spending-plans.show', ['spendingPlan' => $plan])
+    Livewire::test('pages::spending-plans.dashboard')
+        ->set('activePlanId', $plan->id)
         ->set('confirmingDelete', true)
         ->call('deletePlan');
 

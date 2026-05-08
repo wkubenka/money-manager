@@ -3,9 +3,10 @@
 use App\Enums\SpendingCategory;
 use App\Models\Expense;
 use App\Models\ExpenseAccount;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
-uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
+uses(RefreshDatabase::class);
 
 test('expenses page is accessible', function () {
     $this->get(route('expenses.index'))
@@ -129,6 +130,32 @@ test('user can edit an expense', function () {
     $expense->refresh();
     expect($expense->merchant)->toBe('New Merchant');
     expect($expense->amount)->toBe(2500);
+});
+
+test('user can change a categorized expense category directly', function () {
+    $account = ExpenseAccount::factory()->create();
+    $expense = Expense::factory()->create([
+        'expense_account_id' => $account->id,
+        'category' => SpendingCategory::FixedCosts,
+    ]);
+
+    Livewire::test('pages::expenses.index')
+        ->call('changeCategory', $expense->id, SpendingCategory::GuiltFree->value);
+
+    expect($expense->fresh()->category)->toBe(SpendingCategory::GuiltFree);
+});
+
+test('changeCategory ignores invalid category', function () {
+    $account = ExpenseAccount::factory()->create();
+    $expense = Expense::factory()->create([
+        'expense_account_id' => $account->id,
+        'category' => SpendingCategory::FixedCosts,
+    ]);
+
+    Livewire::test('pages::expenses.index')
+        ->call('changeCategory', $expense->id, 'not_a_category');
+
+    expect($expense->fresh()->category)->toBe(SpendingCategory::FixedCosts);
 });
 
 test('user can remove an expense', function () {

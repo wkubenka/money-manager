@@ -7,11 +7,10 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#10b981">
+<meta name="theme-color" content="#0c0f0e">
 
-{{-- Preload primary Latin fonts so they download in parallel with CSS --}}
-<link rel="preload" href="{{ Vite::asset('resources/fonts/instrument-sans-latin-400-normal.woff2') }}" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="{{ Vite::asset('resources/fonts/instrument-sans-latin-600-normal.woff2') }}" as="font" type="font/woff2" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
 @vite(['resources/css/app.css', 'resources/js/app.js'])
 @fluxAppearance

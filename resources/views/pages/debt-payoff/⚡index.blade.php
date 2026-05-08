@@ -2,6 +2,7 @@
 
 use App\Enums\AccountCategory;
 use App\Enums\SpendingCategory;
+use App\Models\DebtScenario;
 use App\Models\NetWorthAccount;
 use App\Models\SpendingPlan;
 use App\Services\DebtPayoffCalculator;
@@ -11,15 +12,29 @@ use Livewire\Component;
 new class extends Component {
     public const MAX_SCENARIOS = 5;
 
+    public const SCENARIO_COLORS = [
+        '#4ebb78', // accent
+        '#6da6d8', // blue
+        '#c8a96e', // warm
+        '#c084fc', // purple
+        '#5ecc89', // accent-hov
+    ];
+
     public array $scenarios = [];
+
+    public int $activeScenarioIndex = 0;
+
+    public bool $showNewScenario = false;
 
     public array $newScenario = [
         'name' => '',
         'strategy' => 'avalanche',
-        'extra_payment' => '0',
-        'lump_sum' => '0',
+        'extra_payment' => '',
+        'lump_sum' => '',
         'lump_sum_month' => '1',
     ];
+
+    public ?int $confirmingDeleteScenarioIndex = null;
 
     public function mount(): void
     {
@@ -27,14 +42,32 @@ new class extends Component {
             return;
         }
 
-        $this->scenarios[] = [
+        $this->loadScenarios();
+    }
+
+    private function loadScenarios(): void
+    {
+        $this->scenarios = [[
+            'id' => null,
             'name' => 'Current Plan',
             'strategy' => 'avalanche',
             'extra_payment' => 0,
             'lump_sum' => 0,
             'lump_sum_month' => 1,
             'is_baseline' => true,
-        ];
+        ]];
+
+        foreach (DebtScenario::orderBy('sort_order')->orderBy('id')->get() as $row) {
+            $this->scenarios[] = [
+                'id' => $row->id,
+                'name' => $row->name,
+                'strategy' => $row->strategy,
+                'extra_payment' => $row->extra_payment_cents / 100,
+                'lump_sum' => $row->lump_sum_cents / 100,
+                'lump_sum_month' => $row->lump_sum_month,
+                'is_baseline' => false,
+            ];
+        }
     }
 
     #[Computed]
@@ -44,6 +77,12 @@ new class extends Component {
             ->where('category', AccountCategory::Debt)
             ->orderBy('name')
             ->get();
+    }
+
+    #[Computed]
+    public function totalDebtCents(): int
+    {
+        return (int) $this->debts->sum('balance');
     }
 
     #[Computed]
@@ -120,10 +159,30 @@ new class extends Component {
                 'scenario' => $scenario,
                 'result' => $result,
                 'monthly_payment_cents' => $totalPayment,
+                'color' => self::SCENARIO_COLORS[$index % count(self::SCENARIO_COLORS)],
             ];
         }
 
         return $results;
+    }
+
+    public function selectScenario(int $index): void
+    {
+        if (isset($this->scenarios[$index])) {
+            $this->activeScenarioIndex = $index;
+        }
+    }
+
+    public function toggleNewScenario(): void
+    {
+        $this->showNewScenario = ! $this->showNewScenario;
+    }
+
+    public function setStrategy(string $strategy): void
+    {
+        if (in_array($strategy, ['avalanche', 'snowball'], true)) {
+            $this->newScenario['strategy'] = $strategy;
+        }
     }
 
     public function addScenario(): void
@@ -135,39 +194,55 @@ new class extends Component {
         $this->validate([
             'newScenario.name' => ['required', 'string', 'max:255'],
             'newScenario.strategy' => ['required', 'in:avalanche,snowball'],
-            'newScenario.extra_payment' => ['required', 'numeric', 'min:0'],
-            'newScenario.lump_sum' => ['required', 'numeric', 'min:0'],
+            'newScenario.extra_payment' => ['nullable', 'numeric', 'min:0'],
+            'newScenario.lump_sum' => ['nullable', 'numeric', 'min:0'],
             'newScenario.lump_sum_month' => ['required', 'integer', 'min:1'],
         ]);
 
-        $this->scenarios[] = [
+        DebtScenario::create([
             'name' => $this->newScenario['name'],
             'strategy' => $this->newScenario['strategy'],
-            'extra_payment' => (float) $this->newScenario['extra_payment'],
-            'lump_sum' => (float) $this->newScenario['lump_sum'],
+            'extra_payment_cents' => (int) round((float) ($this->newScenario['extra_payment'] ?: 0) * 100),
+            'lump_sum_cents' => (int) round((float) ($this->newScenario['lump_sum'] ?: 0) * 100),
             'lump_sum_month' => (int) $this->newScenario['lump_sum_month'],
-            'is_baseline' => false,
-        ];
+            'sort_order' => DebtScenario::count(),
+        ]);
 
+        $this->loadScenarios();
+        $this->activeScenarioIndex = count($this->scenarios) - 1;
         $this->resetNewScenario();
+        $this->showNewScenario = false;
         unset($this->scenarioResults);
+    }
+
+    public function confirmRemoveScenario(int $index): void
+    {
+        if (! isset($this->scenarios[$index]) || ($this->scenarios[$index]['is_baseline'] ?? false)) {
+            return;
+        }
+
+        $this->confirmingDeleteScenarioIndex = $index;
+    }
+
+    public function cancelRemoveScenario(): void
+    {
+        $this->confirmingDeleteScenarioIndex = null;
     }
 
     public function removeScenario(int $index): void
     {
-        if (isset($this->scenarios[$index]) && ! ($this->scenarios[$index]['is_baseline'] ?? false)) {
-            unset($this->scenarios[$index]);
-            $this->scenarios = array_values($this->scenarios);
-            unset($this->scenarioResults);
+        if (! isset($this->scenarios[$index]) || ($this->scenarios[$index]['is_baseline'] ?? false)) {
+            return;
         }
-    }
 
-    public function getChartData(): array
-    {
-        return collect($this->scenarioResults)->map(fn ($sr) => [
-            'scenario' => $sr['scenario'],
-            'result' => $sr['result'] ? collect($sr['result'])->except('payoff_date')->all() : null,
-        ])->values()->all();
+        if ($id = $this->scenarios[$index]['id'] ?? null) {
+            DebtScenario::where('id', $id)->delete();
+        }
+
+        $this->confirmingDeleteScenarioIndex = null;
+        $this->loadScenarios();
+        $this->activeScenarioIndex = 0;
+        unset($this->scenarioResults);
     }
 
     private function resetNewScenario(): void
@@ -175,321 +250,294 @@ new class extends Component {
         $this->newScenario = [
             'name' => '',
             'strategy' => 'avalanche',
-            'extra_payment' => '0',
-            'lump_sum' => '0',
+            'extra_payment' => '',
+            'lump_sum' => '',
             'lump_sum_month' => '1',
         ];
     }
 }; ?>
 
-@assets
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-@endassets
+<section class="w-full px-10 py-9 max-w-[1320px] mx-auto">
+    <div class="flex justify-between items-start mb-7">
+        <x-page-heading eyebrow="Debt Payoff" title="Plan your path to freedom" subtitle="Model different strategies and see when you'll be debt-free" />
 
-<section class="w-full">
-    <x-page-heading title="Debt Payoff" subtitle="Plan your path to debt freedom" />
+        @if (! $this->debts->isEmpty() && count($scenarios) < self::MAX_SCENARIOS && ! $showNewScenario)
+            <div class="pt-5">
+                <flux:button variant="primary" wire:click="toggleNewScenario" icon="plus">
+                    {{ __('Add scenario') }}
+                </flux:button>
+            </div>
+        @endif
+    </div>
 
     @if ($this->debts->isEmpty())
-        <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-8 text-center">
-            <p class="text-zinc-500 dark:text-zinc-400">{{ __('No debt accounts found.') }}</p>
-            <flux:link :href="route('net-worth.index')" wire:navigate class="text-sm mt-2 inline-block">
-                {{ __('Add debts on the Net Worth page') }}
-            </flux:link>
+        <div class="rounded-2xl border border-vault-card-bd bg-vault-card text-center" style="padding: 56px 40px;">
+            <div class="mx-auto mb-4 flex items-center justify-center rounded-xl"
+                style="width: 44px; height: 44px; background: color-mix(in srgb, var(--color-vault-red) 12%, transparent); border: 1px solid color-mix(in srgb, var(--color-vault-red) 28%, transparent);">
+                <flux:icon name="banknotes" variant="micro" class="!size-5" style="color: var(--color-vault-red);" />
+            </div>
+            <div class="font-display text-vault-text" style="font-size: 22px;">{{ __('No debt accounts yet') }}</div>
+            <p class="text-[13px] text-vault-textsub mt-2 mb-5">{{ __('Add your debts on the Net Worth page to start modeling payoff strategies.') }}</p>
+            <flux:button :href="route('net-worth.index')" wire:navigate variant="primary">{{ __('Add a debt') }}</flux:button>
         </div>
     @else
         @if ($this->budgetBelowMinimums)
-            <div class="rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-4 mb-6 text-sm text-amber-800 dark:text-amber-200">
-                {{ __("Your monthly payment doesn't cover all minimum payments. Increase your debt budget to avoid falling behind.") }}
+            <div class="rounded-xl mb-6"
+                style="padding: 14px 18px; background: color-mix(in srgb, var(--color-vault-warm) 10%, transparent); border: 1px solid color-mix(in srgb, var(--color-vault-warm) 32%, transparent);">
+                <div class="text-[12px]" style="color: var(--color-vault-warm);">
+                    {{ __("Your monthly payment doesn't cover all minimum payments. Increase your debt budget to avoid falling behind.") }}
+                </div>
             </div>
         @endif
 
         @if (! $this->hasSpendingPlanSource)
-            <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 p-4 mb-6 text-sm text-zinc-500 dark:text-zinc-400">
-                {{ __('Tip: Add a Spending Plan with debt payments to set your monthly budget.') }}
+            <div class="rounded-xl border border-vault-card-bd bg-vault-card mb-6" style="padding: 12px 18px;">
+                <div class="text-[12px] text-vault-muted">
+                    {{ __('Tip: Add a Spending Plan with Debt Payments to source your monthly budget automatically.') }}
+                </div>
             </div>
         @endif
 
-        <div class="flex items-center gap-2 flex-wrap mb-6">
-            @foreach ($this->scenarioResults as $index => $data)
-                @php
-                    $scenario = $data['scenario'];
-                    $result = $data['result'];
-                    $isBaseline = $scenario['is_baseline'] ?? false;
-                    $payoffLabel = $result && $result['months_to_payoff'] < \App\Services\DebtPayoffCalculator::MAX_MONTHS
-                        ? $result['payoff_date']->format('M Y')
-                        : '30+ years';
-                @endphp
-                <div class="relative rounded-xl border {{ $isBaseline ? 'border-blue-500 dark:border-blue-400' : 'border-zinc-200 dark:border-zinc-700' }} p-3 text-sm">
-                    <div class="font-semibold {{ $isBaseline ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-900 dark:text-zinc-100' }}">
-                        {{ $scenario['name'] }}
-                    </div>
-                    <div class="text-xs text-zinc-500 dark:text-zinc-400">
-                        ${{ format_cents($data['monthly_payment_cents']) }}/mo &bull; {{ ucfirst($scenario['strategy']) }} &bull; {{ $payoffLabel }}
-                    </div>
-                    @if (! $isBaseline)
-                        <button
-                            wire:click="removeScenario({{ $index }})"
-                            class="absolute -top-2 -right-2 size-5 rounded-full bg-zinc-100 dark:bg-zinc-700 border border-zinc-300 dark:border-zinc-600 flex items-center justify-center text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-                            aria-label="{{ __('Remove scenario') }}"
-                        >&times;</button>
-                    @endif
-                </div>
-            @endforeach
-
-            @if (count($this->scenarios) < self::MAX_SCENARIOS)
-                <flux:modal.trigger name="add-scenario">
-                    <flux:button size="sm" variant="ghost" icon="plus">
-                        {{ __('Scenario') }}
-                    </flux:button>
-                </flux:modal.trigger>
-            @endif
-        </div>
-
-        @if (count($this->scenarioResults) > 0)
-            @php
-                $totalDebt = $this->debts->sum('balance');
-                $debtCount = $this->debts->count();
-                $bestResult = collect($this->scenarioResults)->sortBy('result.months_to_payoff')->first();
-                $baselineResult = collect($this->scenarioResults)->firstWhere('scenario.is_baseline', true);
-                $bestInterestSaved = 0;
-                $bestInterestScenario = null;
-                if ($baselineResult && $baselineResult['result']) {
-                    foreach ($this->scenarioResults as $sr) {
-                        if (($sr['scenario']['is_baseline'] ?? false) || ! $sr['result']) {
-                            continue;
-                        }
-                        $saved = $baselineResult['result']['total_interest_paid'] - $sr['result']['total_interest_paid'];
-                        if ($saved > $bestInterestSaved) {
-                            $bestInterestSaved = $saved;
-                            $bestInterestScenario = $sr['scenario']['name'];
-                        }
+        @php
+            $results = $this->scenarioResults;
+            $totalDebt = $this->totalDebtCents;
+            $baselineResult = collect($results)->firstWhere('scenario.is_baseline', true);
+            $bestResult = collect($results)->filter(fn ($r) => $r['result'])->sortBy('result.months_to_payoff')->first() ?: ($baselineResult ?: ($results[0] ?? null));
+            $bestInterestSaved = 0;
+            if ($baselineResult && $baselineResult['result']) {
+                foreach ($results as $sr) {
+                    if (($sr['scenario']['is_baseline'] ?? false) || ! $sr['result']) {
+                        continue;
+                    }
+                    $saved = $baselineResult['result']['total_interest_paid'] - $sr['result']['total_interest_paid'];
+                    if ($saved > $bestInterestSaved) {
+                        $bestInterestSaved = $saved;
                     }
                 }
-            @endphp
-            <div class="grid grid-cols-3 gap-4 mb-8">
-                <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-4 text-center">
-                    <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('Earliest Debt-Free') }}</div>
-                    <div class="mt-1 text-xl font-bold text-zinc-900 dark:text-zinc-100">
-                        @if ($bestResult && $bestResult['result'] && $bestResult['result']['months_to_payoff'] < \App\Services\DebtPayoffCalculator::MAX_MONTHS)
-                            {{ $bestResult['result']['payoff_date']->format('M Y') }}
-                        @else
-                            {{ __('30+ years') }}
-                        @endif
-                    </div>
-                    @if ($bestResult && ! ($bestResult['scenario']['is_baseline'] ?? false))
-                        <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $bestResult['scenario']['name'] }}</div>
-                    @endif
-                </div>
-                <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-4 text-center">
-                    <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('Most Interest Saved') }}</div>
-                    <div class="mt-1 text-xl font-bold {{ $bestInterestSaved > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-900 dark:text-zinc-100' }}">
-                        @if ($bestInterestSaved > 0)
-                            ${{ format_cents($bestInterestSaved) }}
-                        @else
-                            &mdash;
-                        @endif
-                    </div>
-                    @if ($bestInterestScenario)
-                        <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('vs current plan') }}</div>
-                    @endif
-                </div>
-                <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-4 text-center">
-                    <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('Total Debt') }}</div>
-                    <div class="mt-1 text-xl font-bold text-zinc-900 dark:text-zinc-100">${{ format_cents($totalDebt) }}</div>
-                    <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ trans_choice(':count account|:count accounts', $debtCount) }}</div>
-                </div>
-            </div>
-        @endif
+            }
+            $stats = [
+                ['label' => 'Total Debt', 'value' => '$'.format_cents($totalDebt), 'color' => 'var(--color-vault-red)'],
+                ['label' => 'Monthly Payment', 'value' => '$'.format_cents($this->baselineMonthlyPaymentCents), 'color' => 'var(--color-vault-text)'],
+                ['label' => 'Earliest Free', 'value' => $bestResult && $bestResult['result'] && $bestResult['result']['months_to_payoff'] < \App\Services\DebtPayoffCalculator::MAX_MONTHS ? $bestResult['result']['payoff_date']->format('M Y') : '30+ yrs', 'color' => 'var(--color-vault-accent)'],
+                ['label' => 'Interest Saved', 'value' => $bestInterestSaved > 0 ? '$'.format_cents($bestInterestSaved) : '—', 'color' => 'var(--color-vault-warm)'],
+            ];
+        @endphp
 
-        <div class="mb-8">
-            <h2 class="text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-3">{{ __('Debts') }}</h2>
-            <div class="divide-y divide-zinc-200 dark:divide-zinc-700 rounded-xl border border-zinc-200 dark:border-zinc-700">
-                @foreach ($this->debts as $debt)
-                    <div class="flex items-center justify-between px-4 py-3 text-sm">
-                        <div>
-                            <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $debt->name }}</span>
-                            <span class="text-zinc-500 dark:text-zinc-400 ml-2">{{ $debt->interest_rate }}% APR</span>
+        {{-- Stats strip --}}
+        <div class="mb-6" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px;">
+            @foreach ($stats as $stat)
+                <div class="rounded-2xl border border-vault-card-bd bg-vault-card" style="padding: 16px 20px;">
+                    <div class="eyebrow mb-2">{{ __($stat['label']) }}</div>
+                    <div class="font-display" style="font-size: 22px; color: {{ $stat['color'] }};">{{ $stat['value'] }}</div>
+                </div>
+            @endforeach
+        </div>
+
+        <div class="grid gap-5" style="grid-template-columns: 1.2fr 0.8fr;">
+            {{-- Scenarios column --}}
+            <div class="flex flex-col gap-[14px]">
+                <div class="eyebrow">{{ __('Scenarios') }}</div>
+
+                @foreach ($results as $index => $data)
+                    @php
+                        $scenario = $data['scenario'];
+                        $result = $data['result'];
+                        $color = $data['color'];
+                        $isBaseline = $scenario['is_baseline'] ?? false;
+                        $isActive = $index === $activeScenarioIndex;
+                        $months = $result['months_to_payoff'] ?? 0;
+                        $payoffLabel = $result && $months < \App\Services\DebtPayoffCalculator::MAX_MONTHS
+                            ? $result['payoff_date']->format('M Y')
+                            : '30+ yrs';
+                        $interestPaid = $result['total_interest_paid'] ?? 0;
+                        $savedVsBaseline = ($baselineResult && $baselineResult['result'] && ! $isBaseline)
+                            ? $baselineResult['result']['total_interest_paid'] - $interestPaid
+                            : 0;
+                    @endphp
+
+                    <div
+                        wire:click="selectScenario({{ $index }})"
+                        wire:key="scenario-{{ $index }}"
+                        role="button"
+                        tabindex="0"
+                        class="relative rounded-2xl bg-vault-card cursor-pointer transition-colors hover:bg-vault-card-hov"
+                        style="padding: 18px 22px; border: 1px solid {{ $isActive ? $color : 'var(--color-vault-card-bd)' }};"
+                    >
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="flex items-center gap-2 mb-1.5">
+                                    <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: {{ $color }};"></span>
+                                    <span class="text-[13px] font-semibold text-vault-text">{{ $scenario['name'] }}</span>
+                                    @if ($isBaseline)
+                                        <span class="rounded" style="font-size: 9px; padding: 2px 7px; letter-spacing: 0.06em; background: color-mix(in srgb, var(--color-vault-textsub) 14%, transparent); color: var(--color-vault-textsub); text-transform: uppercase;">{{ __('Baseline') }}</span>
+                                    @endif
+                                </div>
+                                <div class="text-[11px] text-vault-muted">
+                                    {{ ucfirst($scenario['strategy']) }} &middot; ${{ format_cents($data['monthly_payment_cents']) }}/mo
+                                    @if (($scenario['lump_sum'] ?? 0) > 0)
+                                        &middot; ${{ number_format($scenario['lump_sum'], 0) }} lump sum
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="text-right" style="padding-right: 26px;">
+                                <div class="font-display" style="font-size: 20px; color: {{ $color }};">{{ $payoffLabel }}</div>
+                                <div class="text-[11px] text-vault-muted mt-0.5">{{ $months }} {{ __('months') }}</div>
+                            </div>
                         </div>
-                        <div class="text-zinc-900 dark:text-zinc-100">${{ format_cents($debt->balance) }}</div>
+
+                        <div class="flex justify-between mt-3">
+                            <span class="text-[10px] text-vault-muted">{{ __('Total interest:') }} ${{ format_cents($interestPaid) }}</span>
+                            @if ($savedVsBaseline > 0)
+                                <span class="text-[10px] text-vault-accent">{{ __('Save') }} ${{ format_cents($savedVsBaseline) }} {{ __('vs baseline') }}</span>
+                            @endif
+                        </div>
+
+                        @if (! $isBaseline)
+                            <button
+                                type="button"
+                                wire:click.stop="confirmRemoveScenario({{ $index }})"
+                                aria-label="{{ __('Remove scenario') }}"
+                                class="flex items-center justify-center rounded-full transition hover:brightness-125"
+                                style="position: absolute; top: 12px; right: 12px; width: 22px; height: 22px; background: var(--color-vault-card-bd); color: var(--color-vault-textsub);"
+                            >
+                                <flux:icon name="x-mark" variant="micro" class="!size-3" />
+                            </button>
+                        @endif
                     </div>
                 @endforeach
+
+                {{-- New scenario form --}}
+                @if ($showNewScenario && count($scenarios) < self::MAX_SCENARIOS)
+                    <div class="rounded-2xl bg-vault-card" style="padding: 18px 22px; border: 1px dashed var(--color-vault-card-bd);">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="eyebrow">{{ __('New scenario') }}</div>
+                            <button type="button" wire:click="toggleNewScenario" aria-label="{{ __('Close form') }}" class="text-vault-muted hover:text-vault-textsub transition">
+                                <flux:icon name="x-mark" variant="micro" class="!size-4" />
+                            </button>
+                        </div>
+                        <div class="flex flex-col gap-2.5">
+                            <flux:field>
+                                <flux:label class="!text-[10px] !uppercase !tracking-[0.13em] !text-vault-muted">{{ __('Scenario name') }}</flux:label>
+                                <flux:input wire:model="newScenario.name" :placeholder="__('e.g. Aggressive payoff')" />
+                            </flux:field>
+                            @error('newScenario.name')<div class="text-[11px] text-vault-red">{{ $message }}</div>@enderror
+
+                            <div class="grid grid-cols-2 gap-2.5">
+                                <flux:field>
+                                    <flux:label class="!text-[10px] !uppercase !tracking-[0.13em] !text-vault-muted">{{ __('Extra monthly') }}</flux:label>
+                                    <flux:input wire:model="newScenario.extra_payment" :placeholder="__('e.g. 200')" type="text" inputmode="decimal">
+                                        <x-slot:prefix>+$</x-slot:prefix>
+                                    </flux:input>
+                                </flux:field>
+                                <flux:field>
+                                    <flux:label class="!text-[10px] !uppercase !tracking-[0.13em] !text-vault-muted">{{ __('Lump sum') }}</flux:label>
+                                    <flux:input wire:model="newScenario.lump_sum" :placeholder="__('e.g. 1,000')" type="text" inputmode="decimal">
+                                        <x-slot:prefix>$</x-slot:prefix>
+                                    </flux:input>
+                                </flux:field>
+                            </div>
+                            @error('newScenario.extra_payment')<div class="text-[11px] text-vault-red">{{ $message }}</div>@enderror
+                            @error('newScenario.lump_sum')<div class="text-[11px] text-vault-red">{{ $message }}</div>@enderror
+
+                            <div class="flex gap-2">
+                                @foreach (['avalanche' => __('Avalanche'), 'snowball' => __('Snowball')] as $value => $label)
+                                    @php $isOn = $newScenario['strategy'] === $value; @endphp
+                                    <button
+                                        type="button"
+                                        wire:click="setStrategy('{{ $value }}')"
+                                        class="flex-1 rounded-[7px] transition"
+                                        style="padding: 7px 0; font-size: 11px; border: 1px solid {{ $isOn ? 'var(--color-vault-accent)' : 'var(--color-vault-card-bd)' }}; background: {{ $isOn ? 'color-mix(in srgb, var(--color-vault-accent) 14%, transparent)' : 'transparent' }}; color: {{ $isOn ? 'var(--color-vault-accent)' : 'var(--color-vault-textsub)' }};"
+                                    >
+                                        {{ $label }}
+                                    </button>
+                                @endforeach
+                            </div>
+
+                            <flux:button wire:click="addScenario" variant="primary" class="!w-full">{{ __('Add Scenario') }}</flux:button>
+                        </div>
+                    </div>
+                @endif
+            </div>
+
+            {{-- Right column: debts + payoff order --}}
+            <div class="flex flex-col gap-[14px]">
+                <div class="eyebrow">{{ __('Your debts') }}</div>
+                <div class="rounded-2xl border border-vault-card-bd bg-vault-card" style="padding: 0 22px;">
+                    @foreach ($this->debts as $i => $debt)
+                        @php $share = $totalDebt > 0 ? ($debt->balance / $totalDebt) * 100 : 0; @endphp
+                        @if ($i > 0)
+                            <div class="border-t border-vault-card-bd"></div>
+                        @endif
+                        <div style="padding: 14px 0;">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <div class="text-[13px] text-vault-text">{{ $debt->name }}</div>
+                                    <div class="text-[10px] text-vault-muted mt-1">
+                                        {{ rtrim(rtrim(number_format((float) ($debt->interest_rate ?? 0), 2), '0'), '.') }}% APR
+                                        @if ($debt->minimum_payment)
+                                            &middot; ${{ format_cents($debt->minimum_payment) }}/mo {{ __('min') }}
+                                        @endif
+                                    </div>
+                                </div>
+                                <span class="font-display" style="font-size: 16px; color: var(--color-vault-red);">${{ format_cents($debt->balance) }}</span>
+                            </div>
+                            <div class="mt-2 rounded-full" style="height: 3px; background: var(--color-vault-card-bd);">
+                                <div class="rounded-full" style="height: 3px; width: {{ $share }}%; background: var(--color-vault-red); opacity: 0.6;"></div>
+                            </div>
+                            <div class="text-[10px] text-vault-muted mt-1">{{ round($share) }}% {{ __('of total debt') }}</div>
+                        </div>
+                    @endforeach
+                </div>
+
+                @php
+                    $active = $results[$activeScenarioIndex] ?? null;
+                @endphp
+
+                @if ($active && $active['result'] && ! empty($active['result']['payoff_order']))
+                    @php
+                        $activeColor = $active['color'];
+                        $activeName = $active['scenario']['name'];
+                        $activeMonths = max(1, $active['result']['months_to_payoff']);
+                        $payoffOrder = $active['result']['payoff_order'];
+                    @endphp
+                    <div class="eyebrow">{{ __('Payoff order') }} — {{ $activeName }}</div>
+                    <div class="rounded-2xl border border-vault-card-bd bg-vault-card" style="padding: 18px 22px;">
+                        @foreach ($payoffOrder as $i => $item)
+                            @php
+                                $month = $item['paid_off_month'];
+                                $pct = ($month / $activeMonths) * 100;
+                                $payoffDate = \Carbon\Carbon::now()->addMonthsNoOverflow($month);
+                            @endphp
+                            <div class="{{ $i < count($payoffOrder) - 1 ? 'mb-4' : '' }}">
+                                <div class="flex justify-between mb-1.5">
+                                    <span class="text-[12px] text-vault-textsub">{{ $item['name'] }}</span>
+                                    <span class="text-[12px]" style="color: {{ $activeColor }};">{{ $payoffDate->format('M Y') }}</span>
+                                </div>
+                                <div class="rounded-full" style="height: 4px; background: var(--color-vault-card-bd);">
+                                    <div class="rounded-full" style="height: 4px; width: {{ $pct }}%; background: {{ $activeColor }}; opacity: 0.75;"></div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
             </div>
         </div>
-
-        {{-- Charts --}}
-        <div id="charts-section" class="space-y-6">
-            {{-- Balance Over Time --}}
-            <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-5">
-                <flux:heading>{{ __('Balance Over Time') }}</flux:heading>
-                <flux:subheading class="mb-4">{{ __('Total remaining debt by scenario') }}</flux:subheading>
-                <div class="relative" style="height: 300px;">
-                    <canvas id="debt-balance-chart"></canvas>
-                </div>
-            </div>
-
-            {{-- Bottom row --}}
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {{-- Payoff Order --}}
-                <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-5">
-                    <flux:heading>{{ __('Payoff Order') }}</flux:heading>
-                    <flux:subheading class="mb-4">{{ __('When each debt gets eliminated') }}</flux:subheading>
-                    <div class="relative" style="height: 200px;">
-                        <canvas id="debt-payoff-chart"></canvas>
-                    </div>
-                </div>
-
-                {{-- Interest Comparison --}}
-                <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-5">
-                    <flux:heading>{{ __('Total Interest Paid') }}</flux:heading>
-                    <flux:subheading class="mb-4">{{ __('Comparison across scenarios') }}</flux:subheading>
-                    <div class="relative" style="height: 200px;">
-                        <canvas id="debt-interest-chart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <flux:modal name="add-scenario" class="md:w-96">
-            <div class="space-y-6">
-                <div>
-                    <flux:heading size="lg">{{ __('Add Scenario') }}</flux:heading>
-                    <flux:subheading>{{ __('Model a hypothetical payoff strategy') }}</flux:subheading>
-                </div>
-
-                <flux:input wire:model="newScenario.name" :label="__('Name')" :placeholder="__('e.g. Extra $200/mo')" />
-
-                <flux:select wire:model="newScenario.strategy" :label="__('Strategy')">
-                    <flux:select.option value="avalanche">{{ __('Avalanche (highest rate first)') }}</flux:select.option>
-                    <flux:select.option value="snowball">{{ __('Snowball (smallest balance first)') }}</flux:select.option>
-                </flux:select>
-
-                <flux:input wire:model="newScenario.extra_payment" :label="__('Extra Monthly Payment')" type="text" inputmode="decimal">
-                    <x-slot:prefix>$</x-slot:prefix>
-                </flux:input>
-
-                <flux:input wire:model="newScenario.lump_sum" :label="__('One-Time Lump Sum')" type="text" inputmode="decimal">
-                    <x-slot:prefix>$</x-slot:prefix>
-                </flux:input>
-
-                <flux:input wire:model="newScenario.lump_sum_month" :label="__('Apply Lump Sum In Month')" type="number" min="1" />
-
-                <div class="flex gap-2">
-                    <flux:button variant="primary" wire:click="addScenario" class="flex-1">{{ __('Add') }}</flux:button>
-                    <flux:modal.close>
-                        <flux:button variant="ghost">{{ __('Cancel') }}</flux:button>
-                    </flux:modal.close>
-                </div>
-            </div>
-        </flux:modal>
     @endif
 
-    @script
-    <script>
-        const colors = ['#3b82f6', '#22c55e', '#f59e0b', '#ec4899', '#8b5cf6'];
-        let balanceChart = null, payoffChart = null, interestChart = null;
-
-        function monthLabel(monthOffset) {
-            const d = new Date();
-            d.setMonth(d.getMonth() + monthOffset);
-            return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-        }
-
-        function renderCharts(data) {
-            if (!data || !data.length) return;
-
-            // Balance Over Time
-            const balanceCtx = document.getElementById('debt-balance-chart');
-            if (balanceCtx) {
-                if (balanceChart) balanceChart.destroy();
-
-                const maxMonths = Math.max(...data.map(s => s.result ? s.result.months_to_payoff : 0));
-                const labels = Array.from({ length: maxMonths }, (_, i) => monthLabel(i + 1));
-
-                const datasets = data.map((sr, i) => ({
-                    label: sr.scenario.name,
-                    data: (sr.result ? sr.result.timeline : []).map(t => {
-                        const total = Object.values(t.balances).reduce((sum, b) => sum + b, 0);
-                        return Math.round(total / 100);
-                    }),
-                    borderColor: colors[i % colors.length],
-                    backgroundColor: 'transparent',
-                    tension: 0.3,
-                    pointRadius: 0,
-                    borderWidth: 2,
-                }));
-
-                balanceChart = new Chart(balanceCtx, {
-                    type: 'line',
-                    data: { labels, datasets },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        interaction: { intersect: false, mode: 'index' },
-                        scales: {
-                            x: { ticks: { maxTicksLimit: 12 }, grid: { display: false } },
-                            y: { ticks: { callback: v => '$' + v.toLocaleString() } },
-                        },
-                        plugins: {
-                            tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': $' + ctx.parsed.y.toLocaleString() } },
-                        },
-                    },
-                });
-            }
-
-            // Payoff Order
-            const payoffCtx = document.getElementById('debt-payoff-chart');
-            if (payoffCtx) {
-                if (payoffChart) payoffChart.destroy();
-
-                const baseline = data.find(s => s.scenario.is_baseline) || data[0];
-                const payoffOrder = baseline.result ? baseline.result.payoff_order : [];
-                const debtColors = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#22c55e'];
-
-                payoffChart = new Chart(payoffCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: payoffOrder.map(d => d.name),
-                        datasets: [{ data: payoffOrder.map(d => d.paid_off_month), backgroundColor: payoffOrder.map((_, i) => debtColors[i % debtColors.length]), borderRadius: 4 }],
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        indexAxis: 'y',
-                        scales: { x: { ticks: { callback: v => monthLabel(v), maxTicksLimit: 6 } } },
-                        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => monthLabel(ctx.parsed.x) } } },
-                    },
-                });
-            }
-
-            // Interest Comparison
-            const interestCtx = document.getElementById('debt-interest-chart');
-            if (interestCtx) {
-                if (interestChart) interestChart.destroy();
-
-                interestChart = new Chart(interestCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: data.map(s => s.scenario.name),
-                        datasets: [{ data: data.map(s => Math.round((s.result ? s.result.total_interest_paid : 0) / 100)), backgroundColor: data.map((_, i) => colors[i % colors.length]), borderRadius: 4 }],
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        indexAxis: 'y',
-                        scales: { x: { ticks: { callback: v => '$' + v.toLocaleString() } } },
-                        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => '$' + ctx.parsed.x.toLocaleString() } } },
-                    },
-                });
-            }
-        }
-
-        // Initial render
-        $wire.getChartData().then(data => renderCharts(data));
-
-        // Re-render when scenarios change
-        $wire.$watch('scenarios', () => {
-            $wire.getChartData().then(data => renderCharts(data));
-        });
-    </script>
-    @endscript
+    {{-- Delete Scenario Confirmation --}}
+    <flux:modal wire:model.self="confirmingDeleteScenarioIndex" class="min-w-[22rem]">
+        <div class="flex flex-col gap-5">
+            <div>
+                <div class="eyebrow text-vault-muted mb-2">{{ __('Remove scenario') }}</div>
+                <div class="font-display text-vault-text" style="font-size: 22px; font-weight: 300; line-height: 1.2;">{{ __('Remove this scenario?') }}</div>
+                <div class="text-vault-textsub mt-3" style="font-size: 13px; line-height: 1.5;">{{ __('This action cannot be undone.') }}</div>
+            </div>
+            <div class="flex justify-end gap-2">
+                <flux:button variant="ghost" wire:click="cancelRemoveScenario">{{ __('Cancel') }}</flux:button>
+                @if ($confirmingDeleteScenarioIndex !== null)
+                    <flux:button variant="danger" wire:click="removeScenario({{ $confirmingDeleteScenarioIndex }})">{{ __('Remove') }}</flux:button>
+                @endif
+            </div>
+        </div>
+    </flux:modal>
 </section>

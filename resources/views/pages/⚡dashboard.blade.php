@@ -36,6 +36,9 @@ new class extends Component {
     public int $windfallGuiltFree = 0;
     public int $windfallDebt = 0;
 
+    public ?int $confirmingDeleteCategoryId = null;
+    public ?int $confirmingDeleteVisionId = null;
+
     public function mount(): void
     {
         $profile = Profile::instance();
@@ -115,11 +118,22 @@ new class extends Component {
         $this->editingCategoryName = '';
     }
 
+    public function confirmRemoveCategory(int $categoryId): void
+    {
+        $this->confirmingDeleteCategoryId = $categoryId;
+    }
+
+    public function cancelRemoveCategory(): void
+    {
+        $this->confirmingDeleteCategoryId = null;
+    }
+
     public function removeCategory(int $categoryId): void
     {
         $category = RichLifeVisionCategory::findOrFail($categoryId);
 
         $category->delete();
+        $this->confirmingDeleteCategoryId = null;
         unset($this->visionCategories, $this->uncategorizedVisions);
     }
 
@@ -181,11 +195,22 @@ new class extends Component {
         $this->editingVisionText = '';
     }
 
+    public function confirmRemoveVision(int $visionId): void
+    {
+        $this->confirmingDeleteVisionId = $visionId;
+    }
+
+    public function cancelRemoveVision(): void
+    {
+        $this->confirmingDeleteVisionId = null;
+    }
+
     public function removeVision(int $visionId): void
     {
         $vision = RichLifeVision::findOrFail($visionId);
 
         $vision->delete();
+        $this->confirmingDeleteVisionId = null;
         unset($this->visionCategories, $this->uncategorizedVisions);
     }
 
@@ -360,546 +385,504 @@ new class extends Component {
     }
 }; ?>
 
-<div class="w-full space-y-6">
-    @if ($this->uncategorizedExpenseCount > 0)
-        <div class="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 dark:border-amber-800 dark:bg-amber-950">
-            <flux:text class="text-sm text-amber-700 dark:text-amber-300">
-                {{ trans_choice(':count expense needs categorizing|:count expenses need categorizing', $this->uncategorizedExpenseCount, ['count' => $this->uncategorizedExpenseCount]) }}
-            </flux:text>
-            <a
-                href="{{ route('expenses.index') }}"
-                wire:navigate
-                class="text-sm font-medium text-amber-700 underline hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100"
-            >{{ __('Review') }}</a>
+<div class="w-full bg-vault-bg text-vault-text">
+    @php
+        $netWorth = $this->netWorthSummary['net_worth'];
+        $cats = $this->netWorthSummary['categories'];
+        $sumAbs = abs($cats['assets']) + abs($cats['investments']) + abs($cats['savings']) + abs($cats['debt']);
+        $plan = $this->currentPlan;
+    @endphp
+
+    {{-- Hero: Net Worth --}}
+    <div class="px-10 pt-8 pb-7 border-b border-vault-card-bd"
+         style="background: linear-gradient(160deg, var(--color-vault-card) 0%, var(--color-vault-bg) 80%);">
+        <div class="flex items-center justify-between mb-2.5">
+            <div class="eyebrow" style="letter-spacing: 0.16em;">{{ __('Your Net Worth') }}</div>
+            <a href="{{ route('net-worth.index') }}" wire:navigate
+               class="text-[11px] text-vault-muted hover:text-vault-accent transition-colors">{{ __('Manage accounts →') }}</a>
         </div>
-    @endif
-
-    <div class="grid gap-6 lg:grid-cols-2">
-    {{-- Left column: Net Worth + Spending Plan --}}
-    <div class="contents lg:block lg:space-y-6">
-        {{-- Net Worth --}}
-        <div class="order-0 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
-            <div class="flex items-center justify-between mb-4">
-                <div>
-                    <flux:subheading>{{ __('Net Worth') }}</flux:subheading>
-                    <div class="mt-1 text-3xl font-bold {{ $this->netWorthSummary['net_worth'] < 0 ? 'text-red-600 dark:text-red-300' : 'text-zinc-900 dark:text-zinc-100' }}">
-                        {{ $this->netWorthSummary['net_worth'] < 0 ? '-' : '' }}${{ format_cents(abs($this->netWorthSummary['net_worth'])) }}
-                    </div>
-                </div>
-                <flux:button variant="subtle" size="sm" icon="pencil-square" :href="route('net-worth.index')" wire:navigate aria-label="{{ __('Manage accounts') }}" />
+        <div class="flex items-end gap-5 mb-5">
+            <div class="font-display text-[52px] leading-none {{ $netWorth < 0 ? 'text-vault-red' : 'text-vault-text' }}">
+                {{ $netWorth < 0 ? '-' : '' }}${{ format_cents(abs($netWorth)) }}
             </div>
-
-            <div class="space-y-2">
-                @foreach (AccountCategory::cases() as $category)
-                    @php $total = $this->netWorthSummary['categories'][$category->value]; @endphp
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-2">
-                            <div class="size-3 rounded-full {{ $category->color() }}"></div>
-                            <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ $category->label() }}</span>
-                        </div>
-                        <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ format_cents($total) }}</span>
-                    </div>
+        </div>
+        @if ($sumAbs > 0)
+            <div class="flex h-[6px] rounded-[3px] overflow-hidden gap-px mb-3.5">
+                @foreach (\App\Enums\AccountCategory::cases() as $c)
+                    @php $val = abs($cats[$c->value]); @endphp
+                    @if ($val > 0)
+                        <div style="width: {{ ($val / $sumAbs) * 100 }}%; background: {{ $c->vaultColor() }}; opacity: 0.8;"></div>
+                    @endif
                 @endforeach
             </div>
-        </div>
-
-        {{-- Current Spending Plan --}}
-        @if ($this->currentPlan)
-            @php $plan = $this->currentPlan; @endphp
-            <div class="order-1 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
-                <div class="flex items-center justify-between mb-5">
-                    <div>
-                        <flux:subheading>{{ __('Current Spending Plan') }}</flux:subheading>
-                        <div class="mt-1 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
-                            ${{ format_cents($plan->monthly_income) }}/mo
-                        </div>
-                        @if ($plan->gross_monthly_income)
-                            <div class="text-sm text-zinc-500 dark:text-zinc-400">
-                                ${{ format_cents($plan->gross_monthly_income * 12) }}/yr {{ __('gross') }}
-                            </div>
-                        @endif
-                    </div>
-                    <flux:button variant="subtle" size="sm" icon="pencil-square" :href="route('spending-plans.edit', $plan)" wire:navigate aria-label="{{ __('Edit plan') }}" />
-                </div>
-
-                @php
-                    $gfPercent = $plan->categoryPercent(SpendingCategory::GuiltFree);
-                    $gfHealthy = SpendingCategory::GuiltFree->isWithinIdeal($gfPercent);
-                @endphp
-                <div class="space-y-5">
-                    @foreach (SpendingCategory::spendingCases() as $category)
-                        @php
-                            $total = $plan->categoryTotal($category);
-                            $percent = $plan->categoryPercent($category);
-                            [$min, $max] = $category->idealRange();
-                            $withinIdeal = $category->isWithinIdeal($percent, $gfHealthy);
-                            $items = $category !== SpendingCategory::GuiltFree
-                                ? $plan->items->where('category', $category)
-                                : collect();
-                        @endphp
-                        <div>
-                            <div class="flex items-center justify-between mb-1">
-                                <div class="flex items-center gap-2">
-                                    <div class="size-3 rounded-full {{ $category->color() }}"></div>
-                                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $category->label() }}</span>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    @if ($category !== SpendingCategory::GuiltFree)
-                                        <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ format_cents($total) }}</span>
-                                    @else
-                                        <span class="text-sm font-medium {{ $total < 0 ? 'text-red-600 dark:text-red-300' : 'text-zinc-900 dark:text-zinc-100' }}">
-                                            {{ $total < 0 ? '-' : '' }}${{ format_cents(abs($total)) }}
-                                        </span>
-                                    @endif
-                                    <flux:badge size="sm" color="{{ $percent < 0 ? 'red' : ($withinIdeal ? 'green' : 'amber') }}" class="w-10 justify-center">
-                                        {{ round($percent) }}%
-                                    </flux:badge>
-                                </div>
-                            </div>
-
-                            @php
-                                $actualSpent = $this->monthlyExpenseTotals[$category->value] ?? 0;
-                                $remaining = $total - $actualSpent;
-                                $spentPercent = $total > 0 ? min(($actualSpent / $total) * 100, 100) : 0;
-                            @endphp
-                            <div class="mt-1 h-2 rounded-full bg-zinc-100 dark:bg-zinc-700 overflow-hidden">
-                                <div class="h-full rounded-full {{ $total > 0 && $actualSpent > $total ? 'bg-red-500' : $category->color() }}" style="width: {{ $total > 0 ? $spentPercent : min(max($percent, 0), 100) }}%"></div>
-                            </div>
-                            @if ($total > 0)
-                                <div class="mt-1.5 flex items-center justify-between text-xs">
-                                    <span class="text-zinc-500 dark:text-zinc-400">
-                                        {{ __('Spent') }}: ${{ format_cents($actualSpent) }}
-                                    </span>
-                                    <span class="{{ $remaining < 0 ? 'text-red-600 dark:text-red-300' : 'text-emerald-600 dark:text-emerald-400' }}">
-                                        ${{ format_cents(abs($remaining)) }}
-                                        {{ $remaining >= 0 ? __('left') : __('over') }}
-                                    </span>
-                                </div>
-                            @endif
-
-                            @if ($items->isNotEmpty() || ($category === SpendingCategory::FixedCosts && $plan->fixed_costs_misc_percent > 0))
-                                <div class="mt-2 space-y-0.5">
-                                    @foreach ($items as $item)
-                                        <div class="flex items-center justify-between text-sm">
-                                            <span class="text-zinc-500 dark:text-zinc-400">{{ $item->name }}</span>
-                                            <span class="text-zinc-600 dark:text-zinc-300">${{ format_cents($item->amount) }}</span>
-                                        </div>
-                                    @endforeach
-                                    @if ($category === SpendingCategory::FixedCosts && $plan->fixed_costs_misc_percent > 0)
-                                        <div class="flex items-center justify-between text-sm italic text-zinc-500 dark:text-zinc-400">
-                                            <span>{{ __('Miscellaneous') }} ({{ $plan->fixed_costs_misc_percent }}%)</span>
-                                            <span class="text-zinc-600 dark:text-zinc-300">${{ format_cents($plan->fixedCostsMiscellaneous()) }}</span>
-                                        </div>
-                                    @endif
-                                </div>
-                            @endif
-                        </div>
-                    @endforeach
-                </div>
-            </div>
-        @else
-            <div class="order-1 rounded-xl border border-dashed border-zinc-300 dark:border-zinc-600 p-6 text-center">
-                @if (\App\Models\SpendingPlan::exists())
-                    <flux:subheading class="mb-2">{{ __('No current spending plan') }}</flux:subheading>
-                    <flux:button variant="subtle" size="sm" :href="route('spending-plans.dashboard')" wire:navigate>
-                        {{ __('Choose a Plan') }}
-                    </flux:button>
-                @else
-                    <flux:subheading class="mb-2">{{ __('Create your spending plan') }}</flux:subheading>
-                    <flux:button variant="primary" size="sm" :href="route('spending-plans.create')" wire:navigate>
-                        {{ __('Get Started') }}
-                    </flux:button>
-                @endif
-            </div>
         @endif
+        <div class="flex flex-wrap gap-x-5 gap-y-1.5">
+            @foreach (\App\Enums\AccountCategory::cases() as $c)
+                <div class="flex items-center gap-1.5">
+                    <div class="size-1.5 rounded-full flex-shrink-0" style="background: {{ $c->vaultColor() }};"></div>
+                    <span class="text-[11px] text-vault-muted">{{ __($c->label()) }}</span>
+                    <span class="text-[11px] {{ $c === \App\Enums\AccountCategory::Debt ? 'text-vault-red' : 'text-vault-text' }}">${{ format_cents($cats[$c->value]) }}</span>
+                </div>
+            @endforeach
+            @if ($this->uncategorizedExpenseCount > 0)
+                <a href="{{ route('expenses.index') }}" wire:navigate
+                   class="ml-auto flex items-center gap-1.5 text-[11px] text-vault-warm hover:text-vault-accent">
+                    <span class="size-1.5 rounded-full bg-vault-warm"></span>
+                    {{ trans_choice(':count expense needs categorizing|:count expenses need categorizing', $this->uncategorizedExpenseCount, ['count' => $this->uncategorizedExpenseCount]) }} →
+                </a>
+            @endif
+        </div>
     </div>
 
-    {{-- Right column: Vision + Emergency Fund + Debt Payoff + Retirement --}}
-    <div class="contents lg:block lg:space-y-6">
-        {{-- Rich Life Vision --}}
-        <div class="order-2 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
-            <div class="flex items-center justify-between mb-2">
-                <flux:heading>{{ __('Rich Life Vision') }}</flux:heading>
-                <flux:button
-                    size="sm"
-                    variant="subtle"
-                    :icon="$visionEditing ? 'lock-open' : 'lock-closed'"
-                    wire:click="$toggle('visionEditing')"
-                    aria-label="{{ $visionEditing ? __('Lock list') : __('Unlock list') }}"
-                />
-            </div>
-
-            <div class="space-y-2" data-sortable-categories>
-                @foreach ($this->visionCategories as $cat)
-                    <div class="category-item" data-category-id="{{ $cat->id }}" wire:key="category-{{ $cat->id }}">
-                        {{-- Category heading --}}
-                        <div class="flex items-center gap-2 mb-1">
-                            @if ($visionEditing && $editingCategoryId === $cat->id)
-                                <div class="flex-1 flex items-center gap-2">
-                                    <flux:input wire:model="editingCategoryName" size="sm" wire:keydown.enter="updateCategory" />
-                                    <flux:button size="xs" variant="primary" wire:click="updateCategory">{{ __('Save') }}</flux:button>
-                                    <flux:button size="xs" variant="ghost" wire:click="cancelEditCategory">{{ __('Cancel') }}</flux:button>
-                                </div>
-                            @elseif ($visionEditing)
-                                <div class="category-drag-handle cursor-grab active:cursor-grabbing text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 touch-none">
-                                    <flux:icon.bars-3 variant="micro" />
-                                </div>
-                                <span class="flex-1 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ $cat->name }}</span>
-                                <div class="flex items-center gap-0.5">
-                                    <flux:button size="xs" variant="ghost" icon="pencil" wire:click="editCategory({{ $cat->id }})" aria-label="{{ __('Edit category') }}" />
-                                    <flux:button size="xs" variant="ghost" icon="trash" wire:click="removeCategory({{ $cat->id }})" wire:confirm="{{ __('Remove this category? Visions will become uncategorized.') }}" aria-label="{{ __('Remove category') }}" />
-                                </div>
-                            @else
-                                <span class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ $cat->name }}</span>
-                            @endif
+    {{-- Body grid --}}
+    <div class="px-10 py-6 pb-10 grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
+        {{-- LEFT COLUMN --}}
+        <div class="flex flex-col gap-5">
+            {{-- Spending Plan --}}
+            @if ($plan)
+                @php
+                    $gfPercent = $plan->categoryPercent(\App\Enums\SpendingCategory::GuiltFree);
+                    $gfHealthy = \App\Enums\SpendingCategory::GuiltFree->isWithinIdeal($gfPercent);
+                @endphp
+                <div class="rounded-xl border border-vault-card-bd bg-vault-card px-[26px] py-[22px]">
+                    <div class="flex justify-between items-start mb-5">
+                        <div>
+                            <div class="eyebrow mb-3">{{ __('Spending Plan — :month', ['month' => now()->format('F')]) }}</div>
+                            <div class="font-display text-[20px] text-vault-text">{{ $plan->name }}</div>
                         </div>
+                        <div class="text-right">
+                            <div class="font-display text-[22px] italic text-vault-text">${{ format_cents($plan->monthly_income) }}<span class="text-[12px] not-italic font-sans text-vault-muted">/mo</span></div>
+                            <a href="{{ route('spending-plans.edit', $plan) }}" wire:navigate
+                               class="inline-block mt-1.5 px-3 py-1 rounded-lg border border-vault-card-bd text-[11px] font-semibold text-vault-textsub hover:bg-vault-card-hov transition-colors">
+                                {{ __('Edit plan') }}
+                            </a>
+                        </div>
+                    </div>
 
-                        {{-- Visions in this category --}}
-                        @if ($cat->visions->isNotEmpty() || $visionEditing)
-                            <ul class="space-y-1" data-sortable-visions data-category-id="{{ $cat->id }}">
-                                @foreach ($cat->visions as $vision)
+                    <div class="flex flex-col gap-4">
+                        @foreach (\App\Enums\SpendingCategory::spendingCases() as $category)
+                            @php
+                                $total = $plan->categoryTotal($category);
+                                $planPercent = $plan->categoryPercent($category);
+                                $withinIdeal = $category->isWithinIdeal($planPercent, $gfHealthy);
+                                $actualSpent = $this->monthlyExpenseTotals[$category->value] ?? 0;
+                                $remaining = $total - $actualSpent;
+                                $over = $total > 0 && $actualSpent > $total;
+                                $spentPercent = $total > 0 ? min(($actualSpent / $total) * 100, 100) : 0;
+                                $color = $category->vaultColor();
+                            @endphp
+                            <div>
+                                <div class="flex justify-between items-center mb-1.5">
+                                    <div class="flex items-center gap-2">
+                                        <div class="size-[7px] rounded-full" style="background: {{ $color }};"></div>
+                                        <span class="text-[13px] text-vault-text">{{ __($category->label()) }}</span>
+                                        <span class="text-[10px] font-semibold px-[7px] py-[2px] rounded-full"
+                                            style="background: {{ $over || $planPercent < 0 ? 'color-mix(in srgb, var(--color-vault-red) 15%, transparent)' : 'color-mix(in srgb, var(--color-vault-textsub) 15%, transparent)' }};
+                                                   color: {{ $over || $planPercent < 0 ? 'var(--color-vault-red)' : 'var(--color-vault-textsub)' }};
+                                                   letter-spacing: 0.03em;">
+                                            {{ round($planPercent) }}%
+                                        </span>
+                                    </div>
+                                    <div class="flex gap-3 items-center">
+                                        @if ($total > 0)
+                                            <span class="text-[11px] text-vault-muted">${{ format_cents($actualSpent) }} / ${{ format_cents($total) }}</span>
+                                            <span class="text-[11px]" style="color: {{ $over ? 'var(--color-vault-red)' : 'var(--color-vault-accent)' }};">
+                                                {{ $over ? '−' : '' }}${{ format_cents(abs($remaining)) }} {{ $over ? __('over') : __('left') }}
+                                            </span>
+                                        @else
+                                            <span class="text-[11px] {{ $total < 0 ? 'text-vault-red' : 'text-vault-text' }}">
+                                                {{ $total < 0 ? '−' : '' }}${{ format_cents(abs($total)) }}
+                                            </span>
+                                        @endif
+                                    </div>
+                                </div>
+                                <div class="h-[5px] rounded-[2.5px] bg-vault-card-bd overflow-hidden">
+                                    <div class="h-full rounded-[2.5px] transition-[width] duration-500"
+                                         style="width: {{ $total > 0 ? $spentPercent : min(max($planPercent, 0), 100) }}%;
+                                                background: {{ $over ? 'var(--color-vault-red)' : $color }};
+                                                opacity: 0.85;"></div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @else
+                <div class="rounded-xl border border-dashed border-vault-card-bd p-7 text-center">
+                    <div class="eyebrow mb-3">{{ __('Spending Plan') }}</div>
+                    @if (\App\Models\SpendingPlan::exists())
+                        <div class="font-display text-[18px] text-vault-textsub mb-3">{{ __('No current spending plan') }}</div>
+                        <a href="{{ route('spending-plans.dashboard') }}" wire:navigate
+                           class="inline-block px-4 py-2 rounded-lg border border-vault-card-bd text-[12px] font-semibold text-vault-textsub hover:bg-vault-card-hov transition-colors">
+                            {{ __('Choose a Plan') }}
+                        </a>
+                    @else
+                        <div class="font-display text-[18px] text-vault-textsub mb-3">{{ __('Create your spending plan') }}</div>
+                        <a href="{{ route('spending-plans.create') }}" wire:navigate
+                           class="inline-block px-4 py-2 rounded-lg bg-vault-accent text-vault-bg text-[12px] font-semibold hover:bg-vault-accent-hov transition-colors">
+                            {{ __('Get Started') }}
+                        </a>
+                    @endif
+                </div>
+            @endif
+
+            {{-- Rich Life Vision --}}
+            <div class="rounded-xl border border-vault-card-bd bg-vault-card px-[26px] py-[22px]">
+                <div class="flex items-start justify-between mb-1">
+                    <div class="eyebrow">{{ __('Rich Life Vision') }}</div>
+                    <flux:button
+                        size="xs"
+                        variant="ghost"
+                        :icon="$visionEditing ? 'lock-open' : 'lock-closed'"
+                        wire:click="$toggle('visionEditing')"
+                        aria-label="{{ $visionEditing ? __('Lock list') : __('Unlock list') }}"
+                        class="!text-vault-muted hover:!text-vault-textsub"
+                    />
+                </div>
+                <div class="font-serif italic text-[14px] font-light text-vault-textsub mb-[18px]">
+                    {{ __("What you're building toward") }}
+                </div>
+
+                @if (! $visionEditing)
+                    {{-- Read mode: 2-column Vault style --}}
+                    @if ($this->visionCategories->isNotEmpty())
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
+                            @foreach ($this->visionCategories as $cat)
+                                <div>
+                                    <div class="text-[10px] font-semibold tracking-[0.1em] mb-2.5 uppercase" style="color: var(--color-vault-accent);">{{ $cat->name }}</div>
+                                    @foreach ($cat->visions as $vision)
+                                        <div class="flex gap-2 mb-1.5 items-start">
+                                            <span class="text-[12px] mt-px flex-shrink-0" style="color: var(--color-vault-card-bd);">—</span>
+                                            <span class="text-[12px] text-vault-textsub leading-[1.5]">{{ $vision->text }}</span>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                    @if ($this->uncategorizedVisions->isNotEmpty())
+                        <div class="{{ $this->visionCategories->isNotEmpty() ? 'mt-5' : '' }}">
+                            @if ($this->visionCategories->isNotEmpty())
+                                <div class="text-[10px] font-semibold tracking-[0.14em] uppercase text-vault-muted mb-2.5">{{ __('Uncategorized') }}</div>
+                            @endif
+                            @foreach ($this->uncategorizedVisions as $vision)
+                                <div class="flex gap-2 mb-1.5 items-start">
+                                    <span class="text-[12px] mt-px flex-shrink-0" style="color: var(--color-vault-card-bd);">—</span>
+                                    <span class="text-[12px] text-vault-textsub leading-[1.5]">{{ $vision->text }}</span>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                    @if ($this->visionCategories->isEmpty() && $this->uncategorizedVisions->isEmpty())
+                        <div class="text-[12px] text-vault-muted italic">{{ __('Unlock to add categories and visions.') }}</div>
+                    @endif
+                @else
+                    {{-- Edit mode: full editing UI --}}
+                    <div class="space-y-3" data-sortable-categories>
+                        @foreach ($this->visionCategories as $cat)
+                            <div class="category-item" data-category-id="{{ $cat->id }}" wire:key="category-{{ $cat->id }}">
+                                <div class="flex items-center gap-2 mb-1.5">
+                                    @if ($editingCategoryId === $cat->id)
+                                        <div class="flex-1 flex items-center gap-2">
+                                            <flux:input wire:model="editingCategoryName" size="sm" wire:keydown.enter="updateCategory" />
+                                            <flux:button size="xs" variant="primary" wire:click="updateCategory">{{ __('Save') }}</flux:button>
+                                            <flux:button size="xs" variant="ghost" wire:click="cancelEditCategory">{{ __('Cancel') }}</flux:button>
+                                        </div>
+                                    @else
+                                        <div class="category-drag-handle cursor-grab active:cursor-grabbing text-vault-muted hover:text-vault-textsub touch-none">
+                                            <flux:icon.bars-3 variant="micro" />
+                                        </div>
+                                        <span class="flex-1 text-[10px] font-semibold uppercase tracking-[0.1em]" style="color: var(--color-vault-accent);">{{ $cat->name }}</span>
+                                        <div class="flex items-center gap-0.5">
+                                            <flux:button size="xs" variant="ghost" icon="pencil" wire:click="editCategory({{ $cat->id }})" aria-label="{{ __('Edit category') }}" />
+                                            <flux:button size="xs" variant="ghost" icon="trash" wire:click="confirmRemoveCategory({{ $cat->id }})" aria-label="{{ __('Remove category') }}" />
+                                        </div>
+                                    @endif
+                                </div>
+                                <ul class="space-y-1" data-sortable-visions data-category-id="{{ $cat->id }}">
+                                    @foreach ($cat->visions as $vision)
+                                        <li class="flex items-center gap-2 group" data-vision-id="{{ $vision->id }}" wire:key="vision-{{ $vision->id }}">
+                                            @if ($editingVisionId === $vision->id)
+                                                <div class="flex-1 flex items-center gap-2">
+                                                    <flux:input wire:model="editingVisionText" size="sm" wire:keydown.enter="updateVision" />
+                                                    <flux:button size="xs" variant="primary" wire:click="updateVision">{{ __('Save') }}</flux:button>
+                                                    <flux:button size="xs" variant="ghost" wire:click="cancelEditVision">{{ __('Cancel') }}</flux:button>
+                                                </div>
+                                            @else
+                                                <div class="drag-handle cursor-grab active:cursor-grabbing text-vault-muted hover:text-vault-textsub touch-none">
+                                                    <flux:icon.bars-3 variant="micro" />
+                                                </div>
+                                                <span class="flex-1 text-[12px] text-vault-textsub">{{ $vision->text }}</span>
+                                                <div class="flex items-center gap-0.5">
+                                                    <flux:button size="xs" variant="ghost" icon="pencil" wire:click="editVision({{ $vision->id }})" aria-label="{{ __('Edit vision') }}" />
+                                                    <flux:button size="xs" variant="ghost" icon="trash" wire:click="confirmRemoveVision({{ $vision->id }})" aria-label="{{ __('Remove vision') }}" />
+                                                </div>
+                                            @endif
+                                        </li>
+                                    @endforeach
+                                </ul>
+                                @if ($addVisionToCategoryId === $cat->id)
+                                    <div class="flex items-center gap-2 mt-1.5">
+                                        <flux:input class="flex-1" wire:model="newVisionText" size="sm" :placeholder="__('Add a vision...')" wire:keydown.enter="addVision({{ $cat->id }})" wire:keydown.escape="\$set('addVisionToCategoryId', null)" />
+                                        <flux:button size="sm" variant="ghost" icon="plus" wire:click="addVision({{ $cat->id }})" aria-label="{{ __('Add vision') }}" />
+                                    </div>
+                                @else
+                                    <button wire:click="$set('addVisionToCategoryId', {{ $cat->id }})" class="mt-1 w-full text-left text-[12px] text-vault-muted hover:text-vault-textsub py-1">+ {{ __('Add a vision...') }}</button>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+
+                    {{-- Uncategorized visions --}}
+                    @if ($this->uncategorizedVisions->isNotEmpty() || $visionEditing)
+                        <div class="{{ $this->visionCategories->isNotEmpty() ? 'mt-3' : '' }}">
+                            @if ($this->uncategorizedVisions->isNotEmpty() && $this->visionCategories->isNotEmpty())
+                                <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-vault-muted mb-1.5">{{ __('Uncategorized') }}</div>
+                            @endif
+                            <ul class="space-y-1" data-sortable-visions data-category-id="uncategorized">
+                                @foreach ($this->uncategorizedVisions as $vision)
                                     <li class="flex items-center gap-2 group" data-vision-id="{{ $vision->id }}" wire:key="vision-{{ $vision->id }}">
-                                        @if ($visionEditing && $editingVisionId === $vision->id)
+                                        @if ($editingVisionId === $vision->id)
                                             <div class="flex-1 flex items-center gap-2">
                                                 <flux:input wire:model="editingVisionText" size="sm" wire:keydown.enter="updateVision" />
                                                 <flux:button size="xs" variant="primary" wire:click="updateVision">{{ __('Save') }}</flux:button>
                                                 <flux:button size="xs" variant="ghost" wire:click="cancelEditVision">{{ __('Cancel') }}</flux:button>
                                             </div>
-                                        @elseif ($visionEditing)
-                                            <div class="drag-handle cursor-grab active:cursor-grabbing text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 touch-none">
+                                        @else
+                                            <div class="drag-handle cursor-grab active:cursor-grabbing text-vault-muted hover:text-vault-textsub touch-none">
                                                 <flux:icon.bars-3 variant="micro" />
                                             </div>
-                                            <span class="flex-1 text-sm text-zinc-700 dark:text-zinc-300">{{ $vision->text }}</span>
+                                            <span class="flex-1 text-[12px] text-vault-textsub">{{ $vision->text }}</span>
                                             <div class="flex items-center gap-0.5">
                                                 <flux:button size="xs" variant="ghost" icon="pencil" wire:click="editVision({{ $vision->id }})" aria-label="{{ __('Edit vision') }}" />
-                                                <flux:button size="xs" variant="ghost" icon="trash" wire:click="removeVision({{ $vision->id }})" wire:confirm="{{ __('Remove this item?') }}" aria-label="{{ __('Remove vision') }}" />
+                                                <flux:button size="xs" variant="ghost" icon="trash" wire:click="confirmRemoveVision({{ $vision->id }})" aria-label="{{ __('Remove vision') }}" />
                                             </div>
-                                        @else
-                                            <span class="text-sm text-zinc-700 dark:text-zinc-300">{{ $vision->text }}</span>
                                         @endif
                                     </li>
                                 @endforeach
                             </ul>
-                        @endif
-
-                        {{-- Per-category add vision input --}}
-                        @if ($visionEditing)
-                            @if ($addVisionToCategoryId === $cat->id)
-                                <div class="flex items-center gap-2 mt-1">
-                                    <div class="flex-1">
-                                        <flux:input
-                                            wire:model="newVisionText"
-                                            size="sm"
-                                            :placeholder="__('Add a vision...')"
-                                            wire:keydown.enter="addVision({{ $cat->id }})"
-                                            wire:keydown.escape="$set('addVisionToCategoryId', null)"
-                                        />
-                                    </div>
-                                    <flux:button
-                                        size="sm"
-                                        variant="ghost"
-                                        icon="plus"
-                                        wire:click="addVision({{ $cat->id }})"
-                                        aria-label="{{ __('Add vision') }}"
-                                    />
+                            @if ($addVisionToCategoryId === 0)
+                                <div class="flex items-center gap-2 mt-1.5">
+                                    <flux:input class="flex-1" wire:model="newVisionText" size="sm" :placeholder="__('Add a vision...')" wire:keydown.enter="addVision(null)" wire:keydown.escape="\$set('addVisionToCategoryId', null)" />
+                                    <flux:button size="sm" variant="ghost" icon="plus" wire:click="addVision(null)" aria-label="{{ __('Add vision') }}" />
                                 </div>
                             @else
-                                <button
-                                    wire:click="$set('addVisionToCategoryId', {{ $cat->id }})"
-                                    class="mt-1 w-full text-left text-sm text-zinc-400 hover:text-zinc-500 dark:text-zinc-500 dark:hover:text-zinc-400 py-1"
-                                >+ {{ __('Add a vision...') }}</button>
+                                <button wire:click="$set('addVisionToCategoryId', 0)" class="mt-1 w-full text-left text-[12px] text-vault-muted hover:text-vault-textsub py-1">+ {{ __('Add a vision...') }}</button>
                             @endif
-                        @endif
+                        </div>
+                    @endif
+
+                    {{-- Add category input --}}
+                    <div class="flex items-center gap-2 mt-4 pt-3 border-t border-vault-card-bd">
+                        <flux:input class="flex-1" wire:model="newCategoryName" size="sm" :placeholder="__('Add a category...')" wire:keydown.enter="addCategory" />
+                        <flux:button size="sm" variant="ghost" icon="plus" wire:click="addCategory" aria-label="{{ __('Add category') }}" />
                     </div>
-                @endforeach
+                @endif
             </div>
-
-            {{-- Uncategorized visions --}}
-            @if ($this->uncategorizedVisions->isNotEmpty() || $visionEditing)
-                <div class="{{ $this->visionCategories->isNotEmpty() ? 'mt-2' : '' }}">
-                    @if ($this->uncategorizedVisions->isNotEmpty())
-                        @if ($this->visionCategories->isNotEmpty())
-                            <div class="flex items-center gap-2 mb-1">
-                                <span class="text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">{{ __('Uncategorized') }}</span>
-                            </div>
-                        @endif
-                        <ul class="space-y-1" data-sortable-visions data-category-id="uncategorized">
-                            @foreach ($this->uncategorizedVisions as $vision)
-                                <li class="flex items-center gap-2 group" data-vision-id="{{ $vision->id }}" wire:key="vision-{{ $vision->id }}">
-                                    @if ($visionEditing && $editingVisionId === $vision->id)
-                                        <div class="flex-1 flex items-center gap-2">
-                                            <flux:input wire:model="editingVisionText" size="sm" wire:keydown.enter="updateVision" />
-                                            <flux:button size="xs" variant="primary" wire:click="updateVision">{{ __('Save') }}</flux:button>
-                                            <flux:button size="xs" variant="ghost" wire:click="cancelEditVision">{{ __('Cancel') }}</flux:button>
-                                        </div>
-                                    @elseif ($visionEditing)
-                                        <div class="drag-handle cursor-grab active:cursor-grabbing text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 touch-none">
-                                            <flux:icon.bars-3 variant="micro" />
-                                        </div>
-                                        <span class="flex-1 text-sm text-zinc-700 dark:text-zinc-300">{{ $vision->text }}</span>
-                                        <div class="flex items-center gap-0.5">
-                                            <flux:button size="xs" variant="ghost" icon="pencil" wire:click="editVision({{ $vision->id }})" aria-label="{{ __('Edit vision') }}" />
-                                            <flux:button size="xs" variant="ghost" icon="trash" wire:click="removeVision({{ $vision->id }})" wire:confirm="{{ __('Remove this item?') }}" aria-label="{{ __('Remove vision') }}" />
-                                        </div>
-                                    @else
-                                        <span class="text-sm text-zinc-700 dark:text-zinc-300">{{ $vision->text }}</span>
-                                    @endif
-                                </li>
-                            @endforeach
-                        </ul>
-                    @endif
-
-                    {{-- Add uncategorized vision input --}}
-                    @if ($visionEditing)
-                        @if ($addVisionToCategoryId === 0)
-                            <div class="flex items-center gap-2 mt-1">
-                                <div class="flex-1">
-                                    <flux:input
-                                        wire:model="newVisionText"
-                                        size="sm"
-                                        :placeholder="__('Add a vision...')"
-                                        wire:keydown.enter="addVision(null)"
-                                        wire:keydown.escape="$set('addVisionToCategoryId', null)"
-                                    />
-                                </div>
-                                <flux:button
-                                    size="sm"
-                                    variant="ghost"
-                                    icon="plus"
-                                    wire:click="addVision(null)"
-                                    aria-label="{{ __('Add vision') }}"
-                                />
-                            </div>
-                        @else
-                            <button
-                                wire:click="$set('addVisionToCategoryId', 0)"
-                                class="mt-1 w-full text-left text-sm text-zinc-400 hover:text-zinc-500 dark:text-zinc-500 dark:hover:text-zinc-400 py-1"
-                            >+ {{ __('Add a vision...') }}</button>
-                        @endif
-                    @endif
-                </div>
-            @endif
-
-            {{-- Add category input --}}
-            @if ($visionEditing)
-                <div class="flex items-center gap-2 mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-700">
-                    <div class="flex-1">
-                        <flux:input
-                            wire:model="newCategoryName"
-                            size="sm"
-                            :placeholder="__('Add a category...')"
-                            wire:keydown.enter="addCategory"
-                        />
-                    </div>
-                    <flux:button
-                        size="sm"
-                        variant="ghost"
-                        icon="plus"
-                        wire:click="addCategory"
-                        aria-label="{{ __('Add category') }}"
-                    />
-                </div>
-            @endif
         </div>
 
-        {{-- Emergency Fund --}}
-        @if ($this->emergencyFund)
-            @php
-                $ef = $this->emergencyFund;
-                $plan = $this->currentPlan;
-                $monthsTotal = $plan && $plan->monthly_income > 0
-                    ? $ef->balance / $plan->monthly_income
-                    : null;
-                $fixedCosts = $plan ? $plan->categoryTotal(SpendingCategory::FixedCosts) : 0;
-                $monthsFixed = $plan && $fixedCosts > 0
-                    ? $ef->balance / $fixedCosts
-                    : null;
-                $totalSavings = $this->netWorthSummary['categories'][AccountCategory::Savings->value];
-                $monthsTotalAllSavings = $plan && $plan->monthly_income > 0
-                    ? $totalSavings / $plan->monthly_income
-                    : null;
-                $monthsFixedAllSavings = $plan && $fixedCosts > 0
-                    ? $totalSavings / $fixedCosts
-                    : null;
-            @endphp
-            <div class="order-3 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <div>
-                        <flux:subheading>{{ __('Emergency Fund') }}</flux:subheading>
-                        <div class="mt-1 text-3xl font-bold text-zinc-900 dark:text-zinc-100">
-                            ${{ format_cents($ef->balance) }}
-                        </div>
-                    </div>
-                    <flux:button variant="subtle" size="sm" icon="pencil-square" :href="route('net-worth.index')" wire:navigate aria-label="{{ __('Edit emergency fund') }}" />
-                </div>
-
-                @if ($plan)
+        {{-- RIGHT COLUMN --}}
+        <div class="flex flex-col gap-5">
+            {{-- Critical Numbers --}}
+            <div class="rounded-xl border border-vault-card-bd bg-vault-card px-[26px] py-[22px]">
+                <div class="eyebrow">{{ __('Critical Numbers') }}</div>
+                <div class="flex flex-col">
+                    {{-- Emergency Fund --}}
                     @php
-                        $efMetrics = [
-                            ['months' => $monthsTotal, 'label' => 'total spending'],
-                            ['months' => $monthsFixed, 'label' => 'fixed costs'],
-                            ['months' => $monthsTotalAllSavings, 'label' => 'total spending (all savings)'],
-                            ['months' => $monthsFixedAllSavings, 'label' => 'fixed costs (all savings)'],
-                        ];
+                        $ef = $this->emergencyFund;
+                        $efBal = $ef?->balance ?? 0;
+                        $monthlyIncome = $plan?->monthly_income ?? 0;
+                        $monthsRunway = $monthlyIncome > 0 ? $efBal / $monthlyIncome : null;
                     @endphp
-                    <div class="space-y-2">
-                        @foreach ($efMetrics as $metric)
-                            <div class="flex items-center justify-between">
-                                @if ($metric['months'] !== null && $metric['months'] < 2)
-                                    <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Weeks of ' . $metric['label']) }}</span>
-                                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                                        {{ (int) floor($metric['months'] * (52 / 12)) }}
-                                    </span>
-                                @else
-                                    <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Months of ' . $metric['label']) }}</span>
-                                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                                        {{ $metric['months'] !== null ? (int) floor($metric['months']) : __('N/A') }}
-                                    </span>
-                                @endif
+                    <div class="py-3.5">
+                        <div class="flex justify-between items-baseline mb-1.5">
+                            <div class="flex items-center gap-2">
+                                <div class="size-1.5 rounded-full bg-vault-accent"></div>
+                                <span class="text-[11px] tracking-[0.1em] text-vault-muted uppercase">{{ __('Emergency Fund') }}</span>
                             </div>
-                        @endforeach
-                    </div>
-                @else
-                    <flux:text class="text-sm text-zinc-500 dark:text-zinc-400">
-                        {{ __('Set a current spending plan to see coverage months.') }}
-                    </flux:text>
-                @endif
-            </div>
-        @endif
-
-        {{-- Debt Payoff --}}
-        @if ($this->debtPayoff)
-            <div class="order-4 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <div>
-                        <flux:subheading>{{ __('Debt Payoff') }}</flux:subheading>
-                        @if (! ($this->debtPayoff['needs_plan_item'] ?? false))
-                            <div class="mt-1 text-3xl font-bold text-zinc-900 dark:text-zinc-100">
-                                {{ $this->debtPayoff['payoff_date']->format('M Y') }}
+                            @if ($monthsRunway !== null)
+                                <span class="text-[11px] {{ $monthsRunway < 3 ? 'text-vault-red' : 'text-vault-accent' }}">
+                                    {{ number_format($monthsRunway, 1) }} {{ __('of 6 months') }}
+                                </span>
+                            @endif
+                        </div>
+                        <div class="flex justify-between items-baseline mb-2">
+                            <span class="font-display text-[24px] text-vault-text">${{ format_cents($efBal) }}</span>
+                            <span class="text-[10px] text-vault-muted">{{ __('Goal: 6 months expenses') }}</span>
+                        </div>
+                        @if ($monthlyIncome > 0)
+                            <div class="h-[4px] rounded-[2px] bg-vault-card-bd overflow-hidden">
+                                <div class="h-full bg-vault-accent rounded-[2px]"
+                                     style="width: {{ min(100, ($efBal / ($monthlyIncome * 6)) * 100) }}%; opacity: 0.85;"></div>
                             </div>
                         @endif
                     </div>
-                    <flux:button variant="subtle" size="sm" icon="cog-6-tooth" :href="route('net-worth.index')" wire:navigate aria-label="{{ __('Manage debt accounts') }}" />
-                </div>
 
-                @if ($this->debtPayoff['needs_plan_item'] ?? false)
-                    <flux:text class="text-sm text-zinc-500 dark:text-zinc-400">
-                        {{ __('Add a "Debt Payments" item to your spending plan\'s Fixed Costs to see your payoff timeline.') }}
-                    </flux:text>
-                @else
-                    <div class="space-y-2">
-                        <div class="flex items-center justify-between">
-                            <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Total debt') }}</span>
-                            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ format_cents($this->debtPayoff['total_debt']) }}</span>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Monthly payment') }}</span>
-                            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ format_cents($this->debtPayoff['monthly_payment']) }}</span>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Months remaining') }}</span>
-                            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $this->debtPayoff['months_to_payoff'] }}</span>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Total interest') }}</span>
-                            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ format_cents($this->debtPayoff['total_interest_paid']) }}</span>
-                        </div>
-                    </div>
-                @endif
-            </div>
-        @endif
+                    {{-- Debt Free --}}
+                    @if ($this->debtPayoff && ! ($this->debtPayoff['needs_plan_item'] ?? false))
+                        <div class="h-px bg-vault-card-bd"></div>
+                        <a href="{{ route('debt-payoff.index') }}" wire:navigate class="block py-3.5 hover:bg-vault-card-hov -mx-2 px-2 rounded-md transition-colors">
+                            <div class="flex justify-between items-baseline mb-1.5">
+                                <div class="flex items-center gap-2">
+                                    <div class="size-1.5 rounded-full bg-vault-warm"></div>
+                                    <span class="text-[11px] tracking-[0.1em] text-vault-muted uppercase">{{ __('Debt Free') }}</span>
+                                </div>
+                                <span class="text-[11px] text-vault-red">${{ format_cents($this->debtPayoff['total_debt']) }} {{ __('remaining') }}</span>
+                            </div>
+                            <div class="flex justify-between items-baseline">
+                                <span class="font-display text-[24px] text-vault-warm">{{ $this->debtPayoff['payoff_date']->format('M Y') }}</span>
+                                <span class="text-[10px] text-vault-muted">{{ __('on current plan') }}</span>
+                            </div>
+                        </a>
+                    @elseif ($this->debtPayoff && ($this->debtPayoff['needs_plan_item'] ?? false))
+                        <div class="h-px bg-vault-card-bd"></div>
+                        <a href="{{ $plan ? route('spending-plans.edit', $plan) : route('spending-plans.dashboard') }}" wire:navigate class="block py-3.5 hover:bg-vault-card-hov -mx-2 px-2 rounded-md transition-colors">
+                            <div class="flex items-center gap-2 mb-1.5">
+                                <div class="size-1.5 rounded-full bg-vault-warm"></div>
+                                <span class="text-[11px] tracking-[0.1em] text-vault-muted uppercase">{{ __('Debt Free') }}</span>
+                            </div>
+                            <div class="text-[12px] text-vault-muted">{{ __('Add a "Debt Payments" item to your spending plan to see your payoff date.') }}</div>
+                        </a>
+                    @endif
 
-        {{-- Investments at Retirement --}}
-        <div class="order-5 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
-            @php
-                $investmentBalance = $this->netWorthSummary['categories'][AccountCategory::Investments->value];
-                $plan = $this->currentPlan;
-                $monthlyContribution = $plan
-                    ? $plan->categoryTotal(SpendingCategory::Investments) + ($plan->pre_tax_investments ?? 0)
-                    : 0;
-                $currentAge = $dateOfBirth ? \Carbon\Carbon::parse($dateOfBirth)->age : null;
-                $canProject = $currentAge && $retirementAge && $retirementAge > $currentAge;
-                $projectedCents = null;
-                $yearsToRetirement = null;
-
-                if ($canProject) {
-                    $yearsToRetirement = $retirementAge - $currentAge;
-                    $monthsToRetirement = $yearsToRetirement * 12;
-                    $monthlyRate = pow(1 + $expectedReturn / 100, 1 / 12) - 1;
-
-                    if ($monthlyRate > 0) {
-                        $growthFactor = pow(1 + $monthlyRate, $monthsToRetirement);
-                        $projectedCents = (int) round(
-                            ($investmentBalance * $growthFactor)
-                            + ($monthlyContribution * ($growthFactor - 1) / $monthlyRate)
-                        );
-                    } else {
-                        $projectedCents = $investmentBalance + ($monthlyContribution * $monthsToRetirement);
-                    }
-                }
-            @endphp
-
-            <div class="flex items-center justify-between mb-4">
-                <div>
-                    <flux:subheading>{{ __('Est. Investments at Retirement') }}</flux:subheading>
+                    {{-- Retirement --}}
+                    @php
+                        $investmentBalance = $cats['investments'] ?? 0;
+                        $monthlyContribution = $plan
+                            ? $plan->categoryTotal(\App\Enums\SpendingCategory::Investments) + ($plan->pre_tax_investments ?? 0)
+                            : 0;
+                        $currentAge = $dateOfBirth ? \Carbon\Carbon::parse($dateOfBirth)->age : null;
+                        $canProject = $currentAge && $retirementAge && $retirementAge > $currentAge;
+                        $projectedCents = null;
+                        if ($canProject) {
+                            $monthsToRetirement = ($retirementAge - $currentAge) * 12;
+                            $monthlyRate = pow(1 + $expectedReturn / 100, 1 / 12) - 1;
+                            if ($monthlyRate > 0) {
+                                $growthFactor = pow(1 + $monthlyRate, $monthsToRetirement);
+                                $projectedCents = (int) round(
+                                    ($investmentBalance * $growthFactor) + ($monthlyContribution * ($growthFactor - 1) / $monthlyRate)
+                                );
+                            } else {
+                                $projectedCents = $investmentBalance + ($monthlyContribution * $monthsToRetirement);
+                            }
+                        }
+                        $monthlyWithdrawal = $projectedCents && $withdrawalRate ? (int) round($projectedCents * ($withdrawalRate / 100) / 12) : null;
+                    @endphp
+                    <div class="h-px bg-vault-card-bd"></div>
                     @if ($canProject)
-                        <div class="mt-1 text-3xl font-bold text-zinc-900 dark:text-zinc-100">
-                            ${{ format_cents($projectedCents) }}
+                        <a href="{{ route('net-worth.index') }}" wire:navigate class="block py-3.5 hover:bg-vault-card-hov -mx-2 px-2 rounded-md transition-colors">
+                            <div class="flex justify-between items-baseline mb-1.5">
+                                <div class="flex items-center gap-2">
+                                    <div class="size-1.5 rounded-full bg-vault-blue"></div>
+                                    <span class="text-[11px] tracking-[0.1em] text-vault-muted uppercase">{{ __('Est. at Retirement') }}</span>
+                                </div>
+                                @if ($monthlyWithdrawal)
+                                    <span class="text-[11px] text-vault-textsub">~${{ format_cents($monthlyWithdrawal) }}/mo {{ __('safe') }}</span>
+                                @endif
+                            </div>
+                            <div class="flex justify-between items-baseline">
+                                <span class="font-display text-[24px] text-vault-accent">${{ format_cents($projectedCents) }}</span>
+                                <span class="text-[10px] text-vault-muted">{{ __('at age :age', ['age' => $retirementAge]) }}</span>
+                            </div>
+                        </a>
+                    @else
+                        <div class="py-3.5">
+                            <div class="flex items-center gap-2 mb-1.5">
+                                <div class="size-1.5 rounded-full bg-vault-blue"></div>
+                                <span class="text-[11px] tracking-[0.1em] text-vault-muted uppercase">{{ __('Est. at Retirement') }}</span>
+                            </div>
+                            <div class="text-[12px] text-vault-muted">{{ __('Set your birthday and retirement age below.') }}</div>
                         </div>
                     @endif
                 </div>
-                @if ($dateOfBirth)
-                    <flux:button
-                        size="sm"
-                        variant="subtle"
-                        icon="cog-6-tooth"
-                        wire:click="$toggle('retirementEditing')"
-                        aria-label="{{ __('Edit retirement settings') }}"
-                    />
-                @endif
-            </div>
 
-            <div class="space-y-3">
+                {{-- Inline retirement editor --}}
                 @if ($retirementEditing || ! $dateOfBirth)
-                    <div class="space-y-3">
+                    <div class="mt-4 pt-4 border-t border-vault-card-bd space-y-3">
                         <flux:input type="date" size="sm" wire:model="dateOfBirth" wire:change="saveRetirementSettings" max="{{ now()->format('Y-m-d') }}" label="{{ __('Birthday') }}" />
-                        <div class="grid grid-cols-3 gap-3">
+                        <div class="grid grid-cols-3 gap-2">
                             <flux:input type="number" size="sm" wire:model="retirementAge" wire:change="saveRetirementSettings" min="1" max="120" label="{{ __('Retire Age') }}" />
                             <flux:input type="number" size="sm" wire:model="expectedReturn" wire:change="saveRetirementSettings" min="0" max="30" step="0.1" label="{{ __('Return %') }}" />
                             <flux:input type="number" size="sm" wire:model="withdrawalRate" wire:change="saveRetirementSettings" min="0" max="30" step="0.1" label="{{ __('Withdrawal %') }}" />
                         </div>
                     </div>
                 @endif
+            </div>
 
-                @if ($canProject)
-                    <div class="space-y-2 pt-2">
-                        <div class="flex items-center justify-between">
-                            <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Current investments') }}</span>
-                            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ format_cents($investmentBalance) }}</span>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Monthly contributions') }}</span>
-                            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ format_cents($monthlyContribution) }}</span>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Years until retirement') }}</span>
-                            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $yearsToRetirement }}</span>
-                        </div>
-                        @if ($withdrawalRate > 0)
-                            @php $monthlyWithdrawal = (int) round($projectedCents * ($withdrawalRate / 100) / 12); @endphp
-                            <div class="flex items-center justify-between">
-                                <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ __('Safe monthly withdrawal') }}</span>
-                                <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ format_cents($monthlyWithdrawal) }}</span>
+            {{-- Recent Expenses --}}
+            <div class="rounded-xl border border-vault-card-bd bg-vault-card px-6 py-5 flex-1">
+                <div class="flex justify-between items-center mb-4">
+                    <div class="eyebrow">{{ __('Recent Expenses') }}</div>
+                    <a href="{{ route('expenses.index') }}" wire:navigate class="text-[11px] text-vault-accent hover:text-vault-accent-hov">{{ __('All →') }}</a>
+                </div>
+                @php
+                    $recentExpenses = \App\Models\Expense::query()->orderByDesc('date')->orderByDesc('id')->limit(6)->get();
+                @endphp
+                @if ($recentExpenses->isEmpty())
+                    <div class="text-[12px] text-vault-muted">{{ __('No expenses yet.') }}</div>
+                @else
+                    <div class="flex flex-col">
+                        @foreach ($recentExpenses as $i => $e)
+                            @php $cat = $e->category; @endphp
+                            @if ($i > 0)
+                                <div class="h-px bg-vault-card-bd"></div>
+                            @endif
+                            <div class="flex justify-between items-center py-2">
+                                <div class="flex items-center gap-2.5 min-w-0">
+                                    <div class="size-7 rounded-md flex items-center justify-center flex-shrink-0"
+                                         style="background: {{ $cat ? 'color-mix(in srgb, ' . $cat->vaultColor() . ' 16%, transparent)' : 'var(--color-vault-card-bd)' }};">
+                                        <span class="text-[11px] font-semibold"
+                                              style="color: {{ $cat?->vaultColor() ?? 'var(--color-vault-textsub)' }};">
+                                            {{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($e->merchant, 0, 1)) }}
+                                        </span>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <div class="text-[12px] text-vault-text truncate">{{ $e->merchant }}</div>
+                                        <div class="text-[10px] text-vault-muted">{{ $e->date->format('M j') }}</div>
+                                    </div>
+                                </div>
+                                <span class="text-[12px] font-medium text-vault-text flex-shrink-0 ml-2">${{ format_cents($e->amount, 2) }}</span>
                             </div>
-                        @endif
+                        @endforeach
                     </div>
                 @endif
             </div>
-        </div>
 
-        @include('partials.windfall-plan')
+        </div>
     </div>
-    </div>
+
+    {{-- Delete Category Confirmation --}}
+    <flux:modal wire:model.self="confirmingDeleteCategoryId" class="min-w-[22rem]">
+        <div class="flex flex-col gap-5">
+            <div>
+                <div class="eyebrow text-vault-muted mb-2">{{ __('Remove category') }}</div>
+                <div class="font-display text-vault-text" style="font-size: 22px; font-weight: 300; line-height: 1.2;">{{ __('Remove this category?') }}</div>
+                <div class="text-vault-textsub mt-3" style="font-size: 13px; line-height: 1.5;">{{ __('Visions in this category will become uncategorized.') }}</div>
+            </div>
+            <div class="flex justify-end gap-2">
+                <flux:button variant="ghost" wire:click="cancelRemoveCategory">{{ __('Cancel') }}</flux:button>
+                @if ($confirmingDeleteCategoryId)
+                    <flux:button variant="danger" wire:click="removeCategory({{ $confirmingDeleteCategoryId }})">{{ __('Remove') }}</flux:button>
+                @endif
+            </div>
+        </div>
+    </flux:modal>
+
+    {{-- Delete Vision Confirmation --}}
+    <flux:modal wire:model.self="confirmingDeleteVisionId" class="min-w-[22rem]">
+        <div class="flex flex-col gap-5">
+            <div>
+                <div class="eyebrow text-vault-muted mb-2">{{ __('Remove item') }}</div>
+                <div class="font-display text-vault-text" style="font-size: 22px; font-weight: 300; line-height: 1.2;">{{ __('Remove this item?') }}</div>
+                <div class="text-vault-textsub mt-3" style="font-size: 13px; line-height: 1.5;">{{ __('This action cannot be undone.') }}</div>
+            </div>
+            <div class="flex justify-end gap-2">
+                <flux:button variant="ghost" wire:click="cancelRemoveVision">{{ __('Cancel') }}</flux:button>
+                @if ($confirmingDeleteVisionId)
+                    <flux:button variant="danger" wire:click="removeVision({{ $confirmingDeleteVisionId }})">{{ __('Remove') }}</flux:button>
+                @endif
+            </div>
+        </div>
+    </flux:modal>
 </div>
 
 @assets

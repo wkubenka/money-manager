@@ -2,12 +2,14 @@
 
 use App\Enums\AccountCategory;
 use App\Enums\SpendingCategory;
+use App\Models\DebtScenario;
 use App\Models\NetWorthAccount;
 use App\Models\SpendingPlan;
 use App\Models\SpendingPlanItem;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
-uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
+uses(RefreshDatabase::class);
 
 test('debt payoff page is accessible when debts exist', function () {
     NetWorthAccount::factory()->debt()->create();
@@ -37,7 +39,7 @@ test('sidebar hides debt payoff link when only non-debt accounts exist', functio
 
 test('page shows empty state when no debts exist', function () {
     Livewire::test('pages::debt-payoff.index')
-        ->assertSee('No debt accounts found');
+        ->assertSee('No debt accounts yet');
 });
 
 test('page loads baseline scenario from spending plan', function () {
@@ -269,8 +271,7 @@ test('summary cards show total debt', function () {
 
     Livewire::test('pages::debt-payoff.index')
         ->assertSee('Total Debt')
-        ->assertSee('$15,000')
-        ->assertSee('2 accounts');
+        ->assertSee('$15,000');
 });
 
 test('handles debts with null interest rate and minimum payment', function () {
@@ -309,7 +310,7 @@ test('user can add snowball scenario', function () {
 
 test('empty state links to net worth page', function () {
     Livewire::test('pages::debt-payoff.index')
-        ->assertSee('No debt accounts found')
+        ->assertSee('No debt accounts yet')
         ->assertSeeHtml(route('net-worth.index'));
 });
 
@@ -323,8 +324,8 @@ test('interest saved card shows dash with only baseline scenario', function () {
     ]);
 
     Livewire::test('pages::debt-payoff.index')
-        ->assertSee('Most Interest Saved')
-        ->assertSeeHtml('&mdash;');
+        ->assertSee('Interest Saved')
+        ->assertSee('—');
 });
 
 test('removing scenario at invalid index does not crash', function () {
@@ -377,4 +378,46 @@ test('lump sum cannot be negative', function () {
         ->set('newScenario.lump_sum_month', '1')
         ->call('addScenario')
         ->assertHasErrors(['newScenario.lump_sum']);
+});
+
+test('scenarios persist across page refresh', function () {
+    NetWorthAccount::factory()->debt()->create([
+        'name' => 'Loan',
+        'balance' => 500000,
+        'interest_rate' => 10.0,
+        'minimum_payment' => 20000,
+    ]);
+
+    Livewire::test('pages::debt-payoff.index')
+        ->set('newScenario.name', 'Persisted Plan')
+        ->set('newScenario.strategy', 'avalanche')
+        ->set('newScenario.extra_payment', '150')
+        ->set('newScenario.lump_sum', '0')
+        ->set('newScenario.lump_sum_month', '1')
+        ->call('addScenario');
+
+    expect(DebtScenario::where('name', 'Persisted Plan')->exists())->toBeTrue();
+
+    Livewire::test('pages::debt-payoff.index')
+        ->assertSee('Persisted Plan');
+});
+
+test('removing a scenario deletes it from the database', function () {
+    NetWorthAccount::factory()->debt()->create([
+        'name' => 'Loan',
+        'balance' => 500000,
+        'interest_rate' => 10.0,
+        'minimum_payment' => 20000,
+    ]);
+
+    Livewire::test('pages::debt-payoff.index')
+        ->set('newScenario.name', 'Disposable')
+        ->set('newScenario.strategy', 'avalanche')
+        ->set('newScenario.extra_payment', '50')
+        ->set('newScenario.lump_sum', '0')
+        ->set('newScenario.lump_sum_month', '1')
+        ->call('addScenario')
+        ->call('removeScenario', 1);
+
+    expect(DebtScenario::where('name', 'Disposable')->exists())->toBeFalse();
 });

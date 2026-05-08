@@ -1,9 +1,10 @@
 <?php
 
 use App\Models\SpendingPlan;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
-uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
+uses(RefreshDatabase::class);
 
 test('first plan created is automatically marked as current', function () {
     Livewire::test('pages::spending-plans.create')
@@ -32,7 +33,8 @@ test('deleting a plan marks the remaining plan as current', function () {
     $planA = SpendingPlan::factory()->current()->create();
     $planB = SpendingPlan::factory()->create();
 
-    Livewire::test('pages::spending-plans.show', ['spendingPlan' => $planA])
+    Livewire::test('pages::spending-plans.dashboard')
+        ->set('activePlanId', $planA->id)
         ->call('deletePlan');
 
     $planB->refresh();
@@ -44,7 +46,8 @@ test('deleting a plan does not change current when multiple remain', function ()
     $planB = SpendingPlan::factory()->create();
     $planC = SpendingPlan::factory()->current()->create();
 
-    Livewire::test('pages::spending-plans.show', ['spendingPlan' => $planA])
+    Livewire::test('pages::spending-plans.dashboard')
+        ->set('activePlanId', $planA->id)
         ->call('deletePlan');
 
     $planB->refresh();
@@ -79,7 +82,8 @@ test('marking a plan as current unmarks the previous one', function () {
 test('user cannot delete their only plan', function () {
     $plan = SpendingPlan::factory()->current()->create();
 
-    Livewire::test('pages::spending-plans.show', ['spendingPlan' => $plan])
+    Livewire::test('pages::spending-plans.dashboard')
+        ->set('activePlanId', $plan->id)
         ->call('deletePlan')
         ->assertStatus(422);
 
@@ -91,7 +95,8 @@ test('deleting current plan marks oldest remaining as current', function () {
     $planB = SpendingPlan::factory()->create();
     $planC = SpendingPlan::factory()->create();
 
-    Livewire::test('pages::spending-plans.show', ['spendingPlan' => $planA])
+    Livewire::test('pages::spending-plans.dashboard')
+        ->set('activePlanId', $planA->id)
         ->call('deletePlan');
 
     $planB->refresh();

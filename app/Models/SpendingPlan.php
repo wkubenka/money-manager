@@ -3,13 +3,14 @@
 namespace App\Models;
 
 use App\Enums\SpendingCategory;
+use Database\Factories\SpendingPlanFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class SpendingPlan extends Model
 {
-    /** @use HasFactory<\Database\Factories\SpendingPlanFactory> */
+    /** @use HasFactory<SpendingPlanFactory> */
     use HasFactory;
 
     public const MAX_PER_USER = 6;
@@ -34,6 +35,7 @@ class SpendingPlan extends Model
             'Stocks',
         ],
         'savings' => [
+            'Emergency Fund',
             'Vacations',
             'Gifts',
         ],

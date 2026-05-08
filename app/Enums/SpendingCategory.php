@@ -84,6 +84,34 @@ enum SpendingCategory: string
     }
 
     /**
+     * Hex color for the Vault design palette.
+     */
+    public function vaultColor(): string
+    {
+        return match ($this) {
+            self::FixedCosts => '#6da6d8',  // blue
+            self::Investments => '#4ebb78', // sage
+            self::Savings => '#c8a96e',     // warm
+            self::GuiltFree => '#c084fc',   // purple
+            self::Ignored => '#9aad9e',
+        };
+    }
+
+    /**
+     * Display text for the ideal percentage range.
+     */
+    public function idealLabel(): string
+    {
+        return match ($this) {
+            self::FixedCosts => '50–60%',
+            self::Investments => '10%',
+            self::Savings => '5–10%',
+            self::GuiltFree => '20–35%',
+            self::Ignored => '',
+        };
+    }
+
+    /**
      * Get whether the actual percentage is acceptable.
      * For Fixed Costs, under the max is good (lower is better).
      * For Investments/Savings, exceeding the ideal is good when guilt-free is healthy.

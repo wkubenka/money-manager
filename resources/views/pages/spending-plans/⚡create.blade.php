@@ -57,79 +57,93 @@ new class extends Component {
     }
 }; ?>
 
-<section class="w-full">
-    <x-page-heading title="Conscious Spending Plan" subtitle="Plan how your money works for you" />
+<section class="w-full px-10 py-9 max-w-[760px] mx-auto">
+    <div class="mb-6">
+        <a href="{{ route('spending-plans.dashboard') }}" wire:navigate class="text-vault-textsub hover:text-vault-text transition-colors" style="font-size: 12px;">
+            ← {{ __('Back to plans') }}
+        </a>
+    </div>
 
-    <x-pages::spending-plans.layout :heading="__('Create a New Plan')" :subheading="__('Give your plan a name and set your monthly take-home income.')">
-        <form wire:submit="createPlan" class="my-6 w-full max-w-lg space-y-6">
+    <x-page-heading
+        eyebrow="New Plan"
+        title="Start a fresh plan"
+        subtitle="Set your take-home and we'll do the math"
+    />
+
+    <div class="rounded-2xl border border-vault-card-bd bg-vault-card" style="padding: 28px 32px;">
+        <form wire:submit="createPlan" class="flex flex-col gap-5">
             <flux:input
                 wire:model="name"
-                :label="__('Plan Name')"
+                :label="__('Plan name')"
                 :placeholder="__('e.g. Current Plan')"
                 type="text"
                 required
                 autofocus
             />
 
-            <flux:input
-                wire:model="monthly_income"
-                :label="__('Monthly Take-Home Income')"
-                :placeholder="__('5,000.00')"
-                type="text"
-                inputmode="decimal"
-                required
-            >
-                <x-slot:prefix>$</x-slot:prefix>
-            </flux:input>
+            <div class="grid gap-4" style="grid-template-columns: 1fr 1fr;">
+                <flux:input
+                    wire:model="monthly_income"
+                    :label="__('Monthly take-home')"
+                    :placeholder="__('5,000.00')"
+                    type="text"
+                    inputmode="decimal"
+                    required
+                >
+                    <x-slot:prefix>$</x-slot:prefix>
+                </flux:input>
 
-            <flux:input
-                wire:model="gross_monthly_income"
-                :label="__('Gross Monthly Income')"
-                :description="__('Your total income before taxes and deductions.')"
-                :placeholder="__('7,000.00')"
-                type="text"
-                inputmode="decimal"
-            >
-                <x-slot:prefix>$</x-slot:prefix>
-            </flux:input>
+                <flux:input
+                    wire:model="gross_monthly_income"
+                    :label="__('Gross monthly income')"
+                    :description="__('Total income before taxes and deductions.')"
+                    :placeholder="__('7,000.00')"
+                    type="text"
+                    inputmode="decimal"
+                >
+                    <x-slot:prefix>$</x-slot:prefix>
+                </flux:input>
 
-            <flux:input
-                wire:model="pre_tax_investments"
-                :label="__('Investments Deducted From Paycheck')"
-                :description="__('401(k), HSA, and other pre-tax contributions.')"
-                :placeholder="__('500.00')"
-                type="text"
-                inputmode="decimal"
-            >
-                <x-slot:prefix>$</x-slot:prefix>
-            </flux:input>
+                <flux:input
+                    wire:model="pre_tax_investments"
+                    :label="__('Pre-tax investments')"
+                    :description="__('401(k), HSA, and other pre-tax contributions.')"
+                    :placeholder="__('500.00')"
+                    type="text"
+                    inputmode="decimal"
+                >
+                    <x-slot:prefix>$</x-slot:prefix>
+                </flux:input>
 
-            <flux:input
-                wire:model="fixed_costs_misc_percent"
-                :label="__('Fixed Costs Miscellaneous')"
-                :description="__('Buffer percentage added to fixed costs for unexpected expenses.')"
-                type="number"
-                step="1"
-                min="0"
-                max="30"
-                required
-            >
-                <x-slot:suffix>%</x-slot:suffix>
-            </flux:input>
+                <flux:input
+                    wire:model="fixed_costs_misc_percent"
+                    :label="__('Fixed costs buffer')"
+                    :description="__('Percentage added for unexpected expenses.')"
+                    type="number"
+                    step="1"
+                    min="0"
+                    max="30"
+                    required
+                >
+                    <x-slot:suffix>%</x-slot:suffix>
+                </flux:input>
+            </div>
 
-            <flux:field variant="inline">
-                <flux:checkbox wire:model="includeDefaults" />
-                <flux:label>{{ __('Include common expenses') }}</flux:label>
-            </flux:field>
+            <div class="border-t border-vault-card-bd pt-5">
+                <flux:field variant="inline">
+                    <flux:checkbox wire:model="includeDefaults" />
+                    <flux:label>{{ __('Include common expense line items') }}</flux:label>
+                </flux:field>
+            </div>
 
-            <div class="flex items-center gap-4">
+            <div class="flex items-center gap-3 pt-2">
                 <flux:button variant="primary" type="submit">
-                    {{ __('Create Plan') }}
+                    {{ __('Create plan') }}
                 </flux:button>
-                <flux:link :href="route('spending-plans.dashboard')" wire:navigate>
+                <flux:button variant="ghost" :href="route('spending-plans.dashboard')" wire:navigate>
                     {{ __('Cancel') }}
-                </flux:link>
+                </flux:button>
             </div>
         </form>
-    </x-pages::spending-plans.layout>
+    </div>
 </section>

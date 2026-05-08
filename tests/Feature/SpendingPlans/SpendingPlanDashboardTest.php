@@ -2,9 +2,10 @@
 
 use App\Models\SpendingPlan;
 use App\Models\SpendingPlanItem;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
-uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
+uses(RefreshDatabase::class);
 
 test('dashboard is accessible', function () {
     $this->get(route('spending-plans.dashboard'))
@@ -21,7 +22,7 @@ test('dashboard shows plans', function () {
 test('dashboard shows empty state when no plans exist', function () {
     Livewire::test('pages::spending-plans.dashboard')
         ->assertSee('No spending plans yet')
-        ->assertSee('Create Your First Plan');
+        ->assertSee('Create your first plan');
 });
 
 test('dashboard shows current badge on current plan', function () {
@@ -100,10 +101,10 @@ test('create new plan button is hidden at limit', function () {
     SpendingPlan::factory()->count(SpendingPlan::MAX_PER_USER)->create();
 
     Livewire::test('pages::spending-plans.dashboard')
-        ->assertDontSee('Create New Plan');
+        ->assertDontSee('New plan');
 });
 
-test('copy button is hidden at limit', function () {
+test('copy action is hidden at limit', function () {
     SpendingPlan::factory()->count(SpendingPlan::MAX_PER_USER)->create();
 
     Livewire::test('pages::spending-plans.dashboard')
@@ -117,5 +118,6 @@ test('dashboard shows monthly income for each plan', function () {
     ]);
 
     Livewire::test('pages::spending-plans.dashboard')
-        ->assertSee('$4,500/mo');
+        ->assertSee('$4,500')
+        ->assertSee('/mo');
 });

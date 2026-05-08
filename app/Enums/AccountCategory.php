@@ -30,6 +30,32 @@ enum AccountCategory: string
     }
 
     /**
+     * Hex color for the Vault design palette.
+     */
+    public function vaultColor(): string
+    {
+        return match ($this) {
+            self::Assets => '#6da6d8',      // blue
+            self::Investments => '#4ebb78', // sage
+            self::Savings => '#c8a96e',     // warm
+            self::Debt => '#e07070',        // red
+        };
+    }
+
+    /**
+     * Brief description shown under the label in Net Worth cards.
+     */
+    public function description(): string
+    {
+        return match ($this) {
+            self::Assets => 'Things you own',
+            self::Investments => 'Money working for you',
+            self::Savings => 'Cash reserves',
+            self::Debt => 'What you owe',
+        };
+    }
+
+    /**
      * Whether this category is subtracted from the net worth total.
      */
     public function isDeducted(): bool

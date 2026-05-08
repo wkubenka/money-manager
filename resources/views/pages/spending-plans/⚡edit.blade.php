@@ -25,6 +25,9 @@ new class extends Component {
     public string $editingItemName = '';
     public string $editingItemAmount = '';
 
+    // Delete confirmation
+    public ?int $confirmingDeleteItemId = null;
+
     public function mount(SpendingPlan $spendingPlan): void
     {
         $this->spendingPlan = $spendingPlan;
@@ -154,11 +157,22 @@ new class extends Component {
         $this->editingItemAmount = '';
     }
 
+    public function confirmRemoveItem(int $itemId): void
+    {
+        $this->confirmingDeleteItemId = $itemId;
+    }
+
+    public function cancelRemoveItem(): void
+    {
+        $this->confirmingDeleteItemId = null;
+    }
+
     public function removeItem(int $itemId): void
     {
         $item = SpendingPlanItem::findOrFail($itemId);
 
         $item->delete();
+        $this->confirmingDeleteItemId = null;
         $this->spendingPlan->unsetRelation('items');
         unset($this->plan);
     }
@@ -183,30 +197,30 @@ new class extends Component {
     }
 }; ?>
 
-<section class="w-full">
-    <x-page-heading title="Conscious Spending Plan" subtitle="Plan how your money works for you" />
-
+<section class="w-full px-10 py-9 max-w-[1320px] mx-auto">
     <div class="mb-6">
-        <flux:link :href="route('spending-plans.show', $spendingPlan)" wire:navigate class="text-sm">
-            &larr; {{ __('Back to plan') }}
-        </flux:link>
+        <a href="{{ route('spending-plans.dashboard') }}" wire:navigate class="text-vault-textsub hover:text-vault-text transition-colors" style="font-size: 12px;">
+            ← {{ __('Back to plan') }}
+        </a>
     </div>
 
-    {{-- Plan details form --}}
-    <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-5 mb-8">
-        <flux:heading class="mb-4">{{ __('Plan Details') }}</flux:heading>
+    <x-page-heading eyebrow="Edit Plan" :title="$spendingPlan->name" />
 
-        <form wire:submit="updatePlan" class="space-y-4">
-            <div class="grid gap-4 sm:grid-cols-2">
+    {{-- Plan details form --}}
+    <div class="rounded-2xl border border-vault-card-bd bg-vault-card mb-5" style="padding: 22px 26px;">
+        <div class="eyebrow text-vault-textsub mb-4" style="letter-spacing: 0.13em;">{{ __('Plan Details') }}</div>
+
+        <form wire:submit="updatePlan">
+            <div class="grid gap-4" style="grid-template-columns: 1fr 1fr;">
                 <flux:input
                     wire:model="name"
-                    :label="__('Plan Name')"
+                    :label="__('Plan name')"
                     type="text"
                     required
                 />
                 <flux:input
                     wire:model="monthly_income"
-                    :label="__('Monthly Take-Home Income')"
+                    :label="__('Monthly take-home')"
                     type="text"
                     inputmode="decimal"
                     required
@@ -215,7 +229,7 @@ new class extends Component {
                 </flux:input>
                 <flux:input
                     wire:model="gross_monthly_income"
-                    :label="__('Gross Monthly Income')"
+                    :label="__('Gross monthly income')"
                     :description="__('Your total income before taxes and deductions.')"
                     type="text"
                     inputmode="decimal"
@@ -224,7 +238,7 @@ new class extends Component {
                 </flux:input>
                 <flux:input
                     wire:model="pre_tax_investments"
-                    :label="__('Investments Deducted From Paycheck')"
+                    :label="__('Pre-tax investments')"
                     :description="__('401(k), HSA, and other pre-tax contributions.')"
                     type="text"
                     inputmode="decimal"
@@ -233,8 +247,8 @@ new class extends Component {
                 </flux:input>
                 <flux:input
                     wire:model="fixed_costs_misc_percent"
-                    :label="__('Fixed Costs Miscellaneous')"
-                    :description="__('Buffer percentage added to fixed costs for unexpected expenses.')"
+                    :label="__('Fixed costs buffer')"
+                    :description="__('Percentage added to fixed costs for unexpected expenses.')"
                     type="number"
                     step="1"
                     min="0"
@@ -245,11 +259,11 @@ new class extends Component {
                 </flux:input>
             </div>
 
-            <div class="flex items-center gap-4">
-                <flux:button variant="primary" type="submit" size="sm">
-                    {{ __('Save Details') }}
+            <div class="flex items-center gap-4 mt-5">
+                <flux:button variant="primary" type="submit">
+                    {{ __('Save details') }}
                 </flux:button>
-                <x-action-message class="me-3" on="plan-updated">
+                <x-action-message on="plan-updated" class="text-vault-accent" style="font-size: 12px;">
                     {{ __('Saved.') }}
                 </x-action-message>
             </div>
@@ -261,59 +275,54 @@ new class extends Component {
         $gfPercent = $this->plan->categoryPercent(SpendingCategory::GuiltFree);
         $gfHealthy = SpendingCategory::GuiltFree->isWithinIdeal($gfPercent);
     @endphp
-    <div class="space-y-6">
+    <div class="flex flex-col gap-4">
         @foreach ($this->plannedCategories as $category)
             @php
                 $catKey = $category->value;
                 $items = $this->plan->items->where('category', $category);
                 $total = $this->plan->categoryTotal($category);
                 $percent = $this->plan->categoryPercent($category);
-                [$min, $max] = $category->idealRange();
                 $withinIdeal = $category->isWithinIdeal($percent, $gfHealthy);
+                $catColor = $category->vaultColor();
             @endphp
-            <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-5">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center gap-3">
-                        <div class="size-3 rounded-full {{ $category->color() }}"></div>
-                        <flux:heading>{{ $category->label() }}</flux:heading>
-                    </div>
-                    <div class="flex items-center gap-3 text-sm">
-                        <flux:badge size="sm" color="{{ $withinIdeal ? 'green' : 'amber' }}">
-                            {{ $percent }}%
-                        </flux:badge>
-                        <span class="text-zinc-500 dark:text-zinc-400">
-                            {{ __('Ideal:') }} {{ $min == $max ? $min . '%' : $min . '–' . $max . '%' }}
-                        </span>
+            <div class="rounded-2xl border border-vault-card-bd bg-vault-card" style="padding: 20px 26px;">
+                <div class="flex items-center justify-between mb-3.5">
+                    <div class="flex items-center" style="gap: 10px;">
+                        <span class="rounded-full" style="width: 7px; height: 7px; background: {{ $catColor }};"></span>
+                        <span class="font-display text-vault-text" style="font-size: 15px; font-weight: 400;">{{ $category->label() }}</span>
+                        <span class="rounded" style="background: color-mix(in srgb, {{ $withinIdeal ? 'var(--color-vault-accent)' : 'var(--color-vault-warm)' }} 15%, transparent); border: 1px solid color-mix(in srgb, {{ $withinIdeal ? 'var(--color-vault-accent)' : 'var(--color-vault-warm)' }} 35%, transparent); color: {{ $withinIdeal ? 'var(--color-vault-accent)' : 'var(--color-vault-warm)' }}; font-size: 9px; padding: 2px 6px; letter-spacing: 0.04em;">{{ $percent }}%</span>
+                        <span class="text-vault-muted" style="font-size: 11px;">{{ __('ideal: :ideal', ['ideal' => $category->idealLabel()]) }}</span>
                     </div>
                 </div>
 
                 {{-- Existing items --}}
                 @if ($items->isNotEmpty())
-                    <div class="space-y-1 mb-4" data-sortable-category="{{ $catKey }}">
-                        @foreach ($items as $item)
-                            <div class="flex items-center gap-2 py-1.5 group" data-item-id="{{ $item->id }}" wire:key="item-{{ $item->id }}">
+                    <div class="flex flex-col" data-sortable-category="{{ $catKey }}">
+                        @foreach ($items as $i => $item)
+                            <div
+                                class="flex items-center group {{ $i > 0 ? 'border-t border-vault-card-bd' : '' }}"
+                                style="padding: 8px 0; gap: 8px;"
+                                data-item-id="{{ $item->id }}"
+                                wire:key="item-{{ $item->id }}"
+                            >
                                 @if ($editingItemId === $item->id)
-                                    {{-- Inline edit mode --}}
-                                    <div class="flex-1 space-y-2">
-                                        <flux:input wire:model="editingItemName" size="sm" wire:keydown.enter="updateItem" />
-                                        <div class="flex items-center gap-2">
-                                            <flux:input wire:model="editingItemAmount" type="text" inputmode="decimal" size="sm" class="w-28" wire:keydown.enter="updateItem">
-                                                <x-slot:prefix>$</x-slot:prefix>
-                                            </flux:input>
-                                            <flux:button size="xs" variant="primary" wire:click="updateItem">{{ __('Save') }}</flux:button>
-                                            <flux:button size="xs" variant="ghost" wire:click="cancelEdit">{{ __('Cancel') }}</flux:button>
-                                        </div>
+                                    <div class="flex-1 flex items-center gap-2 flex-wrap">
+                                        <flux:input wire:model="editingItemName" size="sm" class="flex-1 min-w-0" wire:keydown.enter="updateItem" />
+                                        <flux:input wire:model="editingItemAmount" type="text" inputmode="decimal" size="sm" class="w-28" wire:keydown.enter="updateItem">
+                                            <x-slot:prefix>$</x-slot:prefix>
+                                        </flux:input>
+                                        <flux:button size="xs" variant="primary" wire:click="updateItem">{{ __('Save') }}</flux:button>
+                                        <flux:button size="xs" variant="ghost" wire:click="cancelEdit">{{ __('Cancel') }}</flux:button>
                                     </div>
                                 @else
-                                    {{-- Display mode --}}
-                                    <div class="drag-handle cursor-grab active:cursor-grabbing text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 touch-none">
+                                    <button type="button" class="drag-handle cursor-grab active:cursor-grabbing text-vault-muted hover:text-vault-textsub touch-none" aria-label="{{ __('Drag to reorder') }}">
                                         <flux:icon.bars-3 variant="micro" />
-                                    </div>
-                                    <span class="flex-1 text-sm text-zinc-700 dark:text-zinc-300">{{ $item->name }}</span>
-                                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">${{ format_cents($item->amount) }}</span>
-                                    <div class="flex items-center gap-0.5">
+                                    </button>
+                                    <span class="flex-1 text-vault-textsub truncate" style="font-size: 13px;">{{ $item->name }}</span>
+                                    <span class="text-vault-text" style="font-size: 13px;">${{ format_cents($item->amount) }}</span>
+                                    <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition">
                                         <flux:button size="xs" variant="ghost" icon="pencil" wire:click="editItem({{ $item->id }})" aria-label="{{ __('Edit item') }}" />
-                                        <flux:button size="xs" variant="ghost" icon="trash" wire:click="removeItem({{ $item->id }})" wire:confirm="{{ __('Remove this item?') }}" aria-label="{{ __('Remove item') }}" />
+                                        <flux:button size="xs" variant="ghost" icon="trash" wire:click="confirmRemoveItem({{ $item->id }})" aria-label="{{ __('Remove item') }}" />
                                     </div>
                                 @endif
                             </div>
@@ -321,15 +330,15 @@ new class extends Component {
                     </div>
                 @endif
 
-                {{-- Add new item (per-category inputs) --}}
+                {{-- Add new item --}}
                 @if ($items->count() < \App\Models\SpendingPlan::MAX_ITEMS_PER_CATEGORY)
-                    <div class="flex items-end gap-2 pt-3 border-t border-zinc-100 dark:border-zinc-700">
+                    <div class="flex items-end gap-2 pt-3 mt-2 border-t border-vault-card-bd">
                         <div class="flex-1">
                             <flux:input
                                 id="new-item-name-{{ $catKey }}"
                                 wire:model="newItemNames.{{ $catKey }}"
                                 size="sm"
-                                :placeholder="__('Item name')"
+                                :placeholder="__('Add :label item', ['label' => strtolower($category->label())])"
                                 wire:keydown.enter="addItem('{{ $catKey }}')"
                             />
                         </div>
@@ -356,54 +365,63 @@ new class extends Component {
                 @endif
 
                 {{-- Category subtotal --}}
-                <div class="mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-700">
+                <div class="mt-3 pt-3 border-t border-vault-card-bd flex flex-col gap-1.5">
                     @if ($category === SpendingCategory::FixedCosts && $this->plan->fixed_costs_misc_percent > 0)
-                        <div class="flex items-center justify-between py-1.5 text-sm italic">
-                            <span>{{ __('Miscellaneous') }} ({{ $this->plan->fixed_costs_misc_percent }}%)</span>
+                        <div class="flex items-center justify-between italic text-vault-muted" style="font-size: 12px;">
+                            <span>{{ __('Miscellaneous buffer') }} ({{ $this->plan->fixed_costs_misc_percent }}%)</span>
                             <span>${{ format_cents($this->plan->fixedCostsMiscellaneous()) }}</span>
                         </div>
                     @endif
-                    <div class="flex items-center justify-between text-sm font-medium">
-                        <span>{{ __('Subtotal') }}</span>
-                        <span>${{ format_cents($total) }}</span>
+                    <div class="flex items-center justify-between">
+                        <span class="eyebrow text-vault-textsub" style="letter-spacing: 0.1em;">{{ __('Subtotal') }}</span>
+                        <span class="font-display text-vault-text" style="font-size: 16px; font-weight: 400;">${{ format_cents($total) }}</span>
                     </div>
                 </div>
             </div>
         @endforeach
 
-        {{-- Guilt-Free Spending (auto-calculated) --}}
+        {{-- Guilt-Free (auto-calculated) --}}
         @php
             $guiltFree = SpendingCategory::GuiltFree;
             $guiltFreeTotal = $this->plan->categoryTotal($guiltFree);
             $guiltFreePercent = $this->plan->categoryPercent($guiltFree);
-            [$gfMin, $gfMax] = $guiltFree->idealRange();
             $gfWithinIdeal = $guiltFree->isWithinIdeal($guiltFreePercent);
+            $gfColor = $guiltFree->vaultColor();
         @endphp
-        <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-5">
-            <div class="flex items-center justify-between mb-4">
-                <div class="flex items-center gap-3">
-                    <div class="size-3 rounded-full {{ $guiltFree->color() }}"></div>
-                    <flux:heading>{{ $guiltFree->label() }}</flux:heading>
+        <div class="rounded-2xl border border-vault-card-bd bg-vault-card" style="padding: 20px 26px;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center" style="gap: 10px;">
+                    <span class="rounded-full" style="width: 7px; height: 7px; background: {{ $gfColor }};"></span>
+                    <span class="font-display text-vault-text" style="font-size: 15px; font-weight: 400;">{{ $guiltFree->label() }}</span>
+                    <span class="rounded" style="background: color-mix(in srgb, {{ $gfWithinIdeal ? 'var(--color-vault-accent)' : 'var(--color-vault-warm)' }} 15%, transparent); border: 1px solid color-mix(in srgb, {{ $gfWithinIdeal ? 'var(--color-vault-accent)' : 'var(--color-vault-warm)' }} 35%, transparent); color: {{ $gfWithinIdeal ? 'var(--color-vault-accent)' : 'var(--color-vault-warm)' }}; font-size: 9px; padding: 2px 6px; letter-spacing: 0.04em;">{{ $guiltFreePercent }}%</span>
+                    <span class="text-vault-muted" style="font-size: 11px;">{{ __('ideal: :ideal', ['ideal' => $guiltFree->idealLabel()]) }}</span>
                 </div>
-                <div class="flex items-center gap-3 text-sm">
-                    <flux:badge size="sm" color="{{ $gfWithinIdeal ? 'green' : 'amber' }}">
-                        {{ $guiltFreePercent }}%
-                    </flux:badge>
-                    <span class="text-zinc-500 dark:text-zinc-400">
-                        {{ __('Ideal:') }} {{ $gfMin . '–' . $gfMax . '%' }}
-                    </span>
-                </div>
-            </div>
-
-            <div class="flex items-center justify-between text-sm">
-                <span class="text-zinc-500 dark:text-zinc-400">{{ __('Automatically calculated from remaining income') }}</span>
-                <span class="text-lg font-bold {{ $guiltFreeTotal < 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-900 dark:text-zinc-100' }}">
-                    {{ $guiltFreeTotal < 0 ? '-' : '' }}${{ format_cents(abs($guiltFreeTotal)) }}
+                <span class="font-display" style="font-size: 18px; font-weight: 300; color: {{ $guiltFreeTotal < 0 ? 'var(--color-vault-red)' : 'var(--color-vault-text)' }};">
+                    {{ $guiltFreeTotal < 0 ? '−' : '' }}${{ format_cents(abs($guiltFreeTotal)) }}
                 </span>
+            </div>
+            <div class="text-vault-muted italic mt-2" style="font-size: 11px;">
+                {{ __('Automatically calculated from remaining income') }}
             </div>
         </div>
     </div>
 
+    {{-- Delete Item Confirmation --}}
+    <flux:modal wire:model.self="confirmingDeleteItemId" class="min-w-[22rem]">
+        <div class="flex flex-col gap-5">
+            <div>
+                <div class="eyebrow text-vault-muted mb-2">{{ __('Remove item') }}</div>
+                <div class="font-display text-vault-text" style="font-size: 22px; font-weight: 300; line-height: 1.2;">{{ __('Remove this item?') }}</div>
+                <div class="text-vault-textsub mt-3" style="font-size: 13px; line-height: 1.5;">{{ __('This action cannot be undone.') }}</div>
+            </div>
+            <div class="flex justify-end gap-2">
+                <flux:button variant="ghost" wire:click="cancelRemoveItem">{{ __('Cancel') }}</flux:button>
+                @if ($confirmingDeleteItemId)
+                    <flux:button variant="danger" wire:click="removeItem({{ $confirmingDeleteItemId }})">{{ __('Remove') }}</flux:button>
+                @endif
+            </div>
+        </div>
+    </flux:modal>
 </section>
 
 @assets
