@@ -681,7 +681,7 @@ new class extends Component {
         </div>
 
         {{-- RIGHT COLUMN --}}
-        <div class="flex flex-col gap-5">
+        <div class="flex flex-col gap-5 self-start">
             {{-- Critical Numbers --}}
             <div class="rounded-xl border border-vault-card-bd bg-vault-card px-[26px] py-[22px]">
                 <div class="eyebrow">{{ __('Critical Numbers') }}</div>
@@ -809,7 +809,7 @@ new class extends Component {
             </div>
 
             {{-- Recent Expenses --}}
-            <div class="rounded-xl border border-vault-card-bd bg-vault-card px-6 py-5 flex-1">
+            <div class="rounded-xl border border-vault-card-bd bg-vault-card px-6 py-5">
                 <div class="flex justify-between items-center mb-4">
                     <div class="eyebrow">{{ __('Recent Expenses') }}</div>
                     <a href="{{ route('expenses.index') }}" wire:navigate class="text-[11px] text-vault-accent hover:text-vault-accent-hov">{{ __('All →') }}</a>
