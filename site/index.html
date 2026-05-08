@@ -9,7 +9,7 @@
 
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-    <meta name="theme-color" content="#10b981">
+    <meta name="theme-color" content="#4ebb78">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -18,7 +18,29 @@
             theme: {
                 extend: {
                     fontFamily: {
-                        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+                        sans: ['DM Sans', 'system-ui', '-apple-system', 'sans-serif'],
+                        serif: ['Fraunces', 'ui-serif', 'Georgia', 'serif'],
+                    },
+                    colors: {
+                        vault: {
+                            bg: '#0c0f0e',
+                            sidebar: '#0e1210',
+                            'sidebar-bd': '#192018',
+                            card: '#141a16',
+                            'card-hov': '#182019',
+                            'card-bd': '#1f2a22',
+                            input: '#111815',
+                            'input-bd': '#243029',
+                            text: '#e8ede9',
+                            textsub: '#9aad9e',
+                            muted: '#4e6054',
+                            accent: '#4ebb78',
+                            'accent-hov': '#5ecc89',
+                            warm: '#c8a96e',
+                            red: '#e07070',
+                            blue: '#6da6d8',
+                            purple: '#c084fc',
+                        },
                     },
                 },
             },
@@ -26,55 +48,79 @@
     </script>
 
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300;1,9..144,400&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+
+        body { font-family: 'DM Sans', system-ui, sans-serif; }
+
+        .font-display {
+            font-family: 'Fraunces', ui-serif, Georgia, serif;
+            font-weight: 300;
+            letter-spacing: -0.005em;
+        }
+
+        .eyebrow {
+            font-family: 'DM Sans', system-ui, sans-serif;
+            font-size: 10px;
+            font-weight: 600;
+            color: #4e6054;
+            letter-spacing: 0.13em;
+            text-transform: uppercase;
+        }
+
+        .vault-card { background: #141a16; border: 1px solid #1f2a22; }
+
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #1f2a22; border-radius: 3px; }
     </style>
 </head>
-<body class="min-h-screen bg-gradient-to-b from-neutral-950 to-neutral-900 text-white antialiased">
+<body class="min-h-screen bg-vault-bg text-vault-text antialiased">
 
     <!-- Nav -->
     <nav class="mx-auto flex max-w-5xl items-center justify-between px-6 py-6">
         <a href="/" class="flex items-center gap-2.5">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" class="h-8 w-8">
-                <ellipse cx="20" cy="32" rx="14" ry="5" fill="#10b981" opacity="0.3"/>
-                <ellipse cx="20" cy="27" rx="14" ry="5" fill="#10b981" opacity="0.5"/>
-                <ellipse cx="20" cy="22" rx="14" ry="5" fill="#10b981" opacity="0.7"/>
-                <ellipse cx="20" cy="17" rx="14" ry="5" fill="#10b981"/>
-                <path d="M20 10v-6M16 5.5l4-3.5 4 3.5" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <ellipse cx="20" cy="32" rx="14" ry="5" fill="#4ebb78" opacity="0.3"/>
+                <ellipse cx="20" cy="27" rx="14" ry="5" fill="#4ebb78" opacity="0.5"/>
+                <ellipse cx="20" cy="22" rx="14" ry="5" fill="#4ebb78" opacity="0.7"/>
+                <ellipse cx="20" cy="17" rx="14" ry="5" fill="#4ebb78"/>
+                <path d="M20 10v-6M16 5.5l4-3.5 4 3.5" fill="none" stroke="#4ebb78" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
-            <span class="text-lg font-semibold">Astute Money</span>
+            <span class="text-lg font-medium tracking-tight">Astute Money</span>
         </a>
 
         <div class="flex items-center gap-6">
-            <a href="#features" class="hidden sm:inline text-sm text-zinc-400 hover:text-white transition">Features</a>
-            <a href="/guide.html" class="hidden sm:inline text-sm text-zinc-400 hover:text-white transition">Guide</a>
-            <a href="/privacy.html" class="hidden sm:inline text-sm text-zinc-400 hover:text-white transition">Privacy</a>
+            <a href="#features" class="hidden sm:inline text-sm text-vault-textsub hover:text-vault-text transition">Features</a>
+            <a href="/guide.html" class="hidden sm:inline text-sm text-vault-textsub hover:text-vault-text transition">Guide</a>
+            <a href="/privacy.html" class="hidden sm:inline text-sm text-vault-textsub hover:text-vault-text transition">Privacy</a>
             <a href="https://github.com/wkubenka/money-manager/releases/latest"
-               class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-400 transition">
+               class="rounded-lg bg-vault-accent px-4 py-2 text-sm font-medium text-vault-bg hover:bg-vault-accent-hov transition">
                 Download
             </a>
         </div>
     </nav>
 
     <!-- Hero -->
-    <section class="mx-auto max-w-5xl px-6 pb-20 pt-16 text-center">
-        <h1 class="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
+    <section class="mx-auto max-w-5xl px-6 pb-24 pt-16 text-center">
+        <div class="eyebrow mb-5">Local-first personal finance</div>
+        <h1 class="font-display text-5xl leading-[1.05] tracking-tight sm:text-6xl lg:text-7xl">
             Your money.<br>
-            <span class="text-emerald-400">Your plan.</span>
-            Your computer.
+            <em class="text-vault-accent not-italic" style="font-style: italic; font-weight: 400;">Your plan.</em>
+            <span class="text-vault-textsub">Your computer.</span>
         </h1>
-        <p class="mx-auto mt-6 max-w-2xl text-lg text-zinc-400">
-            Astute Money is a desktop app for managing your conscious spending plan, tracking net worth, and categorizing expenses &mdash; all based on Ramit Sethi&rsquo;s <em>I Will Teach You To Be Rich</em> methodology.
+        <p class="mx-auto mt-7 max-w-2xl text-lg text-vault-textsub leading-relaxed">
+            A desktop app for managing your conscious spending plan, tracking net worth, and categorizing expenses &mdash; built around Ramit Sethi&rsquo;s <em>I Will Teach You To Be Rich</em> methodology.
         </p>
-        <p class="mx-auto mt-3 max-w-2xl text-base text-zinc-500">
+        <p class="mx-auto mt-3 max-w-2xl text-sm text-vault-muted">
             100% local. No cloud. No subscriptions. Your financial data never leaves your machine.
         </p>
-        <div class="mt-10 flex items-center justify-center gap-4">
+        <div class="mt-10 flex flex-wrap items-center justify-center gap-3">
             <a href="https://github.com/wkubenka/money-manager/releases/latest"
-               class="rounded-lg bg-emerald-500 px-6 py-2.5 text-base font-medium text-white hover:bg-emerald-400 transition">
+               class="rounded-lg bg-vault-accent px-6 py-3 text-base font-medium text-vault-bg hover:bg-vault-accent-hov transition">
                 Download Latest Release
             </a>
             <a href="/guide.html"
-               class="rounded-lg border border-zinc-700 px-6 py-2.5 text-base font-medium text-zinc-300 hover:border-zinc-500 hover:text-white transition">
+               class="rounded-lg border border-vault-card-bd bg-vault-card px-6 py-3 text-base font-medium text-vault-text hover:bg-vault-card-hov transition">
                 Read the Guide
             </a>
         </div>
@@ -82,118 +128,124 @@
 
     <!-- Features -->
     <section id="features" class="mx-auto max-w-5xl px-6 py-20">
-        <h2 class="text-center text-3xl font-bold tracking-tight sm:text-4xl">
-            Everything you need for a <span class="text-emerald-400">Rich Life</span>
-        </h2>
-        <p class="mx-auto mt-4 max-w-2xl text-center text-zinc-400">
-            Built around the four pillars of conscious spending, so your money goes where you actually want it.
-        </p>
+        <div class="text-center mb-14">
+            <div class="eyebrow mb-3">Features</div>
+            <h2 class="font-display text-4xl tracking-tight sm:text-5xl">
+                Everything you need for a <em class="text-vault-accent" style="font-style: italic; font-weight: 400;">Rich Life</em>
+            </h2>
+            <p class="mx-auto mt-5 max-w-2xl text-vault-textsub">
+                Built around the four pillars of conscious spending, so your money goes where you actually want it.
+            </p>
+        </div>
 
-        <div class="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+        <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             <!-- Feature 1 -->
-            <div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
-                <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <div class="rounded-2xl vault-card p-6 transition hover:bg-vault-card-hov">
+                <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-lg" style="background: color-mix(in srgb, #4ebb78 14%, transparent);">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-vault-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                     </svg>
                 </div>
-                <h3 class="text-lg font-semibold">Conscious Spending Plans</h3>
-                <p class="mt-2 text-sm text-zinc-400">
+                <h3 class="font-display text-xl text-vault-text">Conscious Spending Plans</h3>
+                <p class="mt-2 text-sm text-vault-textsub leading-relaxed">
                     Allocate your income across Fixed Costs, Investments, Savings, and Guilt-Free spending. See at a glance if you&rsquo;re within ideal ranges.
                 </p>
             </div>
 
             <!-- Feature 2 -->
-            <div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
-                <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <div class="rounded-2xl vault-card p-6 transition hover:bg-vault-card-hov">
+                <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-lg" style="background: color-mix(in srgb, #6da6d8 14%, transparent);">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-vault-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                     </svg>
                 </div>
-                <h3 class="text-lg font-semibold">Net Worth Tracking</h3>
-                <p class="mt-2 text-sm text-zinc-400">
+                <h3 class="font-display text-xl text-vault-text">Net Worth Tracking</h3>
+                <p class="mt-2 text-sm text-vault-textsub leading-relaxed">
                     Track assets, investments, savings, and debt in one place. Watch your net worth grow over time with a clear, honest picture of your finances.
                 </p>
             </div>
 
             <!-- Feature 3 -->
-            <div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
-                <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <div class="rounded-2xl vault-card p-6 transition hover:bg-vault-card-hov">
+                <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-lg" style="background: color-mix(in srgb, #c8a96e 14%, transparent);">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-vault-warm" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                     </svg>
                 </div>
-                <h3 class="text-lg font-semibold">Expense Tracking</h3>
-                <p class="mt-2 text-sm text-zinc-400">
+                <h3 class="font-display text-xl text-vault-text">Expense Tracking</h3>
+                <p class="mt-2 text-sm text-vault-textsub leading-relaxed">
                     Log expenses by account, categorize by spending bucket, and import transactions from CSV. Smart auto-categorization learns from your habits.
                 </p>
             </div>
 
             <!-- Feature 4 -->
-            <div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
-                <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            <div class="rounded-2xl vault-card p-6 transition hover:bg-vault-card-hov">
+                <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-lg" style="background: color-mix(in srgb, #e07070 14%, transparent);">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-vault-red" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                 </div>
-                <h3 class="text-lg font-semibold">CSV Import</h3>
-                <p class="mt-2 text-sm text-zinc-400">
-                    Import bank and credit card statements with automatic column detection, duplicate prevention, and bulk merchant categorization.
+                <h3 class="font-display text-xl text-vault-text">Debt Payoff Planner</h3>
+                <p class="mt-2 text-sm text-vault-textsub leading-relaxed">
+                    Model avalanche or snowball strategies, add extra payments or lump sums, and see exactly when you&rsquo;ll be debt-free.
                 </p>
             </div>
 
             <!-- Feature 5 -->
-            <div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
-                <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            <div class="rounded-2xl vault-card p-6 transition hover:bg-vault-card-hov">
+                <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-lg" style="background: color-mix(in srgb, #c084fc 14%, transparent);">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-vault-purple" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                     </svg>
                 </div>
-                <h3 class="text-lg font-semibold">Private by Design</h3>
-                <p class="mt-2 text-sm text-zinc-400">
-                    Your data lives on your computer. No accounts, no cloud sync, no tracking. Just a native desktop app that respects your privacy.
+                <h3 class="font-display text-vault-text text-xl">CSV Import</h3>
+                <p class="mt-2 text-sm text-vault-textsub leading-relaxed">
+                    Import bank and credit card statements with automatic column detection, duplicate prevention, and bulk merchant categorization.
                 </p>
             </div>
 
             <!-- Feature 6 -->
-            <div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
-                <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+            <div class="rounded-2xl vault-card p-6 transition hover:bg-vault-card-hov">
+                <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-lg" style="background: color-mix(in srgb, #4ebb78 14%, transparent);">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-vault-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                 </div>
-                <h3 class="text-lg font-semibold">Open Source</h3>
-                <p class="mt-2 text-sm text-zinc-400">
-                    Fully open source. Inspect the code, contribute features, or fork it and make it your own. No black boxes with your finances.
+                <h3 class="font-display text-xl text-vault-text">Private by Design</h3>
+                <p class="mt-2 text-sm text-vault-textsub leading-relaxed">
+                    Your data lives on your computer. No accounts, no cloud sync, no tracking. Just a native desktop app that respects your privacy.
                 </p>
             </div>
         </div>
     </section>
 
     <!-- CTA -->
-    <section class="mx-auto max-w-5xl px-6 py-20 text-center">
-        <h2 class="text-3xl font-bold tracking-tight sm:text-4xl">
-            Ready to take control?
-        </h2>
-        <p class="mx-auto mt-4 max-w-xl text-zinc-400">
-            Download Astute Money and start building your conscious spending plan today. Free, open source, and always will be.
-        </p>
-        <div class="mt-8">
-            <a href="https://github.com/wkubenka/money-manager/releases/latest"
-               class="rounded-lg bg-emerald-500 px-6 py-2.5 text-base font-medium text-white hover:bg-emerald-400 transition">
-                Download Latest Release
-            </a>
+    <section class="mx-auto max-w-4xl px-6 py-24 text-center">
+        <div class="rounded-3xl vault-card px-8 py-16">
+            <div class="eyebrow mb-3">Free &middot; Open Source &middot; Forever</div>
+            <h2 class="font-display text-4xl tracking-tight sm:text-5xl">
+                Ready to <em class="text-vault-accent" style="font-style: italic; font-weight: 400;">take control?</em>
+            </h2>
+            <p class="mx-auto mt-5 max-w-xl text-vault-textsub">
+                Download Astute Money and start building your conscious spending plan today.
+            </p>
+            <div class="mt-8">
+                <a href="https://github.com/wkubenka/money-manager/releases/latest"
+                   class="rounded-lg bg-vault-accent px-6 py-3 text-base font-medium text-vault-bg hover:bg-vault-accent-hov transition">
+                    Download Latest Release
+                </a>
+            </div>
         </div>
     </section>
 
     <!-- Footer -->
-    <footer class="border-t border-zinc-800 py-8">
+    <footer class="border-t border-vault-card-bd py-8">
         <div class="mx-auto flex max-w-5xl items-center justify-between px-6">
-            <p class="text-sm text-zinc-500">&copy; 2026 Astute Money</p>
+            <p class="text-sm text-vault-muted">&copy; 2026 Astute Money</p>
             <div class="flex gap-6">
-                <a href="/guide.html" class="text-sm text-zinc-500 hover:text-zinc-300 transition">Guide</a>
-                <a href="/privacy.html" class="text-sm text-zinc-500 hover:text-zinc-300 transition">Privacy</a>
-                <a href="https://github.com/wkubenka/money-manager" class="text-sm text-zinc-500 hover:text-zinc-300 transition">GitHub</a>
+                <a href="/guide.html" class="text-sm text-vault-muted hover:text-vault-textsub transition">Guide</a>
+                <a href="/privacy.html" class="text-sm text-vault-muted hover:text-vault-textsub transition">Privacy</a>
+                <a href="https://github.com/wkubenka/money-manager" class="text-sm text-vault-muted hover:text-vault-textsub transition">GitHub</a>
             </div>
         </div>
     </footer>

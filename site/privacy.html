@@ -9,7 +9,7 @@
 
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-    <meta name="theme-color" content="#10b981">
+    <meta name="theme-color" content="#4ebb78">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -18,7 +18,21 @@
             theme: {
                 extend: {
                     fontFamily: {
-                        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+                        sans: ['DM Sans', 'system-ui', '-apple-system', 'sans-serif'],
+                        serif: ['Fraunces', 'ui-serif', 'Georgia', 'serif'],
+                    },
+                    colors: {
+                        vault: {
+                            bg: '#0c0f0e',
+                            card: '#141a16',
+                            'card-hov': '#182019',
+                            'card-bd': '#1f2a22',
+                            text: '#e8ede9',
+                            textsub: '#9aad9e',
+                            muted: '#4e6054',
+                            accent: '#4ebb78',
+                            'accent-hov': '#5ecc89',
+                        },
                     },
                 },
             },
@@ -26,29 +40,52 @@
     </script>
 
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300;1,9..144,400&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+
+        body { font-family: 'DM Sans', system-ui, sans-serif; }
+
+        .font-display {
+            font-family: 'Fraunces', ui-serif, Georgia, serif;
+            font-weight: 300;
+            letter-spacing: -0.005em;
+        }
+
+        .eyebrow {
+            font-family: 'DM Sans', system-ui, sans-serif;
+            font-size: 10px;
+            font-weight: 600;
+            color: #4e6054;
+            letter-spacing: 0.13em;
+            text-transform: uppercase;
+        }
+
+        .vault-card { background: #141a16; border: 1px solid #1f2a22; }
+
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #1f2a22; border-radius: 3px; }
     </style>
 </head>
-<body class="min-h-screen bg-gradient-to-b from-neutral-950 to-neutral-900 text-white antialiased">
+<body class="min-h-screen bg-vault-bg text-vault-text antialiased">
 
     <!-- Nav -->
     <nav class="mx-auto flex max-w-5xl items-center justify-between px-6 py-6">
         <a href="/" class="flex items-center gap-2.5">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" class="h-8 w-8">
-                <ellipse cx="20" cy="32" rx="14" ry="5" fill="#10b981" opacity="0.3"/>
-                <ellipse cx="20" cy="27" rx="14" ry="5" fill="#10b981" opacity="0.5"/>
-                <ellipse cx="20" cy="22" rx="14" ry="5" fill="#10b981" opacity="0.7"/>
-                <ellipse cx="20" cy="17" rx="14" ry="5" fill="#10b981"/>
-                <path d="M20 10v-6M16 5.5l4-3.5 4 3.5" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <ellipse cx="20" cy="32" rx="14" ry="5" fill="#4ebb78" opacity="0.3"/>
+                <ellipse cx="20" cy="27" rx="14" ry="5" fill="#4ebb78" opacity="0.5"/>
+                <ellipse cx="20" cy="22" rx="14" ry="5" fill="#4ebb78" opacity="0.7"/>
+                <ellipse cx="20" cy="17" rx="14" ry="5" fill="#4ebb78"/>
+                <path d="M20 10v-6M16 5.5l4-3.5 4 3.5" fill="none" stroke="#4ebb78" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
-            <span class="text-lg font-semibold">Astute Money</span>
+            <span class="text-lg font-medium tracking-tight">Astute Money</span>
         </a>
 
         <div class="flex items-center gap-6">
-            <a href="/" class="hidden sm:inline text-sm text-zinc-400 hover:text-white transition">Home</a>
-            <a href="/guide.html" class="hidden sm:inline text-sm text-zinc-400 hover:text-white transition">Guide</a>
+            <a href="/" class="hidden sm:inline text-sm text-vault-textsub hover:text-vault-text transition">Home</a>
+            <a href="/guide.html" class="hidden sm:inline text-sm text-vault-textsub hover:text-vault-text transition">Guide</a>
             <a href="https://github.com/wkubenka/money-manager/releases/latest"
-               class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-400 transition">
+               class="rounded-lg bg-vault-accent px-4 py-2 text-sm font-medium text-vault-bg hover:bg-vault-accent-hov transition">
                 Download
             </a>
         </div>
@@ -56,28 +93,29 @@
 
     <!-- Content -->
     <div class="mx-auto max-w-2xl px-6 py-12">
-        <div class="mb-8">
-            <h1 class="text-3xl font-bold tracking-tight">Privacy Policy</h1>
-            <p class="mt-2 text-sm text-zinc-400">Last updated: March 8, 2026</p>
+        <div class="mb-10">
+            <div class="eyebrow mb-3">Legal</div>
+            <h1 class="font-display text-4xl tracking-tight sm:text-5xl">Privacy Policy</h1>
+            <p class="mt-3 text-sm text-vault-muted">Last updated: March 8, 2026</p>
         </div>
 
-        <div class="space-y-8 text-sm leading-relaxed text-zinc-300">
+        <div class="space-y-8 text-sm leading-relaxed text-vault-textsub">
             <section>
-                <h2 class="mb-2 text-lg font-semibold text-white">Your Data Stays on Your Computer</h2>
+                <h2 class="mb-2 font-display text-xl text-vault-text">Your Data Stays on Your Computer</h2>
                 <p>
                     Astute Money is a desktop application. All of your financial data &mdash; spending plans, account balances, expenses, and settings &mdash; is stored locally on your computer in a SQLite database. Nothing is sent to any server.
                 </p>
             </section>
 
             <section>
-                <h2 class="mb-2 text-lg font-semibold text-white">What We Collect</h2>
+                <h2 class="mb-2 font-display text-xl text-vault-text">What We Collect</h2>
                 <p>
-                    <strong class="text-white">Nothing.</strong> Astute Money does not collect, transmit, or store any personal data externally. There are no accounts, no analytics, no telemetry, and no tracking of any kind.
+                    <strong class="text-vault-text">Nothing.</strong> Astute Money does not collect, transmit, or store any personal data externally. There are no accounts, no analytics, no telemetry, and no tracking of any kind.
                 </p>
             </section>
 
             <section>
-                <h2 class="mb-2 text-lg font-semibold text-white">What We Don&rsquo;t Do</h2>
+                <h2 class="mb-2 font-display text-xl text-vault-text">What We Don&rsquo;t Do</h2>
                 <ul class="list-disc space-y-1 pl-5">
                     <li>We do not sell your personal data. Ever.</li>
                     <li>We do not share your data with third parties.</li>
@@ -88,50 +126,50 @@
             </section>
 
             <section>
-                <h2 class="mb-2 text-lg font-semibold text-white">Data Storage</h2>
+                <h2 class="mb-2 font-display text-xl text-vault-text">Data Storage</h2>
                 <p>
                     Your data is stored in a local SQLite database within the application&rsquo;s data directory on your machine. You have full control over this file &mdash; you can back it up, move it, or delete it at any time.
                 </p>
             </section>
 
             <section>
-                <h2 class="mb-2 text-lg font-semibold text-white">This Website</h2>
+                <h2 class="mb-2 font-display text-xl text-vault-text">This Website</h2>
                 <p>
-                    This marketing site is a static HTML page hosted on AWS. It does not use cookies, analytics, or tracking scripts. The only external resource loaded is the Tailwind CSS CDN and Google Fonts.
+                    This marketing site is a static HTML page hosted on AWS. It does not use cookies, analytics, or tracking scripts. The only external resources loaded are the Tailwind CSS CDN and Google Fonts.
                 </p>
             </section>
 
             <section>
-                <h2 class="mb-2 text-lg font-semibold text-white">Open Source</h2>
+                <h2 class="mb-2 font-display text-xl text-vault-text">Open Source</h2>
                 <p>
                     Astute Money is open source. You can inspect the entire codebase on
-                    <a href="https://github.com/wkubenka/money-manager" class="text-emerald-400 underline hover:text-emerald-300">GitHub</a>
+                    <a href="https://github.com/wkubenka/money-manager" class="text-vault-accent underline hover:text-vault-accent-hov">GitHub</a>
                     to verify these claims for yourself.
                 </p>
             </section>
 
             <section>
-                <h2 class="mb-2 text-lg font-semibold text-white">Contact</h2>
+                <h2 class="mb-2 font-display text-xl text-vault-text">Contact</h2>
                 <p>
                     If you have any questions about this privacy policy, please open an issue on the
-                    <a href="https://github.com/wkubenka/money-manager/issues" class="text-emerald-400 underline hover:text-emerald-300">GitHub repository</a>.
+                    <a href="https://github.com/wkubenka/money-manager/issues" class="text-vault-accent underline hover:text-vault-accent-hov">GitHub repository</a>.
                 </p>
             </section>
         </div>
 
-        <div class="mt-10">
-            <a href="/" class="text-sm text-zinc-400 hover:text-white transition">&larr; Back to home</a>
+        <div class="mt-12">
+            <a href="/" class="text-sm text-vault-textsub hover:text-vault-text transition">&larr; Back to home</a>
         </div>
     </div>
 
     <!-- Footer -->
-    <footer class="border-t border-zinc-800 py-8">
+    <footer class="border-t border-vault-card-bd py-8">
         <div class="mx-auto flex max-w-5xl items-center justify-between px-6">
-            <p class="text-sm text-zinc-500">&copy; 2026 Astute Money</p>
+            <p class="text-sm text-vault-muted">&copy; 2026 Astute Money</p>
             <div class="flex gap-6">
-                <a href="/guide.html" class="text-sm text-zinc-500 hover:text-zinc-300 transition">Guide</a>
-                <a href="/privacy.html" class="text-sm text-zinc-500 hover:text-zinc-300 transition">Privacy</a>
-                <a href="https://github.com/wkubenka/money-manager" class="text-sm text-zinc-500 hover:text-zinc-300 transition">GitHub</a>
+                <a href="/guide.html" class="text-sm text-vault-muted hover:text-vault-textsub transition">Guide</a>
+                <a href="/privacy.html" class="text-sm text-vault-muted hover:text-vault-textsub transition">Privacy</a>
+                <a href="https://github.com/wkubenka/money-manager" class="text-sm text-vault-muted hover:text-vault-textsub transition">GitHub</a>
             </div>
         </div>
     </footer>
