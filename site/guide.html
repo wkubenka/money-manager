@@ -11,61 +11,11 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <meta name="theme-color" content="#4ebb78">
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['DM Sans', 'system-ui', '-apple-system', 'sans-serif'],
-                        serif: ['Fraunces', 'ui-serif', 'Georgia', 'serif'],
-                    },
-                    colors: {
-                        vault: {
-                            bg: '#0c0f0e',
-                            card: '#141a16',
-                            'card-hov': '#182019',
-                            'card-bd': '#1f2a22',
-                            text: '#e8ede9',
-                            textsub: '#9aad9e',
-                            muted: '#708871',
-                            accent: '#4ebb78',
-                            'accent-hov': '#5ecc89',
-                            warm: '#c8a96e',
-                        },
-                    },
-                },
-            },
-        }
-    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300;1,9..144,400&family=DM+Sans:wght@300;400;500;600;700&display=swap">
 
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300;1,9..144,400&family=DM+Sans:wght@300;400;500;600;700&display=swap');
-
-        body { font-family: 'DM Sans', system-ui, sans-serif; }
-
-        .font-display {
-            font-family: 'Fraunces', ui-serif, Georgia, serif;
-            font-weight: 300;
-            letter-spacing: -0.005em;
-        }
-
-        .eyebrow {
-            font-family: 'DM Sans', system-ui, sans-serif;
-            font-size: 10px;
-            font-weight: 600;
-            color: #708871;
-            letter-spacing: 0.13em;
-            text-transform: uppercase;
-        }
-
-        .vault-card { background: #141a16; border: 1px solid #1f2a22; }
-
-        ::-webkit-scrollbar { width: 5px; height: 5px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #1f2a22; border-radius: 3px; }
-    </style>
+    <link rel="stylesheet" href="/app.css">
 </head>
 <body class="min-h-screen bg-vault-bg text-vault-text antialiased">
 

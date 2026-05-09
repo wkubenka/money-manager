@@ -13,9 +13,15 @@ fi
 S3_BUCKET="${S3_BUCKET:?Set S3_BUCKET in .env or as env var}"
 CF_DISTRIBUTION_ID="${CF_DISTRIBUTION_ID:?Set CF_DISTRIBUTION_ID in .env or as env var}"
 
+echo "=== Building Tailwind CSS ==="
+npx @tailwindcss/cli -i site/src/input.css -o site/app.css --minify
+
 echo "=== Deploying static site ==="
 aws s3 sync site/ "s3://${S3_BUCKET}/" \
     --delete \
+    --exclude "src/*" \
+    --exclude "deploy.sh" \
+    --exclude "tmp.json" \
     --cache-control "max-age=3600" \
     --profile personal
 
