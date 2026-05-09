@@ -156,18 +156,37 @@ test('dashboard shows emergency fund card', function () {
         ->assertSee('$15,000');
 });
 
-test('dashboard shows emergency fund coverage months with current plan', function () {
+test('dashboard shows emergency fund coverage months based on fixed costs', function () {
+    NetWorthAccount::where('is_emergency_fund', true)->update(['balance' => 1500000]); // $15,000
+
+    $plan = SpendingPlan::factory()->current()->create([
+        'monthly_income' => 1000000, // $10,000 (deliberately different from fixed costs)
+        'fixed_costs_misc_percent' => 0,
+    ]);
+    SpendingPlanItem::factory()->create([
+        'spending_plan_id' => $plan->id,
+        'category' => SpendingCategory::FixedCosts,
+        'amount' => 500000, // $5,000
+    ]);
+
+    // $15,000 / $5,000 = 3 months
+    Livewire::test('pages::dashboard')
+        ->assertSee('Emergency Fund')
+        ->assertSee('3.0 of 6 months')
+        ->assertSeeInOrder(['Goal:', '6', 'months fixed costs']);
+});
+
+test('dashboard hides emergency fund runway when plan has no fixed costs', function () {
     NetWorthAccount::where('is_emergency_fund', true)->update(['balance' => 1500000]);
 
     SpendingPlan::factory()->current()->create([
-        'monthly_income' => 500000, // $5,000
+        'monthly_income' => 500000,
         'fixed_costs_misc_percent' => 0,
     ]);
 
     Livewire::test('pages::dashboard')
         ->assertSee('Emergency Fund')
-        ->assertSee('3.0 of 6 months') // $15,000 / $5,000 = 3
-        ->assertSee('Goal: 6 months expenses');
+        ->assertDontSee('of 6 months');
 });
 
 test('dashboard emergency fund balance reflects only the dedicated fund', function () {
@@ -187,9 +206,14 @@ test('dashboard emergency fund balance reflects only the dedicated fund', functi
 test('dashboard shows months runway when emergency fund covers less than 2 months', function () {
     NetWorthAccount::where('is_emergency_fund', true)->update(['balance' => 300000]); // $3,000
 
-    SpendingPlan::factory()->current()->create([
-        'monthly_income' => 500000, // $5,000
+    $plan = SpendingPlan::factory()->current()->create([
+        'monthly_income' => 500000,
         'fixed_costs_misc_percent' => 0,
+    ]);
+    SpendingPlanItem::factory()->create([
+        'spending_plan_id' => $plan->id,
+        'category' => SpendingCategory::FixedCosts,
+        'amount' => 500000, // $5,000
     ]);
 
     // $3,000 / $5,000 = 0.6 months
@@ -200,9 +224,14 @@ test('dashboard shows months runway when emergency fund covers less than 2 month
 test('emergency fund runway uses one decimal even when small', function () {
     NetWorthAccount::where('is_emergency_fund', true)->update(['balance' => 230000]); // $2,300
 
-    SpendingPlan::factory()->current()->create([
-        'monthly_income' => 540000, // $5,400
+    $plan = SpendingPlan::factory()->current()->create([
+        'monthly_income' => 540000,
         'fixed_costs_misc_percent' => 0,
+    ]);
+    SpendingPlanItem::factory()->create([
+        'spending_plan_id' => $plan->id,
+        'category' => SpendingCategory::FixedCosts,
+        'amount' => 540000, // $5,400
     ]);
 
     // $2,300 / $5,400 ≈ 0.43 → renders as 0.4
@@ -223,17 +252,78 @@ test('dashboard hides runway when no current plan exists', function () {
         ->assertDontSee('of 6 months');
 });
 
-test('dashboard shows runway computed from monthly income', function () {
-    NetWorthAccount::where('is_emergency_fund', true)->update(['balance' => 1000000]); // $10,000
+test('dashboard runway includes fixed-costs misc percentage', function () {
+    NetWorthAccount::where('is_emergency_fund', true)->update(['balance' => 1100000]); // $11,000
 
-    SpendingPlan::factory()->current()->create([
-        'monthly_income' => 500000, // $5,000
-        'fixed_costs_misc_percent' => 0,
+    $plan = SpendingPlan::factory()->current()->create([
+        'monthly_income' => 500000,
+        'fixed_costs_misc_percent' => 10, // adds 10% on top of items
+    ]);
+    SpendingPlanItem::factory()->create([
+        'spending_plan_id' => $plan->id,
+        'category' => SpendingCategory::FixedCosts,
+        'amount' => 500000, // $5,000 → $5,500 with misc
     ]);
 
-    // $10,000 / $5,000 = 2 months
+    // $11,000 / $5,500 = 2.0 months
     Livewire::test('pages::dashboard')
         ->assertSee('2.0 of 6 months');
+});
+
+test('emergency fund target defaults to 6 months', function () {
+    expect(Profile::instance()->emergency_fund_months)->toBe(6);
+});
+
+test('dashboard hydrates emergency fund target from profile', function () {
+    Profile::instance()->update(['emergency_fund_months' => 9]);
+
+    Livewire::test('pages::dashboard')
+        ->assertSet('emergencyFundMonths', 9);
+});
+
+test('user can customize emergency fund target months', function () {
+    NetWorthAccount::where('is_emergency_fund', true)->update(['balance' => 600000]); // $6,000
+
+    $plan = SpendingPlan::factory()->current()->create([
+        'monthly_income' => 500000,
+        'fixed_costs_misc_percent' => 0,
+    ]);
+    SpendingPlanItem::factory()->create([
+        'spending_plan_id' => $plan->id,
+        'category' => SpendingCategory::FixedCosts,
+        'amount' => 200000, // $2,000
+    ]);
+
+    Profile::instance()->update(['emergency_fund_months' => 3]);
+
+    // $6,000 / $2,000 = 3 → "3.0 of 3 months"
+    Livewire::test('pages::dashboard')
+        ->assertSee('3.0 of 3 months')
+        ->assertSeeInOrder(['Goal:', '3', 'months fixed costs']);
+});
+
+test('user can save emergency fund target via livewire', function () {
+    Livewire::test('pages::dashboard')
+        ->assertSet('emergencyFundMonths', 6)
+        ->set('emergencyFundMonths', 9);
+
+    expect(Profile::instance()->fresh()->emergency_fund_months)->toBe(9);
+});
+
+test('out-of-range emergency fund target reverts to saved value', function () {
+    Profile::instance()->update(['emergency_fund_months' => 6]);
+
+    Livewire::test('pages::dashboard')
+        ->set('emergencyFundMonths', 0)
+        ->assertSet('emergencyFundMonths', 6);
+
+    expect(Profile::instance()->fresh()->emergency_fund_months)->toBe(6);
+
+    Livewire::test('pages::dashboard')
+        ->set('emergencyFundMonths', 25)
+        ->assertSet('emergencyFundMonths', 6);
+
+    expect(Profile::instance()->fresh()->emergency_fund_months)->toBe(6);
 });
 
 // Rich Life Vision tests

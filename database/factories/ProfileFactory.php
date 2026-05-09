@@ -2,10 +2,11 @@
 
 namespace Database\Factories;
 
+use App\Models\Profile;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Profile>
+ * @extends Factory<Profile>
  */
 class ProfileFactory extends Factory
 {
@@ -21,6 +22,7 @@ class ProfileFactory extends Factory
             'retirement_age' => 65,
             'expected_return' => 7.0,
             'withdrawal_rate' => 4.0,
+            'emergency_fund_months' => 6,
         ];
     }
 }

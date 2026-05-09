@@ -30,6 +30,8 @@ new class extends Component {
     public ?float $withdrawalRate = null;
     public bool $retirementEditing = false;
 
+    public int $emergencyFundMonths = 6;
+
     public bool $windfallEditing = false;
     public int $windfallSavings = 0;
     public int $windfallInvestments = 0;
@@ -46,6 +48,7 @@ new class extends Component {
         $this->retirementAge = $profile->retirement_age;
         $this->expectedReturn = (float) $profile->expected_return;
         $this->withdrawalRate = (float) $profile->withdrawal_rate;
+        $this->emergencyFundMonths = $profile->emergency_fund_months ?? 6;
 
         $windfall = WindfallPlan::instance();
         $this->windfallSavings = $windfall->savings_percent;
@@ -325,6 +328,22 @@ new class extends Component {
         $result['monthly_payment'] = $totalMonthlyPayment;
 
         return $result;
+    }
+
+    public function updatedEmergencyFundMonths(): void
+    {
+        $validator = \Illuminate\Support\Facades\Validator::make(
+            ['emergencyFundMonths' => $this->emergencyFundMonths],
+            ['emergencyFundMonths' => ['required', 'integer', 'min:1', 'max:24']],
+        );
+
+        if ($validator->fails()) {
+            $this->emergencyFundMonths = Profile::instance()->emergency_fund_months ?? 6;
+
+            return;
+        }
+
+        Profile::instance()->update(['emergency_fund_months' => $this->emergencyFundMonths]);
     }
 
     public function saveRetirementSettings(): void
@@ -690,8 +709,9 @@ new class extends Component {
                     @php
                         $ef = $this->emergencyFund;
                         $efBal = $ef?->balance ?? 0;
-                        $monthlyIncome = $plan?->monthly_income ?? 0;
-                        $monthsRunway = $monthlyIncome > 0 ? $efBal / $monthlyIncome : null;
+                        $monthlyFixedCosts = $plan ? $plan->categoryTotal(\App\Enums\SpendingCategory::FixedCosts) : 0;
+                        $monthsRunway = $monthlyFixedCosts > 0 ? $efBal / $monthlyFixedCosts : null;
+                        $efMonths = $this->emergencyFundMonths;
                     @endphp
                     <div class="py-3.5">
                         <div class="flex justify-between items-baseline mb-1.5">
@@ -700,19 +720,30 @@ new class extends Component {
                                 <span class="text-[11px] tracking-[0.1em] text-vault-muted uppercase">{{ __('Emergency Fund') }}</span>
                             </div>
                             @if ($monthsRunway !== null)
-                                <span class="text-[11px] {{ $monthsRunway < 3 ? 'text-vault-red' : 'text-vault-accent' }}">
-                                    {{ number_format($monthsRunway, 1) }} {{ __('of 6 months') }}
+                                <span class="text-[11px] {{ $monthsRunway < ($efMonths / 2) ? 'text-vault-red' : 'text-vault-accent' }}">
+                                    {{ number_format($monthsRunway, 1) }} {{ __('of :months months', ['months' => $efMonths]) }}
                                 </span>
                             @endif
                         </div>
                         <div class="flex justify-between items-baseline mb-2">
                             <span class="font-display text-[24px] text-vault-text">${{ format_cents($efBal) }}</span>
-                            <span class="text-[10px] text-vault-muted">{{ __('Goal: 6 months expenses') }}</span>
+                            <span class="text-[10px] text-vault-muted" x-data="{ editing: false }">
+                                {{ __('Goal:') }}
+                                <span x-show="!editing" @click="editing = true; $nextTick(() => $refs.efMonthsInput.select())"
+                                      class="cursor-pointer hover:text-vault-textsub border-b border-dotted border-vault-card-bd"
+                                      role="button" tabindex="0" @keydown.enter.prevent="editing = true; $nextTick(() => $refs.efMonthsInput.select())"
+                                      aria-label="{{ __('Edit emergency fund target in months') }}">{{ $efMonths }}</span>
+                                <input x-show="editing" x-cloak x-ref="efMonthsInput" type="number" min="1" max="24"
+                                       wire:model.lazy="emergencyFundMonths"
+                                       @blur="editing = false" @keydown.enter.prevent="$el.blur()" @keydown.escape="editing = false"
+                                       class="w-10 bg-transparent border-b border-vault-card-bd text-vault-text text-[10px] focus:outline-none focus:border-vault-accent" />
+                                {{ __('months fixed costs') }}
+                            </span>
                         </div>
-                        @if ($monthlyIncome > 0)
+                        @if ($monthlyFixedCosts > 0)
                             <div class="h-[4px] rounded-[2px] bg-vault-card-bd overflow-hidden">
                                 <div class="h-full bg-vault-accent rounded-[2px]"
-                                     style="width: {{ min(100, ($efBal / ($monthlyIncome * 6)) * 100) }}%; opacity: 0.85;"></div>
+                                     style="width: {{ min(100, ($efBal / ($monthlyFixedCosts * $efMonths)) * 100) }}%; opacity: 0.85;"></div>
                             </div>
                         @endif
                     </div>
