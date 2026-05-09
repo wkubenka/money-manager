@@ -730,13 +730,13 @@ new class extends Component {
                             <span class="text-[10px] text-vault-muted" x-data="{ editing: false }">
                                 {{ __('Goal:') }}
                                 <span x-show="!editing" @click="editing = true; $nextTick(() => $refs.efMonthsInput.select())"
-                                      class="cursor-pointer hover:text-vault-textsub border-b border-dotted border-vault-card-bd"
+                                      class="cursor-pointer text-[12px] font-semibold text-vault-text underline decoration-vault-textsub underline-offset-[3px] hover:decoration-vault-text"
                                       role="button" tabindex="0" @keydown.enter.prevent="editing = true; $nextTick(() => $refs.efMonthsInput.select())"
                                       aria-label="{{ __('Edit emergency fund target in months') }}">{{ $efMonths }}</span>
                                 <input x-show="editing" x-cloak x-ref="efMonthsInput" type="number" min="3" max="24"
                                        wire:model.live="emergencyFundMonths"
                                        @blur="editing = false" @keydown.enter.prevent="$el.blur()" @keydown.escape="editing = false"
-                                       class="w-10 bg-transparent border-b border-vault-card-bd text-vault-text text-[10px] focus:outline-none focus:border-vault-accent" />
+                                       class="w-10 bg-transparent border-b border-vault-card-bd text-[12px] font-semibold text-vault-text focus:border-vault-accent focus:outline-none" />
                                 {{ __('months') }}
                             </span>
                         </div>
