@@ -21,7 +21,6 @@ aws s3 sync site/ "s3://${S3_BUCKET}/" \
     --delete \
     --exclude "src/*" \
     --exclude "deploy.sh" \
-    --exclude "tmp.json" \
     --cache-control "max-age=3600" \
     --profile personal
 
