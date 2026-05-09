@@ -172,8 +172,8 @@ test('dashboard shows emergency fund coverage months based on fixed costs', func
     // $15,000 / $5,000 = 3 months
     Livewire::test('pages::dashboard')
         ->assertSee('Emergency Fund')
-        ->assertSee('3.0 of 6 months')
-        ->assertSeeInOrder(['Goal:', '6', 'months fixed costs']);
+        ->assertSee('3.0 months fixed costs')
+        ->assertSeeInOrder(['Goal:', '6', 'months']);
 });
 
 test('dashboard hides emergency fund runway when plan has no fixed costs', function () {
@@ -186,7 +186,7 @@ test('dashboard hides emergency fund runway when plan has no fixed costs', funct
 
     Livewire::test('pages::dashboard')
         ->assertSee('Emergency Fund')
-        ->assertDontSee('of 6 months');
+        ->assertDontSee('months fixed costs');
 });
 
 test('dashboard emergency fund balance reflects only the dedicated fund', function () {
@@ -218,7 +218,7 @@ test('dashboard shows months runway when emergency fund covers less than 2 month
 
     // $3,000 / $5,000 = 0.6 months
     Livewire::test('pages::dashboard')
-        ->assertSee('0.6 of 6 months');
+        ->assertSee('0.6 months fixed costs');
 });
 
 test('emergency fund runway uses one decimal even when small', function () {
@@ -236,7 +236,7 @@ test('emergency fund runway uses one decimal even when small', function () {
 
     // $2,300 / $5,400 ≈ 0.43 → renders as 0.4
     Livewire::test('pages::dashboard')
-        ->assertSee('0.4 of 6 months');
+        ->assertSee('0.4 months fixed costs');
 });
 
 test('dashboard hides runway when no current plan exists', function () {
@@ -249,7 +249,7 @@ test('dashboard hides runway when no current plan exists', function () {
 
     Livewire::test('pages::dashboard')
         ->assertSee('Emergency Fund')
-        ->assertDontSee('of 6 months');
+        ->assertDontSee('months fixed costs');
 });
 
 test('dashboard runway includes fixed-costs misc percentage', function () {
@@ -267,7 +267,7 @@ test('dashboard runway includes fixed-costs misc percentage', function () {
 
     // $11,000 / $5,500 = 2.0 months
     Livewire::test('pages::dashboard')
-        ->assertSee('2.0 of 6 months');
+        ->assertSee('2.0 months fixed costs');
 });
 
 test('emergency fund target defaults to 6 months', function () {
@@ -296,10 +296,10 @@ test('user can customize emergency fund target months', function () {
 
     Profile::instance()->update(['emergency_fund_months' => 3]);
 
-    // $6,000 / $2,000 = 3 → "3.0 of 3 months"
+    // $6,000 / $2,000 = 3 → "3.0 months fixed costs"
     Livewire::test('pages::dashboard')
-        ->assertSee('3.0 of 3 months')
-        ->assertSeeInOrder(['Goal:', '3', 'months fixed costs']);
+        ->assertSee('3.0 months fixed costs')
+        ->assertSeeInOrder(['Goal:', '3', 'months']);
 });
 
 test('user can save emergency fund target via livewire', function () {
@@ -310,21 +310,19 @@ test('user can save emergency fund target via livewire', function () {
     expect(Profile::instance()->fresh()->emergency_fund_months)->toBe(9);
 });
 
-test('out-of-range emergency fund target reverts to saved value', function () {
+test('out-of-range emergency fund target reverts to saved value', function (int $invalid) {
     Profile::instance()->update(['emergency_fund_months' => 6]);
 
     Livewire::test('pages::dashboard')
-        ->set('emergencyFundMonths', 0)
+        ->set('emergencyFundMonths', $invalid)
         ->assertSet('emergencyFundMonths', 6);
 
     expect(Profile::instance()->fresh()->emergency_fund_months)->toBe(6);
-
-    Livewire::test('pages::dashboard')
-        ->set('emergencyFundMonths', 25)
-        ->assertSet('emergencyFundMonths', 6);
-
-    expect(Profile::instance()->fresh()->emergency_fund_months)->toBe(6);
-});
+})->with([
+    'below minimum' => 2,
+    'zero' => 0,
+    'above maximum' => 25,
+]);
 
 // Rich Life Vision tests
 

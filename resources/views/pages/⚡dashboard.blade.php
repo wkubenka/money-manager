@@ -334,7 +334,7 @@ new class extends Component {
     {
         $validator = \Illuminate\Support\Facades\Validator::make(
             ['emergencyFundMonths' => $this->emergencyFundMonths],
-            ['emergencyFundMonths' => ['required', 'integer', 'min:1', 'max:24']],
+            ['emergencyFundMonths' => ['required', 'integer', 'min:3', 'max:24']],
         );
 
         if ($validator->fails()) {
@@ -721,7 +721,7 @@ new class extends Component {
                             </div>
                             @if ($monthsRunway !== null)
                                 <span class="text-[11px] {{ $monthsRunway < ($efMonths / 2) ? 'text-vault-red' : 'text-vault-accent' }}">
-                                    {{ number_format($monthsRunway, 1) }} {{ __('of :months months', ['months' => $efMonths]) }}
+                                    {{ number_format($monthsRunway, 1) }} months fixed costs
                                 </span>
                             @endif
                         </div>
@@ -733,11 +733,11 @@ new class extends Component {
                                       class="cursor-pointer hover:text-vault-textsub border-b border-dotted border-vault-card-bd"
                                       role="button" tabindex="0" @keydown.enter.prevent="editing = true; $nextTick(() => $refs.efMonthsInput.select())"
                                       aria-label="{{ __('Edit emergency fund target in months') }}">{{ $efMonths }}</span>
-                                <input x-show="editing" x-cloak x-ref="efMonthsInput" type="number" min="1" max="24"
-                                       wire:model.lazy="emergencyFundMonths"
+                                <input x-show="editing" x-cloak x-ref="efMonthsInput" type="number" min="3" max="24"
+                                       wire:model.live="emergencyFundMonths"
                                        @blur="editing = false" @keydown.enter.prevent="$el.blur()" @keydown.escape="editing = false"
                                        class="w-10 bg-transparent border-b border-vault-card-bd text-vault-text text-[10px] focus:outline-none focus:border-vault-accent" />
-                                {{ __('months fixed costs') }}
+                                {{ __('months') }}
                             </span>
                         </div>
                         @if ($monthlyFixedCosts > 0)
