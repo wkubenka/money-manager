@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\SpendingCategory;
 use App\Models\SpendingPlan;
 use App\Models\SpendingPlanItem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -120,4 +121,24 @@ test('dashboard shows monthly income for each plan', function () {
     Livewire::test('pages::spending-plans.dashboard')
         ->assertSee('$4,500')
         ->assertSee('/mo');
+});
+
+test('dashboard shows fixed costs miscellaneous buffer', function () {
+    $plan = SpendingPlan::factory()->create(['is_current' => true, 'fixed_costs_misc_percent' => 15]);
+    SpendingPlanItem::factory()->create([
+        'spending_plan_id' => $plan->id,
+        'category' => SpendingCategory::FixedCosts,
+        'amount' => 100000,
+    ]);
+
+    Livewire::test('pages::spending-plans.dashboard')
+        ->assertSee('Miscellaneous buffer (15%)')
+        ->assertSee('$150');
+});
+
+test('dashboard hides miscellaneous buffer when percent is zero', function () {
+    SpendingPlan::factory()->create(['is_current' => true, 'fixed_costs_misc_percent' => 0]);
+
+    Livewire::test('pages::spending-plans.dashboard')
+        ->assertDontSee('Miscellaneous buffer');
 });

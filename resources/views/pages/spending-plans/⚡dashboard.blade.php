@@ -293,6 +293,13 @@ new class extends Component {
                             </div>
                         @endif
 
+                        @if ($category === SpendingCategory::FixedCosts && $currentPlan->fixed_costs_misc_percent > 0)
+                            <div class="flex justify-between italic {{ $items->isNotEmpty() ? 'border-t border-vault-card-bd' : 'mt-3.5' }}" style="padding: 7px 0;">
+                                <span class="text-vault-textsub" style="font-size: 12px;">{{ __('Miscellaneous buffer') }} ({{ $currentPlan->fixed_costs_misc_percent }}%)</span>
+                                <span class="text-vault-text" style="font-size: 12px;">${{ format_cents($currentPlan->fixedCostsMiscellaneous()) }}</span>
+                            </div>
+                        @endif
+
                         @if ($category === SpendingCategory::GuiltFree)
                             <div class="text-vault-muted italic mt-2.5" style="font-size: 11px;">
                                 {{ __("Automatically calculated — what's left after fixed costs, investments, and savings") }}

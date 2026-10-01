@@ -367,7 +367,7 @@ new class extends Component {
                 {{-- Category subtotal --}}
                 <div class="mt-3 pt-3 border-t border-vault-card-bd flex flex-col gap-1.5">
                     @if ($category === SpendingCategory::FixedCosts && $this->plan->fixed_costs_misc_percent > 0)
-                        <div class="flex items-center justify-between italic text-vault-muted" style="font-size: 12px;">
+                        <div class="flex items-center justify-between italic text-vault-textsub" style="font-size: 12px;">
                             <span>{{ __('Miscellaneous buffer') }} ({{ $this->plan->fixed_costs_misc_percent }}%)</span>
                             <span>${{ format_cents($this->plan->fixedCostsMiscellaneous()) }}</span>
                         </div>
